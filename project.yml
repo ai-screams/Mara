@@ -1,0 +1,24 @@
+name: Sleepless
+options:
+  bundleIdPrefix: com.sleepless
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+packages:
+  SleeplessCore:
+    path: SleeplessCore
+targets:
+  Sleepless:
+    type: application
+    platform: macOS
+    sources: [App]
+    dependencies:
+      - package: SleeplessCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.sleepless.app
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        INFOPLIST_FILE: App/Info.plist
+        ENABLE_HARDENED_RUNTIME: YES
+        CODE_SIGN_STYLE: Automatic
