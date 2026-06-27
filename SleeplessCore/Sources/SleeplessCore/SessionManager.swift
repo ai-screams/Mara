@@ -20,7 +20,12 @@ public final class SessionManager: ObservableObject {
         engine.apply(display: config.scope.keepsDisplayAwake, system: true)
         let expiresAt = expiry(for: config.duration)
         state = .active(config, expiresAt: expiresAt)
-        // 타이머 무장은 Task 6에서 구현
+        if let expiresAt {
+            let interval = max(0, expiresAt.timeIntervalSince(clock.now))
+            timer = scheduler.schedule(after: interval) { [weak self] in
+                self?.stop()
+            }
+        }
     }
 
     public func stop() {
