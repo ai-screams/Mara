@@ -1,5 +1,5 @@
 import XCTest
-@testable import SleeplessCore
+@testable import MaraCore
 
 final class SessionModelsTests: XCTestCase {
     func test_scope_displayAndSystem_keepsDisplayAwake() {

@@ -1,5 +1,5 @@
 import SwiftUI
-import SleeplessCore
+import MaraCore
 
 struct MenuBarView: View {
     @ObservedObject var session: SessionManager
@@ -27,7 +27,7 @@ struct MenuBarView: View {
             set: { LaunchAtLogin.setEnabled($0) }
         ))
         Divider()
-        Button("Quit Sleepless") { NSApplication.shared.terminate(nil) }
+        Button("Quit Mara") { NSApplication.shared.terminate(nil) }
     }
 
     private func durationButton(_ title: String, _ seconds: TimeInterval) -> some View {

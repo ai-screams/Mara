@@ -1,5 +1,5 @@
 import XCTest
-@testable import SleeplessCore
+@testable import MaraCore
 
 final class SessionManagerTests: XCTestCase {
     private func makeSUT() -> (SessionManager, MockPowerAssertionProvider, MockScheduler, MockClock) {

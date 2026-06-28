@@ -1,6 +1,6 @@
 import SwiftUI
 import Combine
-import SleeplessCore
+import MaraCore
 
 @MainActor
 final class AppEnvironment: ObservableObject {

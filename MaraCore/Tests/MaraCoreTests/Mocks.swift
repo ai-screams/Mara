@@ -1,5 +1,5 @@
 import Foundation
-@testable import SleeplessCore
+@testable import MaraCore
 
 final class MockPowerAssertionProvider: PowerAssertionProviding {
     private(set) var live: [PowerAssertionToken: PowerAssertionType] = [:]

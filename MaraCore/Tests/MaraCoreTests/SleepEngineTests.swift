@@ -1,6 +1,6 @@
 import XCTest
 import IOKit.pwr_mgt
-@testable import SleeplessCore
+@testable import MaraCore
 
 final class PowerAssertionTypeMappingTests: XCTestCase {
     func test_ioKitName_isNotSwapped() {

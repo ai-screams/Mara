@@ -1,8 +1,8 @@
 import XCTest
-@testable import SleeplessCore
+@testable import MaraCore
 
 final class SmokeTests: XCTestCase {
     func test_packageBuildsAndTestsRun() {
-        XCTAssertEqual(SleeplessCore.version, "0.1.0")
+        XCTAssertEqual(MaraCore.version, "0.1.0")
     }
 }

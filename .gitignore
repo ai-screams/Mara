@@ -8,12 +8,12 @@
 .DS_Store
 
 # XcodeGen output (generated from project.yml)
-Sleepless.xcodeproj/
+Mara.xcodeproj/
 
 # Build artifacts
 build/
 DerivedData/
 .swiftpm/
-SleeplessCore/.build/
+MaraCore/.build/
 *.xcuserstate
 xcuserdata/

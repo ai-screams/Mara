@@ -4,7 +4,7 @@ public final class SleepEngine {
     private var displayToken: PowerAssertionToken?
     private var systemToken: PowerAssertionToken?
 
-    public init(provider: PowerAssertionProviding, name: String = "Sleepless") {
+    public init(provider: PowerAssertionProviding, name: String = "Mara") {
         self.provider = provider
         self.name = name
     }

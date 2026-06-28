@@ -1,22 +1,22 @@
-name: Sleepless
+name: Mara
 options:
-  bundleIdPrefix: com.sleepless
+  bundleIdPrefix: com.mara
   deploymentTarget:
     macOS: "14.0"
   createIntermediateGroups: true
 packages:
-  SleeplessCore:
-    path: SleeplessCore
+  MaraCore:
+    path: MaraCore
 targets:
-  Sleepless:
+  Mara:
     type: application
     platform: macOS
     sources: [App]
     dependencies:
-      - package: SleeplessCore
+      - package: MaraCore
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.sleepless.app
+        PRODUCT_BUNDLE_IDENTIFIER: com.mara.app
         MARKETING_VERSION: "0.1.0"
         CURRENT_PROJECT_VERSION: "1"
         INFOPLIST_FILE: App/Info.plist

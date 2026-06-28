@@ -1,8 +1,8 @@
 import SwiftUI
-import SleeplessCore
+import MaraCore
 
 @main
-struct SleeplessApp: App {
+struct MaraApp: App {
     @StateObject private var env = AppEnvironment()
 
     var body: some Scene {
