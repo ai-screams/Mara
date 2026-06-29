@@ -15,6 +15,20 @@ final class TriggerEvaluatorTests: XCTestCase {
 }
 
 extension TriggerEvaluatorTests {
+    func test_externalDisplayTrigger_satisfiedWhenMoreThanOneScreen() {
+        let screens = MockScreens(count: 1)
+        let t = ExternalDisplayTrigger(screens: screens)
+        XCTAssertFalse(t.isSatisfied)
+        var received: [Bool] = []
+        let c = t.satisfied.sink { received.append($0) }
+        screens.set(2)   // 외장 연결
+        screens.set(1)   // 분리
+        c.cancel()
+        XCTAssertEqual(received, [false, true, false])
+    }
+}
+
+extension TriggerEvaluatorTests {
     func test_chargingTrigger_followsACState() {
         let bat = MockBattery(percentage: 80, isOnAC: false)
         let t = ChargingTrigger(battery: bat)

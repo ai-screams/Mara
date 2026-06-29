@@ -31,3 +31,4 @@ final class MockScheduler: Scheduling {
     func fireAll() { pending.filter { !$0.cancelled }.forEach { $0.fire() } }
     private final class C: Cancellable { let p: Pending; init(_ p: Pending) { self.p = p }; func cancel() { p.cancelled = true } }
 }
+
