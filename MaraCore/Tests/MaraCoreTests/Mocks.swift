@@ -31,15 +31,3 @@ final class MockScheduler: Scheduling {
     func fireAll() { pending.filter { !$0.cancelled }.forEach { $0.fire() } }
     private final class C: Cancellable { let p: Pending; init(_ p: Pending) { self.p = p }; func cancel() { p.cancelled = true } }
 }
-
-final class MockBattery: BatteryMonitoring {
-    var snapshot: BatterySnapshot
-    var onChange: ((BatterySnapshot) -> Void)?
-    init(percentage: Int = 100, isOnAC: Bool = true) {
-        snapshot = BatterySnapshot(percentage: percentage, isOnAC: isOnAC)
-    }
-    func emit(percentage: Int, isOnAC: Bool) {
-        snapshot = BatterySnapshot(percentage: percentage, isOnAC: isOnAC)
-        onChange?(snapshot)
-    }
-}
