@@ -1,15 +1,38 @@
 version: 2
 updates:
+  # GitHub Actions used by our workflows (checkout, trufflehog, …)
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
     commit-message:
       prefix: ci
 
+  # SwiftPM deps for the core package. No external deps yet — forward-looking;
+  # auto-activates once MaraCore adds third-party packages.
   - package-ecosystem: swift
     directory: /MaraCore
     schedule:
       interval: weekly
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+    groups:
+      swift-minor-patch:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
     commit-message:
       prefix: deps
