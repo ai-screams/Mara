@@ -14,6 +14,9 @@ struct MenuBarView: View {
         Button(session.state.isActive ? "Turn Off" : "Keep Awake") {
             session.toggle(defaultConfig)
         }
+        if case let .active(cfg, _) = session.state, cfg.origin == .trigger {
+            Text("자동 활성 (트리거)").font(.caption).foregroundStyle(.secondary)
+        }
         Divider()
         Menu("Keep awake for…") {
             durationButton("15 minutes", 15 * 60)

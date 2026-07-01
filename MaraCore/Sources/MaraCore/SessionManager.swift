@@ -10,6 +10,7 @@ public final class SessionManager: ObservableObject {
     private let battery: BatteryMonitoring?
     public var lowBatteryThreshold: Int
     private var timer: Cancellable?
+    private var cancellables = Set<AnyCancellable>()
 
     public init(engine: SleepEngine,
                 scheduler: Scheduling,
@@ -21,7 +22,10 @@ public final class SessionManager: ObservableObject {
         self.clock = clock
         self.battery = battery
         self.lowBatteryThreshold = lowBatteryThreshold
-        self.battery?.onChange = { [weak self] snap in self?.handleBattery(snap) }
+        battery?.snapshots
+            .dropFirst()  // 초기 현재값 재방출은 무시 (세션 시작 시점엔 start()가 직접 검사)
+            .sink { [weak self] snap in self?.handleBattery(snap) }
+            .store(in: &cancellables)
     }
 
     private func handleBattery(_ snap: BatterySnapshot) {

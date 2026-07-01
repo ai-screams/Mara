@@ -1,4 +1,5 @@
 import Foundation
+import Combine
 import IOKit.ps
 
 public struct BatterySnapshot: Equatable {
@@ -9,23 +10,27 @@ public struct BatterySnapshot: Equatable {
 
 public protocol BatteryMonitoring: AnyObject {
     var snapshot: BatterySnapshot { get }
-    var onChange: ((BatterySnapshot) -> Void)? { get set }
+    var snapshots: AnyPublisher<BatterySnapshot, Never> { get }
 }
 
 public final class IOKitBatteryMonitor: BatteryMonitoring {
-    public var onChange: ((BatterySnapshot) -> Void)?
+    private let subject: CurrentValueSubject<BatterySnapshot, Never>
     private var runLoopSource: CFRunLoopSource?
 
-    public init() { start() }
+    public init() {
+        subject = CurrentValueSubject(IOKitBatteryMonitor.read())
+        start()
+    }
 
-    public var snapshot: BatterySnapshot { Self.read() }
+    public var snapshot: BatterySnapshot { subject.value }
+    public var snapshots: AnyPublisher<BatterySnapshot, Never> { subject.eraseToAnyPublisher() }
 
     private func start() {
         let context = Unmanaged.passUnretained(self).toOpaque()
         guard let source = IOPSNotificationCreateRunLoopSource({ ctx in
             guard let ctx else { return }
             let me = Unmanaged<IOKitBatteryMonitor>.fromOpaque(ctx).takeUnretainedValue()
-            me.onChange?(IOKitBatteryMonitor.read())
+            me.subject.send(IOKitBatteryMonitor.read())
         }, context)?.takeRetainedValue() else { return }
         runLoopSource = source
         CFRunLoopAddSource(CFRunLoopGetMain(), source, .defaultMode)
