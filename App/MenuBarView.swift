@@ -44,11 +44,11 @@ struct MenuBarView: View {
         Binding(
             get: {
                 if case let .active(cfg, _) = session.state { return cfg.scope.keepsDisplayAwake }
-                return true
+                return prefs.defaultKeepDisplayAwake   // idle 시 사용자 기본값 반영 (하드코딩 true 제거)
             },
             set: { keepDisplay in
-                let scope: KeepAwakeScope = keepDisplay ? .displayAndSystem : .systemOnly
-                session.start(SessionConfig(scope: scope, duration: .indefinite, origin: .manual))
+                prefs.defaultKeepDisplayAwake = keepDisplay          // 기본 설정 갱신(영속)
+                session.updateScope(KeepAwakeScope(keepDisplay: keepDisplay))  // active면 restart 없이 라이브 반영
             }
         )
     }

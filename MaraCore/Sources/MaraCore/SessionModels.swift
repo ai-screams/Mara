@@ -32,6 +32,12 @@ public struct SessionConfig: Equatable {
     }
 }
 
+public extension SessionConfig {
+    func withScope(_ scope: KeepAwakeScope) -> SessionConfig {
+        SessionConfig(scope: scope, duration: duration, origin: origin)
+    }
+}
+
 public enum SessionState: Equatable {
     case inactive
     case active(SessionConfig, expiresAt: Date?)

@@ -59,6 +59,13 @@ public final class SessionManager: ObservableObject {
         state.isActive ? stop() : start(config)
     }
 
+    /// 활성 세션의 scope만 라이브로 변경한다. 타이머/만료/origin은 보존.
+    public func updateScope(_ scope: KeepAwakeScope) {
+        guard case let .active(cfg, expiresAt) = state else { return }
+        engine.apply(display: scope.keepsDisplayAwake, system: true)
+        state = .active(cfg.withScope(scope), expiresAt: expiresAt)
+    }
+
     private func expiry(for duration: SessionDuration) -> Date? {
         switch duration {
         case .indefinite: return nil

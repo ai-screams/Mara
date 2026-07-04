@@ -97,3 +97,26 @@ extension SessionManagerTests {
         XCTAssertTrue(sm.state.isActive)
     }
 }
+
+extension SessionManagerTests {
+    func test_updateScope_onActiveTimedSession_keepsDurationAndOrigin_togglesDisplay() {
+        let (sm, p, _, _) = makeSUT()   // (SessionManager, MockPowerAssertionProvider, MockScheduler, MockClock)
+        sm.start(SessionConfig(scope: .displayAndSystem, duration: .duration(3600), origin: .manual))
+        XCTAssertEqual(p.live.count, 2)  // display + system
+        sm.updateScope(.systemOnly)
+        XCTAssertTrue(sm.state.isActive)
+        XCTAssertEqual(p.live.count, 1)  // display 해제, system 유지
+        if case let .active(cfg, expiresAt) = sm.state {
+            XCTAssertEqual(cfg.scope, .systemOnly)
+            XCTAssertEqual(cfg.origin, .manual)     // origin 보존
+            XCTAssertNotNil(expiresAt)              // 타이머(만료시각) 보존
+        } else { XCTFail() }
+    }
+
+    func test_updateScope_whenInactive_isNoOp() {
+        let (sm, p, _, _) = makeSUT()
+        sm.updateScope(.displayAndSystem)
+        XCTAssertFalse(sm.state.isActive)
+        XCTAssertEqual(p.live.count, 0)
+    }
+}
