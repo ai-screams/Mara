@@ -9,7 +9,7 @@ public final class SessionManager: ObservableObject {
     private let clock: Clock
     private let battery: BatteryMonitoring?
     public var lowBatteryThreshold: Int
-    private var timer: Cancellable?
+    private var timer: SchedulerToken?
     private var cancellables = Set<AnyCancellable>()
 
     public init(engine: SleepEngine,

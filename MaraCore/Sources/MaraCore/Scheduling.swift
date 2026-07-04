@@ -7,21 +7,21 @@ public struct SystemClock: Clock {
     public var now: Date { Date() }
 }
 
-public protocol Cancellable { func cancel() }
+public protocol SchedulerToken { func cancel() }
 
 public protocol Scheduling {
-    func schedule(after interval: TimeInterval, _ action: @escaping () -> Void) -> Cancellable
+    func schedule(after interval: TimeInterval, _ action: @escaping () -> Void) -> SchedulerToken
 }
 
 public final class DispatchScheduler: Scheduling {
     private let queue: DispatchQueue
     public init(queue: DispatchQueue = .main) { self.queue = queue }
-    public func schedule(after interval: TimeInterval, _ action: @escaping () -> Void) -> Cancellable {
+    public func schedule(after interval: TimeInterval, _ action: @escaping () -> Void) -> SchedulerToken {
         let item = DispatchWorkItem(block: action)
         queue.asyncAfter(deadline: .now() + interval, execute: item)
-        return DispatchCancellable(item)
+        return DispatchToken(item)
     }
-    private final class DispatchCancellable: Cancellable {
+    private final class DispatchToken: SchedulerToken {
         let item: DispatchWorkItem
         init(_ item: DispatchWorkItem) { self.item = item }
         func cancel() { item.cancel() }

@@ -23,12 +23,12 @@ final class MockClock: Clock {
 final class MockScheduler: Scheduling {
     final class Pending { let fire: () -> Void; var cancelled = false; init(_ f: @escaping () -> Void) { fire = f } }
     private(set) var pending: [Pending] = []
-    func schedule(after interval: TimeInterval, _ action: @escaping () -> Void) -> Cancellable {
+    func schedule(after interval: TimeInterval, _ action: @escaping () -> Void) -> SchedulerToken {
         let p = Pending(action); pending.append(p)
-        return C(p)
+        return MockToken(p)
     }
     /// 테스트에서 수동으로 타이머 발화
     func fireAll() { pending.filter { !$0.cancelled }.forEach { $0.fire() } }
-    private final class C: Cancellable { let p: Pending; init(_ p: Pending) { self.p = p }; func cancel() { p.cancelled = true } }
+    private final class MockToken: SchedulerToken { let p: Pending; init(_ p: Pending) { self.p = p }; func cancel() { p.cancelled = true } }
 }
 
