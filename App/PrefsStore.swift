@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import MaraCore
 
 final class PrefsStore: ObservableObject {
     @Published var defaultKeepDisplayAwake: Bool {
@@ -15,6 +16,7 @@ final class PrefsStore: ObservableObject {
             }
         }
     }
+    var defaultScope: KeepAwakeScope { KeepAwakeScope(keepDisplay: defaultKeepDisplayAwake) }
     private enum Keys {
         static let defaultKeepDisplayAwake = "defaultKeepDisplayAwake"
         static let lowBatteryThreshold = "lowBatteryThreshold"

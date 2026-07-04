@@ -6,6 +6,12 @@ public enum KeepAwakeScope: Equatable {
     public var keepsDisplayAwake: Bool { self == .displayAndSystem }
 }
 
+public extension KeepAwakeScope {
+    init(keepDisplay: Bool) {
+        self = keepDisplay ? .displayAndSystem : .systemOnly
+    }
+}
+
 public enum SessionDuration: Equatable {
     case indefinite
     case duration(TimeInterval)

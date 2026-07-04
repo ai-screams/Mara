@@ -6,7 +6,7 @@ struct MenuBarView: View {
     @ObservedObject var prefs: PrefsStore
 
     private var defaultConfig: SessionConfig {
-        let scope: KeepAwakeScope = prefs.defaultKeepDisplayAwake ? .displayAndSystem : .systemOnly
+        let scope = prefs.defaultScope
         return SessionConfig(scope: scope, duration: .indefinite, origin: .manual)
     }
 
@@ -34,7 +34,7 @@ struct MenuBarView: View {
     }
 
     private func durationButton(_ title: String, _ seconds: TimeInterval) -> some View {
-        let scope: KeepAwakeScope = prefs.defaultKeepDisplayAwake ? .displayAndSystem : .systemOnly
+        let scope = prefs.defaultScope
         return Button(title) {
             session.start(SessionConfig(scope: scope, duration: .duration(seconds), origin: .manual))
         }
