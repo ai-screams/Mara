@@ -4,6 +4,7 @@ public enum TriggerKind: String, CaseIterable, Sendable {
     case charging
     case externalDisplay
     case appRunning
+    case network
 }
 
 public protocol TriggerEvaluator: AnyObject {

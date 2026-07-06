@@ -13,7 +13,7 @@ struct MaraApp: App {
         }
         .menuBarExtraStyle(.menu)
         Settings {
-            SettingsView(prefs: env.prefs)
+            SettingsView(prefs: env.prefs, currentNetwork: { env.currentNetwork })
         }
     }
 }

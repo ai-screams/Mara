@@ -1,7 +1,9 @@
 import SwiftUI
+import MaraCore
 
 struct SettingsView: View {
     @ObservedObject var prefs: PrefsStore
+    let currentNetwork: () -> NetworkIdentity?
 
     var body: some View {
         Form {
@@ -23,6 +25,25 @@ struct SettingsView: View {
                     .frame(height: 80)
                     .font(.system(.body, design: .monospaced))
                     .border(.secondary)
+            }
+            Toggle("특정 네트워크에서 자동 활성", isOn: $prefs.triggerConfig.networkEnabled)
+            if prefs.triggerConfig.networkEnabled {
+                Button("현재 네트워크 기억") {
+                    if let mac = currentNetwork()?.gatewayMAC,
+                       !prefs.triggerConfig.watchedNetworks.contains(mac) {
+                        prefs.triggerConfig.watchedNetworks.append(mac)
+                    }
+                }
+                .disabled(currentNetwork() == nil)
+                ForEach(prefs.triggerConfig.watchedNetworks, id: \.self) { mac in
+                    HStack {
+                        Text(mac).font(.system(.caption, design: .monospaced))
+                        Spacer()
+                        Button("삭제") {
+                            prefs.triggerConfig.watchedNetworks.removeAll { $0 == mac }
+                        }
+                    }
+                }
             }
         }
         .padding(20)

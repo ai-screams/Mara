@@ -11,6 +11,7 @@ final class AppEnvironment: ObservableObject {
     private let battery = IOKitBatteryMonitor()
     private let screens = NSScreenCounter()
     private let apps = NSWorkspaceAppsObserver()
+    private let networkProvider = RoutingTableNetworkProvider()
 
     private let triggerEngine: TriggerEngine
     // 글로벌 핫키 기능 보류(비활성화) — 코드는 보존, 재활성화 시 주석 해제.
@@ -50,8 +51,14 @@ final class AppEnvironment: ObservableObject {
         if cfg.appRunningEnabled && !cfg.watchedBundleIDs.isEmpty {
             evaluators.append(AppRunningTrigger(apps: apps, watched: Set(cfg.watchedBundleIDs)))
         }
+        if cfg.networkEnabled && !cfg.watchedNetworks.isEmpty {
+            let watched = Set(cfg.watchedNetworks.map { NetworkIdentity(gatewayMAC: $0) })
+            evaluators.append(NetworkTrigger(network: networkProvider, watched: watched))
+        }
         triggerEngine.updateEvaluators(evaluators)
     }
+
+    var currentNetwork: NetworkIdentity? { networkProvider.current }
 
     // 글로벌 핫키 기능 보류(비활성화). 삭제하지 않고 보존 — 재활성화하려면 위 호출과
     // 아래 메서드, 그리고 `hotkey` 프로퍼티 주석을 해제하면 된다. HotkeyManager.swift는 그대로 유지.
