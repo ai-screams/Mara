@@ -103,14 +103,14 @@ extension SessionManagerTests {
         let (sm, p, _, _) = makeSUT()   // (SessionManager, MockPowerAssertionProvider, MockScheduler, MockClock)
         sm.start(SessionConfig(scope: .displayAndSystem, duration: .duration(3600), origin: .manual))
         XCTAssertEqual(p.live.count, 2)  // display + system
+        guard case let .active(_, expiresAtBefore) = sm.state else { XCTFail("expected active before"); return }
         sm.updateScope(.systemOnly)
         XCTAssertTrue(sm.state.isActive)
         XCTAssertEqual(p.live.count, 1)  // display 해제, system 유지
-        if case let .active(cfg, expiresAt) = sm.state {
-            XCTAssertEqual(cfg.scope, .systemOnly)
-            XCTAssertEqual(cfg.origin, .manual)     // origin 보존
-            XCTAssertNotNil(expiresAt)              // 타이머(만료시각) 보존
-        } else { XCTFail() }
+        guard case let .active(cfg, expiresAtAfter) = sm.state else { XCTFail("expected active after"); return }
+        XCTAssertEqual(expiresAtAfter, expiresAtBefore)   // 타이머(만료시각) 정확히 보존
+        XCTAssertEqual(cfg.scope, .systemOnly)
+        XCTAssertEqual(cfg.origin, .manual)               // origin 보존
     }
 
     func test_updateScope_whenInactive_isNoOp() {

@@ -113,6 +113,23 @@ extension TriggerEngineTests {
         XCTAssertFalse(sm.state.isActive)      // 여전히 suppressed
     }
 
+    // 실제 앱 경로(reconcileTriggers)는 동일 kind라도 항상 새 인스턴스를 생성한다.
+    // 새 인스턴스로 updateEvaluators 해도 suppression이 유지되는지 검증 (M1 실환경 증명).
+    func test_suppression_survivesUpdateEvaluators_withFreshInstance() {
+        let (sm, _) = makeSession()
+        let t1 = MockTrigger(kind: .charging, satisfied: true)
+        let engine = TriggerEngine(session: sm, scope: { .systemOnly })
+        engine.updateEvaluators([t1])
+        XCTAssertTrue(sm.state.isActive)       // 트리거로 켜짐
+        sm.stop()                               // 사용자 수동 OFF (트리거 여전히 true) → suppressed
+        XCTAssertFalse(sm.state.isActive)
+
+        // 실제 앱처럼 동일 kind의 완전히 새 인스턴스로 재조정
+        let t2 = MockTrigger(kind: .charging, satisfied: true)
+        engine.updateEvaluators([t2])
+        XCTAssertFalse(sm.state.isActive)      // suppression 유지 — 인스턴스 교체에도 재가동 금지
+    }
+
     // 재조정으로 모든 트리거가 사라지면 trigger-origin 세션은 정지된다(orphan 방지).
     func test_updateEvaluators_toEmpty_stopsTriggerSession() {
         let (sm, _) = makeSession()

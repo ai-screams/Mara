@@ -32,6 +32,7 @@ final class AppEnvironment: ObservableObject {
         self.triggerEngine = TriggerEngine(session: session, scope: { prefs.defaultScope })
 
         prefs.$lowBatteryThreshold
+            .dropFirst()   // 초기값 재방출 무시 (init에서 이미 반영)
             .sink { [weak self] v in self?.session.lowBatteryThreshold = v }
             .store(in: &cancellables)
         reconcileTriggers(prefs.triggerConfig)
