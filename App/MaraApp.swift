@@ -33,7 +33,8 @@ private struct MenuBarLabel: View {
     /// - inactive: 빈 컵 + template(라이트/다크 자동 적응)
     static func statusIcon(active: Bool) -> NSImage {
         let symbol = active ? "cup.and.saucer.fill" : "cup.and.saucer"
-        let base = NSImage(systemSymbolName: symbol, accessibilityDescription: "Mara")
+        let description = active ? "Mara — keep-awake 활성" : "Mara — 비활성"
+        let base = NSImage(systemSymbolName: symbol, accessibilityDescription: description)
             ?? NSImage()
         guard active else {
             base.isTemplate = true
