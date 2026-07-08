@@ -16,30 +16,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         NSApp.setActivationPolicy(.accessory)
 
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        item.isVisible = true         // 명시 필요: 기본값이 항상 true가 아니며(false로 시작 관측됨),
+                                      // false면 상태아이템 창이 화면 밖에 파킹돼 메뉴바에 나타나지 않는다.
         let menu = NSMenu()
         menu.delegate = self          // 열릴 때마다 menuNeedsUpdate로 라이브 상태 반영
         item.menu = menu
         statusItem = item
-        refreshStatusButton()
+        refreshStatusButton(env.session.state)
 
         // 세션 상태(@Published, main에서만 변이)를 구독해 아이콘/지속시간 라벨을 갱신.
+        // @Published는 willSet에서 발화하므로 방출된 state를 그대로 넘겨야 한다(재-read 시 이전 값).
         env.session.$state
-            .sink { [weak self] _ in MainActor.assumeIsolated { self?.refreshStatusButton() } }
+            .sink { [weak self] state in MainActor.assumeIsolated { self?.refreshStatusButton(state) } }
             .store(in: &cancellables)
     }
 
     // MARK: - Status button (eye icon + duration)
 
-    private func refreshStatusButton() {
+    private func refreshStatusButton(_ state: SessionState) {
         guard let button = statusItem?.button else { return }
-        button.image = Self.statusIcon(active: env.session.state.isActive)
+        button.image = Self.statusIcon(active: state.isActive)
         button.imagePosition = .imageLeading
-        button.title = durationLabel.map { " " + $0 } ?? ""
+        button.title = durationLabel(for: state).map { " " + $0 } ?? ""
     }
 
     /// 활성 세션의 지속시간 라벨(15m / 1h / ∞). 비활성이면 nil.
-    private var durationLabel: String? {
-        guard case let .active(config, _) = env.session.state else { return nil }
+    private func durationLabel(for state: SessionState) -> String? {
+        guard case let .active(config, _) = state else { return nil }
         switch config.duration {
         case .indefinite:      return "∞"
         case .duration(let t): return Self.durationText(t)
