@@ -1,6 +1,9 @@
 import XCTest
 @testable import MaraCore
 
+// @MainActor: SUT(SessionManager)가 @MainActor라 테스트도 main-actor에서 구동해야 한다.
+// XCTest는 동기 테스트를 main 스레드에서 실행하므로 안전하며, 동기 타이밍이 보존된다.
+@MainActor
 final class SessionManagerTests: XCTestCase {
     private func makeSUT() -> (SessionManager, MockPowerAssertionProvider, MockScheduler, MockClock) {
         let p = MockPowerAssertionProvider()

@@ -22,7 +22,7 @@ final class AppEnvironment: ObservableObject {
         let engine = SleepEngine(provider: IOKitPowerAssertionProvider())
         let session = SessionManager(
             engine: engine,
-            scheduler: DispatchScheduler(queue: .main),
+            scheduler: DispatchScheduler(),
             clock: SystemClock(),
             battery: battery,
             lowBatteryThreshold: prefs.lowBatteryThreshold
@@ -32,14 +32,16 @@ final class AppEnvironment: ObservableObject {
         let prefs = self.prefs
         self.triggerEngine = TriggerEngine(session: session, scope: { prefs.defaultScope })
 
+        // PrefsStore(@Published)는 main에서만 변이되므로 두 sink 모두 main에서 delivery된다.
+        // assumeIsolated로 @MainActor 코어(session/reconcileTriggers) 호출을 격리 보장한다.
         prefs.$lowBatteryThreshold
             .dropFirst()   // 초기값 재방출 무시 (init에서 이미 반영)
-            .sink { [weak self] v in self?.session.lowBatteryThreshold = v }
+            .sink { [weak self] v in MainActor.assumeIsolated { self?.session.lowBatteryThreshold = v } }
             .store(in: &cancellables)
         reconcileTriggers(prefs.triggerConfig)
         prefs.$triggerConfig
             .dropFirst()   // 초기값 재방출 무시 (위에서 한 번 반영함)
-            .sink { [weak self] cfg in self?.reconcileTriggers(cfg) }
+            .sink { [weak self] cfg in MainActor.assumeIsolated { self?.reconcileTriggers(cfg) } }
             .store(in: &cancellables)
         // installHotkey()  // 글로벌 핫키 보류
     }

@@ -1,6 +1,7 @@
 import Foundation
 import Combine
 
+@MainActor
 public final class SessionManager: ObservableObject {
     @Published public private(set) var state: SessionState = .inactive
 
@@ -24,7 +25,9 @@ public final class SessionManager: ObservableObject {
         self.lowBatteryThreshold = lowBatteryThreshold
         battery?.snapshots
             .dropFirst()  // 초기 현재값 재방출은 무시 (세션 시작 시점엔 start()가 직접 검사)
-            .sink { [weak self] snap in self?.handleBattery(snap) }
+            // 배터리 알림은 CFRunLoopGetMain에서 delivery된다. assumeIsolated로 동기 타이밍을
+            // 보존하면서 main-actor 격리를 보장한다(만약 off-main으로 들어오면 즉시 trap).
+            .sink { [weak self] snap in MainActor.assumeIsolated { self?.handleBattery(snap) } }
             .store(in: &cancellables)
     }
 
@@ -43,7 +46,8 @@ public final class SessionManager: ObservableObject {
         if let expiresAt {
             let interval = max(0, expiresAt.timeIntervalSince(clock.now))
             timer = scheduler.schedule(after: interval) { [weak self] in
-                self?.stop()
+                // 스케줄러는 main 큐에서 발화(prod) / 테스트는 main에서 fireAll.
+                MainActor.assumeIsolated { self?.stop() }
             }
         }
         if let snap = battery?.snapshot { handleBattery(snap) }

@@ -66,7 +66,7 @@ public final class RoutingTableNetworkProvider: NetworkIdentityProviding {
         var offset = 0
         while offset + MemoryLayout<rt_msghdr>.size <= bufSize {
             assert(offset.isMultiple(of: 4)) // M3: BSD 4-byte alignment invariant
-            let rtm = buf.withUnsafeBytes { $0.load(fromByteOffset: offset, as: rt_msghdr.self) }
+            let rtm = buf.withUnsafeBytes { $0.loadUnaligned(fromByteOffset: offset, as: rt_msghdr.self) }
             let msgLen = Int(rtm.rtm_msglen)
             guard msgLen >= MemoryLayout<rt_msghdr>.size, offset + msgLen <= bufSize else { break }
             let msgEnd = offset + msgLen
@@ -80,21 +80,24 @@ public final class RoutingTableNetworkProvider: NetworkIdentityProviding {
                     guard (rtm.rtm_addrs & Int32(1 << bit)) != 0 else { continue }
                     guard saOff + 2 <= msgEnd else { break }
                     assert(saOff.isMultiple(of: 4)) // M3: sockaddr walk 4-byte alignment
-                    let sa = buf.withUnsafeBytes { $0.load(fromByteOffset: saOff, as: sockaddr.self) }
-                    let saLen = Int(sa.sa_len)
+                    // I3: read only the 2-byte sockaddr header (sa_len, sa_family) via the
+                    // bounds-checked subscript. A full load(as: sockaddr.self) would read 16
+                    // bytes behind this 2-byte guard → up to 14B over-read past msgEnd.
+                    let saLen = Int(buf[saOff])            // sockaddr.sa_len    (byte 0)
+                    let saFamily = buf[saOff + 1]          // sockaddr.sa_family (byte 1)
 
-                    if bit == 0, sa.sa_family == UInt8(AF_INET) { // RTA_DST
+                    if bit == 0, saFamily == UInt8(AF_INET) { // RTA_DST
                         // I1: guard declared length and buffer bound before load(as: sockaddr_in)
                         if saLen >= MemoryLayout<sockaddr_in>.size,
                            saOff + MemoryLayout<sockaddr_in>.size <= msgEnd {
-                            let sin = buf.withUnsafeBytes { $0.load(fromByteOffset: saOff, as: sockaddr_in.self) }
+                            let sin = buf.withUnsafeBytes { $0.loadUnaligned(fromByteOffset: saOff, as: sockaddr_in.self) }
                             dstIP = sin.sin_addr.s_addr
                         }
-                    } else if bit == 1, sa.sa_family == UInt8(AF_INET) { // RTA_GATEWAY
+                    } else if bit == 1, saFamily == UInt8(AF_INET) { // RTA_GATEWAY
                         // I1: guard declared length and buffer bound before load(as: sockaddr_in)
                         if saLen >= MemoryLayout<sockaddr_in>.size,
                            saOff + MemoryLayout<sockaddr_in>.size <= msgEnd {
-                            let sin = buf.withUnsafeBytes { $0.load(fromByteOffset: saOff, as: sockaddr_in.self) }
+                            let sin = buf.withUnsafeBytes { $0.loadUnaligned(fromByteOffset: saOff, as: sockaddr_in.self) }
                             gwIP = sin.sin_addr.s_addr
                         }
                     }
@@ -138,7 +141,7 @@ public final class RoutingTableNetworkProvider: NetworkIdentityProviding {
         var offset = 0
         while offset + MemoryLayout<rt_msghdr>.size <= bufSize {
             assert(offset.isMultiple(of: 4)) // M3: BSD 4-byte alignment invariant
-            let rtm = buf.withUnsafeBytes { $0.load(fromByteOffset: offset, as: rt_msghdr.self) }
+            let rtm = buf.withUnsafeBytes { $0.loadUnaligned(fromByteOffset: offset, as: rt_msghdr.self) }
             let msgLen = Int(rtm.rtm_msglen)
             guard msgLen >= MemoryLayout<rt_msghdr>.size, offset + msgLen <= bufSize else { break }
             let msgEnd = offset + msgLen
@@ -151,23 +154,26 @@ public final class RoutingTableNetworkProvider: NetworkIdentityProviding {
                 guard (rtm.rtm_addrs & Int32(1 << bit)) != 0 else { continue }
                 guard saOff + 2 <= msgEnd else { break }
                 assert(saOff.isMultiple(of: 4)) // M3: sockaddr walk 4-byte alignment
-                let sa = buf.withUnsafeBytes { $0.load(fromByteOffset: saOff, as: sockaddr.self) }
-                let saLen = Int(sa.sa_len)
+                // I3: read only the 2-byte sockaddr header (sa_len, sa_family) via the
+                // bounds-checked subscript. A full load(as: sockaddr.self) would read 16
+                // bytes behind this 2-byte guard → up to 14B over-read past msgEnd.
+                let saLen = Int(buf[saOff])            // sockaddr.sa_len    (byte 0)
+                let saFamily = buf[saOff + 1]          // sockaddr.sa_family (byte 1)
 
-                if bit == 0, sa.sa_family == UInt8(AF_INET) { // RTA_DST
+                if bit == 0, saFamily == UInt8(AF_INET) { // RTA_DST
                     // I1: guard declared length and buffer bound before load(as: sockaddr_in)
                     if saLen >= MemoryLayout<sockaddr_in>.size,
                        saOff + MemoryLayout<sockaddr_in>.size <= msgEnd {
-                        let sin = buf.withUnsafeBytes { $0.load(fromByteOffset: saOff, as: sockaddr_in.self) }
+                        let sin = buf.withUnsafeBytes { $0.loadUnaligned(fromByteOffset: saOff, as: sockaddr_in.self) }
                         dstIP = sin.sin_addr.s_addr
                     }
-                } else if bit == 1, sa.sa_family == UInt8(AF_LINK) { // RTA_GATEWAY → sockaddr_dl
+                } else if bit == 1, saFamily == UInt8(AF_LINK) { // RTA_GATEWAY → sockaddr_dl
                     // I1: guard ≥8-byte fixed header (for nlen/alen) and full-struct buffer bound
                     // BSD pads each sockaddr to roundup(saLen) so the physical bytes for a
                     // full sockaddr_dl load are always present even when sdl_len < struct size.
                     if saLen >= 8,
                        saOff + MemoryLayout<sockaddr_dl>.size <= msgEnd {
-                        let sdl = buf.withUnsafeBytes { $0.load(fromByteOffset: saOff, as: sockaddr_dl.self) }
+                        let sdl = buf.withUnsafeBytes { $0.loadUnaligned(fromByteOffset: saOff, as: sockaddr_dl.self) }
                         let alen = Int(sdl.sdl_alen)
                         let nlen = Int(sdl.sdl_nlen)
                         if alen == 6 {

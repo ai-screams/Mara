@@ -1,5 +1,6 @@
 import Combine
 
+@MainActor
 public final class TriggerEngine {
     private let session: SessionManager
     private let scope: () -> KeepAwakeScope
@@ -17,7 +18,10 @@ public final class TriggerEngine {
         self.scope = scope
         self.lastActive = session.state.isActive
         // 세션 상태 구독은 수명 내내 유지 (수동 종료 감지 → suppression)
-        sessionCancellable = session.$state.sink { [weak self] state in self?.handleSessionChange(state) }
+        // @Published state는 main-actor SessionManager에서만 변이되므로 delivery도 main.
+        sessionCancellable = session.$state.sink { [weak self] state in
+            MainActor.assumeIsolated { self?.handleSessionChange(state) }
+        }
     }
 
     public var isAnySatisfied: Bool { active.values.contains { $0.evaluator.isSatisfied } }
@@ -34,7 +38,9 @@ public final class TriggerEngine {
         // 추가되거나 인스턴스가 바뀐 kind
         for (kind, evaluator) in desired {
             if active[kind]?.evaluator === evaluator { continue }   // 동일 인스턴스 → 유지
-            let c = evaluator.satisfied.sink { [weak self] _ in self?.reevaluate() }
+            let c = evaluator.satisfied.sink { [weak self] _ in
+                MainActor.assumeIsolated { self?.reevaluate() }
+            }
             active[kind] = (evaluator, c)
         }
         reconciling = false

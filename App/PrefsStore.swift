@@ -2,6 +2,9 @@ import Foundation
 import Combine
 import MaraCore
 
+// @MainActor: @Published 프로퍼티가 main에서만 변이됨을 컴파일러가 강제한다.
+// AppEnvironment의 두 sink는 이 delivery가 main임을 전제로 assumeIsolated한다.
+@MainActor
 final class PrefsStore: ObservableObject {
     @Published var defaultKeepDisplayAwake: Bool {
         didSet { UserDefaults.standard.set(defaultKeepDisplayAwake, forKey: Keys.defaultKeepDisplayAwake) }
