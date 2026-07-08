@@ -56,7 +56,8 @@ private struct MenuBarLabel: View {
     /// - active: 채워진 컵 + 주황(non-template, 색상 유지)
     /// - inactive: 빈 컵 + template(라이트/다크 자동 적응)
     static func statusIcon(active: Bool) -> NSImage {
-        let symbol = active ? "cup.and.saucer.fill" : "cup.and.saucer"
+        // 활성: 눈 뜬(지켜봄, 깨어있음) / 비활성: 눈 꺼짐(감음, 잠 가능)
+        let symbol = active ? "eye.fill" : "eye.slash.fill"
         let description = active ? "Mara — keep-awake 활성" : "Mara — 비활성"
         let base = NSImage(systemSymbolName: symbol, accessibilityDescription: description)
             ?? NSImage()
