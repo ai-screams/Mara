@@ -155,6 +155,23 @@
     .note { text-align: center; color: var(--text-muted); font-size: 14px; margin-top: 30px; }
     .note b { color: var(--accent); font-weight: 600; }
 
+    /* ── support ── */
+    .support { text-align: center; padding: 60px 0; border-top: 1px solid var(--border); }
+    .support h2 { font-size: 30px; font-weight: 800; letter-spacing: -0.01em; margin-bottom: 8px; }
+    .support p { color: var(--text-mid); font-size: 16px; max-width: 560px; margin: 0 auto 26px; }
+    .support .donate { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+    .dbtn {
+      display: inline-flex; align-items: center; gap: 9px;
+      border-radius: 12px; padding: 12px 22px; font-weight: 700; font-size: 15px;
+      border: 1px solid var(--border-2); transition: transform .12s, border-color .12s, background .12s;
+    }
+    .dbtn:hover { transform: translateY(-2px); }
+    .dbtn.sponsor { background: rgba(234,74,170,0.12); color: #ff7ac6; border-color: rgba(234,74,170,0.4); }
+    .dbtn.sponsor:hover { background: rgba(234,74,170,0.2); }
+    .dbtn.kofi { background: rgba(255,94,91,0.12); color: #ff8582; border-color: rgba(255,94,91,0.4); }
+    .dbtn.kofi:hover { background: rgba(255,94,91,0.2); }
+    .dbtn svg { width: 18px; height: 18px; }
+
     /* ── footer ── */
     footer { border-top: 1px solid var(--border); padding: 40px 0 56px; text-align: center; }
     footer .brand { justify-content: center; margin-bottom: 14px; }
@@ -317,6 +334,27 @@
     </div>
   </section>
 
+  <section class="support" id="support">
+    <div class="wrap">
+      <p class="eyebrow" data-en="Support" data-ko="후원">후원</p>
+      <h2 data-en="Keep Mara awake" data-ko="Mara를 응원해 주세요">Mara를 응원해 주세요</h2>
+      <p data-en="Mara is built and maintained by one person — no ads, no telemetry. If it earns a place on your Mac, you can help fund its development."
+         data-ko="Mara는 한 사람이 만들고 유지합니다 — 광고도, 추적도 없습니다. Mac에서 도움이 되었다면 개발을 후원해 주세요.">
+        Mara는 한 사람이 만들고 유지합니다 — 광고도, 추적도 없습니다. Mac에서 도움이 되었다면 개발을 후원해 주세요.
+      </p>
+      <div class="donate">
+        <a class="dbtn sponsor" href="https://github.com/sponsors/ai-screams" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+          <span data-en="Sponsor on GitHub" data-ko="GitHub 후원">GitHub 후원</span>
+        </a>
+        <a class="dbtn kofi" href="https://ko-fi.com/pignuante" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 4h15a4 4 0 0 1 0 8h-1.1A6 6 0 0 1 11 16H7a4 4 0 0 1-4-4V4zm15 6a2 2 0 0 0 0-4h-1v4h1z"/></svg>
+          <span data-en="Support on Ko-fi" data-ko="Ko-fi로 후원">Ko-fi로 후원</span>
+        </a>
+      </div>
+    </div>
+  </section>
+
   <footer>
     <div class="wrap">
       <a class="brand" href="#top"><img src="assets/favicon.png" alt="Mara" /> Mara</a>
@@ -324,6 +362,7 @@
         <a href="https://github.com/ai-screams/mara" target="_blank" rel="noopener">GitHub</a>
         <a href="https://github.com/ai-screams/mara/releases" target="_blank" rel="noopener" data-en="Releases" data-ko="릴리스">릴리스</a>
         <a href="#features" data-en="Features" data-ko="기능">기능</a>
+        <a href="#support" data-en="Support" data-ko="후원">후원</a>
       </div>
       <p class="fine">© <span id="yr"></span> ai-screams · <span data-en="Mara is folklore for the spirit that sits on a sleeper's chest — the root of “nightmare.”" data-ko="Mara는 잠든 이의 가슴에 앉는 악령으로, ‘nightmare’의 어원입니다.">Mara는 잠든 이의 가슴에 앉는 악령으로, ‘nightmare’의 어원입니다.</span></p>
     </div>
