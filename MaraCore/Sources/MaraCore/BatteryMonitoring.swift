@@ -26,6 +26,13 @@ public final class IOKitBatteryMonitor: BatteryMonitoring {
     public var snapshots: AnyPublisher<BatterySnapshot, Never> { subject.eraseToAnyPublisher() }
 
     private func start() {
+        // context = passUnretained(self)가 이 패턴의 정석이다. IOPSNotificationCreateRunLoopSource는
+        // context를 raw void*로 저장할 뿐 CFRetain하지 않으므로, passRetained(self)로 잡으면 아무도
+        // 해제하지 않는 self의 +1이 남아 **누수**가 되고 deinit이 영원히 호출되지 않는다(실증 확인 —
+        // source가 context를 retain하지 않으니 retain cycle이 아니라 unbalanced retain이다).
+        // 대신 안전은 수명 불변식으로 보장된다: self는 main-actor 소유자(AppEnvironment·SessionManager)가
+        // 보유하므로 최종 해제가 메인에서 일어나고, IOPS 콜백과 deinit이 모두 메인 런루프에서 실행되어
+        // deinit의 무효화·제거 후 in-flight 콜백이 없다.
         let context = Unmanaged.passUnretained(self).toOpaque()
         guard let source = IOPSNotificationCreateRunLoopSource({ ctx in
             guard let ctx else { return }
@@ -52,6 +59,11 @@ public final class IOKitBatteryMonitor: BatteryMonitoring {
     }
 
     deinit {
-        if let s = runLoopSource { CFRunLoopRemoveSource(CFRunLoopGetMain(), s, .defaultMode) }
+        // 제거 후 무효화(방어적): invalidate는 source가 등록된 모든 런루프에서 제거하고
+        // 무효 표시하여, 어떤 참조가 남아도 콜백이 다시 발화하지 않도록 보장한다.
+        if let s = runLoopSource {
+            CFRunLoopRemoveSource(CFRunLoopGetMain(), s, .defaultMode)
+            CFRunLoopSourceInvalidate(s)
+        }
     }
 }

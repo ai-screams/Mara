@@ -47,17 +47,18 @@ final class AppEnvironment: ObservableObject {
     }
 
     private func reconcileTriggers(_ cfg: TriggerConfig) {
-        var evaluators: [TriggerEvaluator] = []
-        if cfg.chargingEnabled { evaluators.append(ChargingTrigger(battery: battery)) }
-        if cfg.externalDisplayEnabled { evaluators.append(ExternalDisplayTrigger(screens: screens)) }
-        if cfg.appRunningEnabled && !cfg.watchedBundleIDs.isEmpty {
-            evaluators.append(AppRunningTrigger(apps: apps, watched: Set(cfg.watchedBundleIDs)))
+        // 결정(어떤 트리거를 켤지)은 순수 activeSpecs()가, 인스턴스화만 여기서 담당.
+        triggerEngine.updateEvaluators(cfg.activeSpecs().map(makeEvaluator))
+    }
+
+    /// TriggerSpec(순수 결정) → 실제 OS 어댑터를 물린 evaluator. 불순한 인스턴스화만 담당.
+    private func makeEvaluator(for spec: TriggerSpec) -> TriggerEvaluator {
+        switch spec {
+        case .charging:            return ChargingTrigger(battery: battery)
+        case .externalDisplay:     return ExternalDisplayTrigger(screens: screens)
+        case .appRunning(let ids): return AppRunningTrigger(apps: apps, watched: ids)
+        case .network(let ids):    return NetworkTrigger(network: networkProvider, watched: ids)
         }
-        if cfg.networkEnabled && !cfg.watchedNetworks.isEmpty {
-            let watched = Set(cfg.watchedNetworks.map { NetworkIdentity(gatewayMAC: $0) })
-            evaluators.append(NetworkTrigger(network: networkProvider, watched: watched))
-        }
-        triggerEngine.updateEvaluators(evaluators)
     }
 
     var currentNetwork: NetworkIdentity? { networkProvider.current }
