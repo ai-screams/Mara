@@ -202,8 +202,11 @@ notarize "$DMG"
 xcrun stapler staple "$DMG"
 
 # ── 게시 전 자가검증 ─────────────────────────────────────────────────────────
+# 앱은 stapler로 검증한다(공증 티켓 부착 여부 = 권위 있는 확인). `spctl -a -t exec`는
+# LSUIElement(메뉴바 agent) 앱에서 "does not seem to be an app" 오탐을 내므로 게이트로 쓰지 않는다.
+# DMG는 사용자가 실제로 겪는 다운로드-오픈 Gatekeeper 흐름(`spctl -t open`)으로 검증한다.
 print "▸ 검증…"
-spctl -a -t exec -vv "$APP" 2>&1 | sed 's/^/    /'
+xcrun stapler validate "$APP" | sed 's/^/    /'
 spctl -a -t open --context context:primary-signature -vv "$DMG" 2>&1 | sed 's/^/    /'
 xcrun stapler validate "$DMG" | sed 's/^/    /'
 
