@@ -135,12 +135,17 @@ codesign -dvvv "$APP" 2>&1 | grep -iE "^Authority=Developer ID|runtime" >/dev/nu
 # ── 공증 헬퍼 (자격: NOTARY_PROFILE 또는 APPLE_ID+APP_PASSWORD) ────────────────
 # 실패 시 notary 로그를 덤프해 디버깅 가능하게 한다.
 notarize() {
-    local target="$1" id
+    local target="$1" out id
     if [[ -n "${NOTARY_PROFILE:-}" ]]; then
-        id="$(xcrun notarytool submit "$target" --keychain-profile "$NOTARY_PROFILE" \
-                --wait --output-format json | tee /dev/stderr | plutil -extract id raw -o - -)" || true
-        [[ -n "$id" ]] && xcrun notarytool log "$id" --keychain-profile "$NOTARY_PROFILE" 2>/dev/null || true
-        xcrun notarytool submit "$target" --keychain-profile "$NOTARY_PROFILE" --wait >/dev/null
+        # 단일 제출(--wait). 결과 JSON을 잡아 로그를 덤프하고, status가 Accepted가 아니면 중단한다.
+        # (notarytool exit-code에 의존하지 않음 + stapler staple이 미공증을 하드 차단하는 백스톱.)
+        out="$(xcrun notarytool submit "$target" --keychain-profile "$NOTARY_PROFILE" \
+                --wait --output-format json)" || true
+        print -r -- "$out" >&2
+        id="$(print -r -- "$out" | plutil -extract id raw -o - - 2>/dev/null || true)"
+        [[ -n "$id" ]] && xcrun notarytool log "$id" --keychain-profile "$NOTARY_PROFILE" >&2 2>/dev/null || true
+        print -r -- "$out" | plutil -extract status raw -o - - 2>/dev/null | grep -q '^Accepted$' \
+            || die "공증 결과가 Accepted 아님 (위 로그 참조): $target"
     else
         xcrun notarytool submit "$target" \
             --apple-id "$APPLE_ID" --password "$APPLE_APP_PASSWORD" --team-id "$DEVELOPMENT_TEAM" --wait
@@ -186,6 +191,9 @@ if [[ ! -f "$DMG" ]]; then
     ln -s /Applications "$STAGE/Applications"
     hdiutil create -volname "$APP_NAME" -srcfolder "$STAGE" -ov -format UDZO "$DMG"
 fi
+
+# create-dmg는 실패해도 부분 산출물을 남길 수 있어(위 `|| true`), 유효한 이미지인지 확인한다.
+hdiutil imageinfo "$DMG" >/dev/null 2>&1 || die "생성된 DMG가 유효하지 않음: $DMG"
 
 # DMG 컨테이너도 Developer ID 서명 → 공증 → staple(다운로드 시 경고 0, spctl open 통과).
 print "▸ [+] DMG 서명 + 공증 + staple…"
