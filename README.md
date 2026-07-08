@@ -2,6 +2,15 @@
 
 [![CI](https://github.com/ai-screams/mara/actions/workflows/ci.yml/badge.svg)](https://github.com/ai-screams/mara/actions/workflows/ci.yml)
 [![Secret Scan](https://github.com/ai-screams/mara/actions/workflows/secret-scan.yml/badge.svg)](https://github.com/ai-screams/mara/actions/workflows/secret-scan.yml)
+[![Latest release](https://img.shields.io/github/v/release/ai-screams/mara?label=release&color=ff9500)](https://github.com/ai-screams/mara/releases/latest)
+[![License](https://img.shields.io/badge/license-Proprietary-lightgrey)](LICENSE)
+
+[![macOS](https://img.shields.io/badge/macOS-14%2B-000000?logo=apple&logoColor=white)](https://www.apple.com/macos/)
+[![Swift](https://img.shields.io/badge/Swift-5.9-F05138?logo=swift&logoColor=white)](https://swift.org)
+[![Universal](https://img.shields.io/badge/Universal-Apple%20Silicon%20%26%20Intel-000000?logo=apple&logoColor=white)](#install)
+[![Notarized](https://img.shields.io/badge/Apple-Notarized-34c759?logo=apple&logoColor=white)](RELEASING.md)
+[![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-ea4aaa?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/ai-screams)
+[![Ko-fi](https://img.shields.io/badge/Ko--fi-Support-ff5e5b?logo=kofi&logoColor=white)](https://ko-fi.com/pignuante)
 
 A macOS menu-bar app that keeps your Mac from sleeping. Caffeine-style, but built the honest way — no permission bypasses, no undocumented tricks. It uses only **official IOKit power assertions**, **IOKit power-source state**, **SMAppService**, and the **system routing table**.
 
@@ -131,6 +140,20 @@ The release workflow runs in a protected `release` environment (requires reviewe
 - Secret Scan: TruffleHog verified/unknown results
 - GitHub Actions supply-chain hardening: actions pinned to commit SHAs, kept current by Dependabot
 - Release verification: `spctl -t open`, `xcrun stapler validate`
+
+## Support
+
+Mara is built and maintained by one person — no ads, no telemetry. If it earns a place on your Mac, you can help fund its development:
+
+<p>
+  <a href="https://github.com/sponsors/ai-screams">
+    <img src="https://img.shields.io/badge/Sponsor%20on-GitHub-ea4aaa?style=for-the-badge&logo=githubsponsors&logoColor=white" alt="Sponsor on GitHub" height="38">
+  </a>
+  &nbsp;
+  <a href="https://ko-fi.com/pignuante">
+    <img src="https://img.shields.io/badge/Support%20on-Ko--fi-ff5e5b?style=for-the-badge&logo=kofi&logoColor=white" alt="Support on Ko-fi" height="38">
+  </a>
+</p>
 
 ## License
 
