@@ -41,25 +41,19 @@ xcodebuild -project Mara.xcodeproj -scheme Mara -configuration Debug CODE_SIGNIN
 
 ## 배포 (릴리스)
 
-Developer ID 서명 + Apple 공증된 `.dmg`를 만든다. `scripts/release.sh`가 빌드→서명→공증→staple→dmg를 자동화한다.
-
-**1회 설정** — Developer ID 인증서는 이미 있음(team `7K6MK3KP9K`). 공증 자격증명만 keychain에 저장하면 된다:
+Developer ID 서명 + Apple 공증된 `.dmg`로 배포한다(드래그-투-Applications). 전체 절차·CI 자동화는 **[RELEASING.md](RELEASING.md)** 참조.
 
 ```bash
-# 앱 암호는 appleid.apple.com ▸ 로그인 및 보안 ▸ 앱 암호에서 발급.
+# 1회: 공증 자격증명 저장 (앱 암호는 appleid.apple.com ▸ 로그인 및 보안 ▸ 앱 암호).
 xcrun notarytool store-credentials mara-notary \
-  --apple-id "<your-apple-id>" --team-id 7K6MK3KP9K \
-  --password "<app-specific-password>"
+  --apple-id "<your-apple-id>" --team-id 7K6MK3KP9K --password "<app-specific-password>"
+
+# 로컬 릴리스 → dist/Mara-<버전>.dmg (Gatekeeper clean)
+DEVELOPMENT_TEAM=7K6MK3KP9K NOTARY_PROFILE=mara-notary make release
 ```
 
-**릴리스 실행**:
-
-```bash
-NOTARY_PROFILE=mara-notary scripts/release.sh
-# → dist/Mara-<버전>.dmg  (Gatekeeper clean)
-```
-
-버전은 `project.yml`의 `MARKETING_VERSION`으로 관리한다. 새 릴리스는 GitHub Releases에 이 dmg를 첨부한다.
+또는 태그를 밀면 GitHub Actions가 서명·공증·릴리스를 자동화한다(보호된 `release` 환경 + 승인 게이트):
+`git tag v1.0.0 && git push origin v1.0.0`. 버전은 태그에서 온다.
 
 ## 상태
 
