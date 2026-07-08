@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mara — Keep your Mac awake</title>
+  <meta name="description" content="Mara — a macOS menu-bar app that keeps your Mac awake. Caffeine-style, but built the honest way: official IOKit power assertions, zero permissions, notarized." />
+  <meta name="theme-color" content="#17171a" />
+  <link rel="canonical" href="https://ai-screams.github.io/mara/" />
+  <link rel="icon" type="image/png" href="assets/favicon.png" />
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
+
+  <!-- Open Graph / Twitter -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Mara — Keep your Mac awake" />
+  <meta property="og:description" content="Caffeine-style macOS keep-awake, built the honest way: official APIs, zero permissions, notarized." />
+  <meta property="og:url" content="https://ai-screams.github.io/mara/" />
+  <meta property="og:image" content="https://ai-screams.github.io/mara/assets/og-image.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Mara — Keep your Mac awake" />
+  <meta name="twitter:image" content="https://ai-screams.github.io/mara/assets/og-image.png" />
+
+  <!-- SEO: structured data (no hardcoded version — download resolves via /releases/latest) -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Mara",
+    "applicationCategory": "UtilitiesApplication",
+    "operatingSystem": "macOS 14+",
+    "url": "https://ai-screams.github.io/mara/",
+    "downloadUrl": "https://github.com/ai-screams/mara/releases/latest",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+  }
+  </script>
+
+  <style>
+    :root {
+      --bg:        #17171a;
+      --bg-2:      #1b1b1f;
+      --card:      #222227;
+      --card-2:    #26262c;
+      --border:    rgba(255,255,255,0.08);
+      --border-2:  rgba(255,255,255,0.12);
+      --text:      #f3f3f5;
+      --text-mid:  #c4c4cc;
+      --text-muted:#8b8b95;
+      --accent:    #ff9500;
+      --accent-2:  #ffb04d;
+      --accent-glow: rgba(255,149,0,0.16);
+      --radius:    14px;
+      --radius-lg: 22px;
+      --maxw:      1080px;
+      --shadow:    0 1px 3px rgba(0,0,0,0.3), 0 10px 34px rgba(0,0,0,0.34);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue",
+                   "Apple SD Gothic Neo", "Segoe UI", Roboto, sans-serif;
+      background: var(--bg); color: var(--text);
+      line-height: 1.6; -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+    a { color: inherit; text-decoration: none; }
+    .wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 24px; }
+
+    /* ── nav ── */
+    nav {
+      position: sticky; top: 0; z-index: 20;
+      background: rgba(23,23,26,0.82); backdrop-filter: saturate(160%) blur(14px);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-in { display: flex; align-items: center; justify-content: space-between; height: 60px; }
+    .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; }
+    .brand img { width: 26px; height: 26px; border-radius: 6px; }
+    .nav-right { display: flex; align-items: center; gap: 18px; }
+    .nav-right a { color: var(--text-mid); font-size: 14px; font-weight: 500; transition: color .15s; }
+    .nav-right a:hover { color: var(--text); }
+    .lang-toggle {
+      background: var(--card); border: 1px solid var(--border-2); color: var(--text-mid);
+      border-radius: 8px; padding: 5px 11px; font-size: 13px; font-weight: 600; cursor: pointer;
+      transition: all .15s; font-family: inherit;
+    }
+    .lang-toggle:hover { color: var(--text); border-color: var(--accent); }
+
+    /* ── hero ── */
+    .hero { text-align: center; padding: 88px 0 72px; position: relative; }
+    .hero::before {
+      content: ""; position: absolute; top: -60px; left: 50%; transform: translateX(-50%);
+      width: 620px; height: 620px; max-width: 100%;
+      background: radial-gradient(circle, var(--accent-glow) 0%, transparent 62%);
+      pointer-events: none; z-index: 0;
+    }
+    .hero > * { position: relative; z-index: 1; }
+    .hero-icon { width: 132px; height: 132px; border-radius: 28px; box-shadow: var(--shadow); }
+    .hero h1 { font-size: 68px; font-weight: 800; letter-spacing: -0.02em; margin: 24px 0 6px; }
+    .hero .tagline { font-size: 25px; font-weight: 600; color: var(--accent); }
+    .hero .sub { font-size: 18px; color: var(--text-mid); max-width: 560px; margin: 16px auto 0; }
+
+    .cta { margin-top: 36px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+    .btn {
+      display: inline-flex; align-items: center; gap: 10px;
+      background: var(--accent); color: #241300; font-weight: 700; font-size: 17px;
+      padding: 15px 30px; border-radius: 13px; transition: transform .12s, box-shadow .12s, background .12s;
+      box-shadow: 0 6px 22px rgba(255,149,0,0.28);
+    }
+    .btn:hover { background: var(--accent-2); transform: translateY(-2px); box-shadow: 0 10px 30px rgba(255,149,0,0.36); }
+    .btn svg { width: 19px; height: 19px; }
+    .cta .meta { font-size: 13.5px; color: var(--text-muted); }
+
+    /* ── sections ── */
+    section.block { padding: 66px 0; border-top: 1px solid var(--border); }
+    .eyebrow { text-align: center; color: var(--accent); font-weight: 700; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; }
+    .block h2 { text-align: center; font-size: 34px; font-weight: 800; letter-spacing: -0.01em; margin: 10px 0 8px; }
+    .block .lead { text-align: center; color: var(--text-mid); font-size: 17px; max-width: 620px; margin: 0 auto 44px; }
+
+    /* ── feature grid ── */
+    .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+    .fcard {
+      background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 26px 24px; transition: border-color .15s, transform .15s, background .15s;
+    }
+    .fcard:hover { border-color: var(--border-2); transform: translateY(-3px); background: var(--card-2); }
+    .fcard .ic { font-size: 27px; line-height: 1; }
+    .fcard h3 { font-size: 18px; font-weight: 700; margin: 15px 0 7px; }
+    .fcard p { font-size: 14.5px; color: var(--text-muted); }
+
+    /* ── privacy band ── */
+    .band {
+      background: linear-gradient(180deg, var(--bg-2), var(--bg));
+      border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+    }
+    .privacy { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: center; padding: 66px 0; }
+    .privacy .big { font-size: 44px; font-weight: 800; letter-spacing: -0.02em; }
+    .privacy .big .accent { color: var(--accent); }
+    .privacy p { color: var(--text-mid); font-size: 16px; margin-top: 14px; }
+    .plist { list-style: none; display: flex; flex-direction: column; gap: 14px; }
+    .plist li { display: flex; gap: 12px; align-items: flex-start; font-size: 15px; }
+    .plist .chk { color: var(--accent); font-weight: 800; flex: none; margin-top: 1px; }
+    .plist b { color: var(--text); font-weight: 600; }
+    .plist span.d { color: var(--text-muted); }
+
+    /* ── install ── */
+    .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; counter-reset: s; }
+    .step { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 26px 24px; position: relative; }
+    .step::before {
+      counter-increment: s; content: counter(s);
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 34px; height: 34px; border-radius: 50%;
+      background: var(--accent-glow); color: var(--accent); font-weight: 800; font-size: 16px; margin-bottom: 14px;
+    }
+    .step h3 { font-size: 16.5px; font-weight: 700; margin-bottom: 6px; }
+    .step p { font-size: 14.5px; color: var(--text-muted); }
+    .note { text-align: center; color: var(--text-muted); font-size: 14px; margin-top: 30px; }
+    .note b { color: var(--accent); font-weight: 600; }
+
+    /* ── footer ── */
+    footer { border-top: 1px solid var(--border); padding: 40px 0 56px; text-align: center; }
+    footer .brand { justify-content: center; margin-bottom: 14px; }
+    footer .flinks { display: flex; gap: 22px; justify-content: center; margin-bottom: 16px; flex-wrap: wrap; }
+    footer .flinks a { color: var(--text-mid); font-size: 14px; }
+    footer .flinks a:hover { color: var(--accent); }
+    footer .fine { color: var(--text-muted); font-size: 13px; }
+
+    @media (max-width: 820px) {
+      .grid, .steps { grid-template-columns: 1fr; }
+      .privacy { grid-template-columns: 1fr; gap: 26px; text-align: center; }
+      .plist li { text-align: left; }
+      .hero h1 { font-size: 52px; }
+      .hero .tagline { font-size: 21px; }
+      .privacy .big { font-size: 34px; }
+    }
+  </style>
+</head>
+<body>
+  <nav>
+    <div class="wrap nav-in">
+      <a class="brand" href="#top"><img src="assets/favicon.png" alt="Mara" /> Mara</a>
+      <div class="nav-right">
+        <a href="#features" data-en="Features" data-ko="기능">기능</a>
+        <a href="#privacy" data-en="Privacy" data-ko="프라이버시">프라이버시</a>
+        <a href="https://github.com/ai-screams/mara" target="_blank" rel="noopener">GitHub</a>
+        <button class="lang-toggle" id="langBtn">EN</button>
+      </div>
+    </div>
+  </nav>
+
+  <header class="hero" id="top">
+    <div class="wrap">
+      <img class="hero-icon" src="assets/icon.png" alt="Mara app icon" />
+      <h1>Mara</h1>
+      <p class="tagline" data-en="Keep your Mac awake." data-ko="Mac이 잠들지 않게.">Mac이 잠들지 않게.</p>
+      <p class="sub"
+         data-en="A macOS menu-bar app that stops your Mac from sleeping — Caffeine-style, built the honest way. Official APIs only, zero permissions."
+         data-ko="Mac이 잠들지 못하게 막는 macOS 메뉴바 앱. Caffeine 계열이지만 정공법으로 만들었습니다. 공식 API만, 권한 요구 0.">
+        Mac이 잠들지 못하게 막는 macOS 메뉴바 앱. Caffeine 계열이지만 정공법으로 만들었습니다. 공식 API만, 권한 요구 0.
+      </p>
+      <div class="cta">
+        <a class="btn" id="dlBtn" href="https://github.com/ai-screams/mara/releases/latest" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 21h16"/></svg>
+          <span data-en="Download for macOS" data-ko="macOS용 다운로드">macOS용 다운로드</span>
+        </a>
+        <span class="meta" id="dlMeta">Universal · macOS 14+ · .dmg</span>
+      </div>
+    </div>
+  </header>
+
+  <section class="block" id="features">
+    <div class="wrap">
+      <p class="eyebrow" data-en="Features" data-ko="기능">기능</p>
+      <h2 data-en="Awake, exactly when you want" data-ko="원할 때, 정확히 깨어있게">원할 때, 정확히 깨어있게</h2>
+      <p class="lead"
+         data-en="One click or a timer, display or system only, and automatic triggers that arm themselves."
+         data-ko="클릭 한 번 또는 타이머로, 화면만 또는 시스템만, 그리고 스스로 켜지는 자동 트리거까지.">
+        클릭 한 번 또는 타이머로, 화면만 또는 시스템만, 그리고 스스로 켜지는 자동 트리거까지.
+      </p>
+      <div class="grid">
+        <div class="fcard">
+          <div class="ic">⏱️</div>
+          <h3 data-en="Toggle or timer" data-ko="토글 또는 타이머">토글 또는 타이머</h3>
+          <p data-en="Keep awake indefinitely, or for 15m / 1h / 2h / 5h. A live countdown shows next to the icon."
+             data-ko="무기한, 또는 15분 / 1시간 / 2시간 / 5시간. 아이콘 옆에 남은 시간이 실시간 표시됩니다.">
+            무기한, 또는 15분 / 1시간 / 2시간 / 5시간. 아이콘 옆에 남은 시간이 실시간 표시됩니다.
+          </p>
+        </div>
+        <div class="fcard">
+          <div class="ic">🖥️</div>
+          <h3 data-en="Display or system" data-ko="화면 또는 시스템">화면 또는 시스템</h3>
+          <p data-en="Keep the display on too, or let the screen dim while the system stays awake for downloads."
+             data-ko="화면까지 켜두거나, 다운로드 중엔 화면은 꺼지되 시스템만 깨어있게 할 수 있습니다.">
+            화면까지 켜두거나, 다운로드 중엔 화면은 꺼지되 시스템만 깨어있게 할 수 있습니다.
+          </p>
+        </div>
+        <div class="fcard">
+          <div class="ic">⚡</div>
+          <h3 data-en="Automatic triggers" data-ko="자동 트리거">자동 트리거</h3>
+          <p data-en="Auto-activate on AC power, an external display, a chosen app running, or a specific network."
+             data-ko="충전(AC) 연결·외장 디스플레이·특정 앱 실행·특정 네트워크에서 자동으로 켜집니다.">
+            충전(AC) 연결·외장 디스플레이·특정 앱 실행·특정 네트워크에서 자동으로 켜집니다.
+          </p>
+        </div>
+        <div class="fcard">
+          <div class="ic">🔋</div>
+          <h3 data-en="Low-battery auto-off" data-ko="저배터리 자동 종료">저배터리 자동 종료</h3>
+          <p data-en="On battery, Mara safely turns keep-awake off below your threshold — it never drains your Mac flat."
+             data-ko="배터리 사용 중 설정한 임계치 아래로 떨어지면 안전하게 자동 종료됩니다. 방전 걱정 없이.">
+            배터리 사용 중 설정한 임계치 아래로 떨어지면 안전하게 자동 종료됩니다. 방전 걱정 없이.
+          </p>
+        </div>
+        <div class="fcard">
+          <div class="ic">👁️</div>
+          <h3 data-en="Tells you at a glance" data-ko="한눈에 보이는 상태">한눈에 보이는 상태</h3>
+          <p data-en="An open orange eye means awake (with time left); a closed eye means your Mac can sleep."
+             data-ko="뜬 주황 눈 = 깨어있음(+남은 시간), 감은 눈 = 잠들 수 있음. 메뉴바에서 바로 확인됩니다.">
+            뜬 주황 눈 = 깨어있음(+남은 시간), 감은 눈 = 잠들 수 있음. 메뉴바에서 바로 확인됩니다.
+          </p>
+        </div>
+        <div class="fcard">
+          <div class="ic">🚀</div>
+          <h3 data-en="Launch at login" data-ko="로그인 시 시작">로그인 시 시작</h3>
+          <p data-en="Optionally start Mara automatically when you log in, via Apple's SMAppService."
+             data-ko="원하면 로그인 시 자동 시작. Apple 정식 SMAppService를 사용합니다.">
+            원하면 로그인 시 자동 시작. Apple 정식 SMAppService를 사용합니다.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="band" id="privacy">
+    <div class="wrap privacy">
+      <div>
+        <div class="big"><span data-en="Zero permissions." data-ko="권한 0.">권한 0.</span><br /><span class="accent" data-en="The honest way." data-ko="정공법.">정공법.</span></div>
+        <p data-en="No Location, no Accessibility, no Screen Recording — Mara asks for nothing. It uses only official, documented Apple APIs, and every build is notarized by Apple."
+           data-ko="위치·손쉬운 사용·화면 기록 권한을 전혀 요구하지 않습니다. 공식·문서화된 Apple API만 사용하고, 모든 빌드는 Apple 공증을 받습니다.">
+          위치·손쉬운 사용·화면 기록 권한을 전혀 요구하지 않습니다. 공식·문서화된 Apple API만 사용하고, 모든 빌드는 Apple 공증을 받습니다.
+        </p>
+      </div>
+      <ul class="plist">
+        <li><span class="chk">✓</span><span><b>IOKit power assertions</b> — <span class="d" data-en="the same mechanism Apple's own tools use." data-ko="Apple 자체 도구가 쓰는 바로 그 방식.">Apple 자체 도구가 쓰는 바로 그 방식.</span></span></li>
+        <li><span class="chk">✓</span><span><b data-en="No CoreLocation" data-ko="CoreLocation 없음">CoreLocation 없음</b> — <span class="d" data-en="network triggers use the gateway, not your location." data-ko="네트워크 트리거는 위치가 아니라 게이트웨이로 식별합니다.">네트워크 트리거는 위치가 아니라 게이트웨이로 식별합니다.</span></span></li>
+        <li><span class="chk">✓</span><span><b data-en="Notarized & Hardened Runtime" data-ko="공증 + Hardened Runtime">공증 + Hardened Runtime</b> — <span class="d" data-en="opens clean, no Gatekeeper warning." data-ko="Gatekeeper 경고 없이 바로 열립니다.">Gatekeeper 경고 없이 바로 열립니다.</span></span></li>
+        <li><span class="chk">✓</span><span><b data-en="No permission bypasses" data-ko="권한 우회 없음">권한 우회 없음</b> — <span class="d" data-en="no SIP tricks, no undocumented hacks." data-ko="SIP 비활성화·미문서화 꼼수 없음.">SIP 비활성화·미문서화 꼼수 없음.</span></span></li>
+      </ul>
+    </div>
+  </div>
+
+  <section class="block" id="install">
+    <div class="wrap">
+      <p class="eyebrow" data-en="Install" data-ko="설치">설치</p>
+      <h2 data-en="Up and running in seconds" data-ko="몇 초면 실행됩니다">몇 초면 실행됩니다</h2>
+      <p class="lead"
+         data-en="No installer, no setup, no account. Just drag and go."
+         data-ko="설치 프로그램도, 설정도, 계정도 없습니다. 드래그하면 끝.">
+        설치 프로그램도, 설정도, 계정도 없습니다. 드래그하면 끝.
+      </p>
+      <div class="steps">
+        <div class="step">
+          <h3 data-en="Download the .dmg" data-ko=".dmg 다운로드">.dmg 다운로드</h3>
+          <p data-en="Grab the latest signed, notarized build." data-ko="서명·공증된 최신 빌드를 내려받습니다.">서명·공증된 최신 빌드를 내려받습니다.</p>
+        </div>
+        <div class="step">
+          <h3 data-en="Drag to Applications" data-ko="Applications로 드래그">Applications로 드래그</h3>
+          <p data-en="Open the .dmg and drop Mara into your Applications folder." data-ko=".dmg를 열고 Mara를 Applications 폴더로 옮깁니다.">.dmg를 열고 Mara를 Applications 폴더로 옮깁니다.</p>
+        </div>
+        <div class="step">
+          <h3 data-en="Launch — done" data-ko="실행 — 끝">실행 — 끝</h3>
+          <p data-en="A menu-bar eye appears. Click it to keep your Mac awake." data-ko="메뉴바에 눈 아이콘이 나타납니다. 클릭해서 잠들기를 막으세요.">메뉴바에 눈 아이콘이 나타납니다. 클릭해서 잠들기를 막으세요.</p>
+        </div>
+      </div>
+      <p class="note"
+         data-en="Signed with Developer ID and notarized by Apple — <b>no Gatekeeper warning</b>. Requires macOS 14 or later (Apple Silicon &amp; Intel)."
+         data-ko="Developer ID 서명 + Apple 공증 — <b>Gatekeeper 경고 없음</b>. macOS 14 이상 (Apple Silicon·Intel).">
+        Developer ID 서명 + Apple 공증 — <b>Gatekeeper 경고 없음</b>. macOS 14 이상 (Apple Silicon·Intel).
+      </p>
+    </div>
+  </section>
+
+  <footer>
+    <div class="wrap">
+      <a class="brand" href="#top"><img src="assets/favicon.png" alt="Mara" /> Mara</a>
+      <div class="flinks">
+        <a href="https://github.com/ai-screams/mara" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://github.com/ai-screams/mara/releases" target="_blank" rel="noopener" data-en="Releases" data-ko="릴리스">릴리스</a>
+        <a href="#features" data-en="Features" data-ko="기능">기능</a>
+      </div>
+      <p class="fine">© <span id="yr"></span> ai-screams · <span data-en="Mara is folklore for the spirit that sits on a sleeper's chest — the root of “nightmare.”" data-ko="Mara는 잠든 이의 가슴에 앉는 악령으로, ‘nightmare’의 어원입니다.">Mara는 잠든 이의 가슴에 앉는 악령으로, ‘nightmare’의 어원입니다.</span></p>
+    </div>
+  </footer>
+
+  <script>
+    (function () {
+      var STORE = "mara-lang";
+      function detect() {
+        var s = localStorage.getItem(STORE);
+        if (s === "en" || s === "ko") return s;
+        return (navigator.language || "").toLowerCase().indexOf("ko") === 0 ? "ko" : "en";
+      }
+      var lang = detect();
+      var btn = document.getElementById("langBtn");
+      function apply(l) {
+        lang = l;
+        document.documentElement.lang = l;
+        localStorage.setItem(STORE, l);
+        btn.textContent = l === "ko" ? "EN" : "한국어";
+        document.querySelectorAll("[data-en]").forEach(function (el) {
+          var v = el.getAttribute("data-" + l);
+          if (v == null) return;
+          if (/[<&]/.test(v)) el.innerHTML = v; else el.textContent = v;
+        });
+      }
+      btn.addEventListener("click", function () { apply(lang === "ko" ? "en" : "ko"); });
+      apply(lang);
+
+      document.getElementById("yr").textContent = new Date().getFullYear();
+
+      // Resolve the latest release: fill version + point the button at the .dmg asset.
+      fetch("https://api.github.com/repos/ai-screams/mara/releases/latest", {
+        headers: { "Accept": "application/vnd.github+json" }
+      }).then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (data) {
+          if (!data || !data.tag_name) return;
+          var dmg = (data.assets || []).filter(function (a) {
+            return a.name && a.name.toLowerCase().slice(-4) === ".dmg";
+          })[0];
+          var meta = document.getElementById("dlMeta");
+          if (dmg) {
+            document.getElementById("dlBtn").href = dmg.browser_download_url;
+          }
+          if (meta) meta.textContent = "Universal · macOS 14+ · .dmg · " + data.tag_name;
+        }).catch(function () { /* keep the /releases/latest fallback */ });
+    })();
+  </script>
+</body>
+</html>
