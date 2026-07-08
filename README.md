@@ -4,6 +4,15 @@ macOS 메뉴바 앱 — Mac이 잠들지 못하게 막는다. Caffeine 계열이
 
 > 이름의 유래: 민속에서 *mara*는 잠든 이의 가슴 위에 앉아 안식을 방해하는 악령으로, *nightmare*(night + mare)의 어원이다.
 
+## 설치
+
+1. [릴리스](https://github.com/ai-screams/mara/releases)에서 `Mara-<버전>.dmg`를 내려받는다.
+2. dmg를 열고 **Mara**를 `Applications` 폴더로 드래그한다.
+3. Launchpad나 Applications에서 Mara를 실행한다 — 메뉴바에 눈 아이콘이 나타난다.
+
+> Developer ID 서명 + Apple 공증이 되어 있어 Gatekeeper 경고 없이 바로 열린다.
+> 부팅 시 자동 시작을 원하면 메뉴 ▸ **Launch at Login**을 켠다. 잠들기 방지가 켜지면 눈이 뜨고(주황) 남은 시간이 표시된다.
+
 ## 구조
 
 | 모듈 | 책임 |
@@ -30,8 +39,31 @@ xcodebuild -project Mara.xcodeproj -scheme Mara -configuration Debug CODE_SIGNIN
 
 > 실행/권한 테스트는 **안정 Apple Development 서명** 빌드로 한다 (ad-hoc 금지 — TCC/로그인항목 권한 꼬임 방지).
 
+## 배포 (릴리스)
+
+Developer ID 서명 + Apple 공증된 `.dmg`를 만든다. `scripts/release.sh`가 빌드→서명→공증→staple→dmg를 자동화한다.
+
+**1회 설정** — Developer ID 인증서는 이미 있음(team `7K6MK3KP9K`). 공증 자격증명만 keychain에 저장하면 된다:
+
+```bash
+# 앱 암호는 appleid.apple.com ▸ 로그인 및 보안 ▸ 앱 암호에서 발급.
+xcrun notarytool store-credentials mara-notary \
+  --apple-id "<your-apple-id>" --team-id 7K6MK3KP9K \
+  --password "<app-specific-password>"
+```
+
+**릴리스 실행**:
+
+```bash
+NOTARY_PROFILE=mara-notary scripts/release.sh
+# → dist/Mara-<버전>.dmg  (Gatekeeper clean)
+```
+
+버전은 `project.yml`의 `MARKETING_VERSION`으로 관리한다. 새 릴리스는 GitHub Releases에 이 dmg를 첨부한다.
+
 ## 상태
 
-- **Plan 1 (코어 MVP)**: 토글·타이머·디스플레이↔시스템 분리·저배터리 자동 OFF·로그인 시 시작·설정 창. 코어 유닛 테스트 통과.
-- **Plan 2 (예정)**: 트리거 자동화(앱/Wi-Fi/충전/외장 디스플레이) + 수동>트리거 우선순위 + Shortcuts/Focus
-- **Plan 3 (예정)**: 닫힌 뚜껑(클램셸) 유지 — 권한 데몬 + lease 기반 복원 안전모델
+- **Plan 1 / 1.5 (코어 + 하드닝)**: 토글·타이머·디스플레이↔시스템 분리·저배터리 자동 OFF·로그인 시 시작·설정 창. durable `TriggerEngine`(suppression/re-arm, 수동 > 트리거 우선순위).
+- **Plan 2A / 2B (트리거 자동화)**: 충전(AC)·외장 디스플레이·특정 앱 실행·특정 네트워크(게이트웨이 MAC — CoreLocation 권한 불필요)에서 자동 keep-awake.
+- 메뉴바 눈 아이콘(활성 = 뜬 눈·주황 + 남은 시간 / 비활성 = 감은 눈), 코어 유닛 + 실제 IOKit 통합 테스트.
+- **Plan 3 (보류)**: 닫힌 뚜껑(클램셸) 유지 — 권한 데몬 + lease 기반 복원 안전모델. 사용자 결정으로 연기.
