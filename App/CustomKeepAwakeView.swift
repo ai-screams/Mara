@@ -44,6 +44,8 @@ struct CustomKeepAwakeView: View {
                         stepperField(value: $hours, range: 0...24, unit: "h")
                         stepperField(value: $minutes, range: 0...55, unit: "m", step: 5)
                     }
+                    // 최대 24h — 24h에서 분을 얹지 못하게 클램프
+                    .onChange(of: hours) { _, h in if h == 24 { minutes = 0 } }
                     Text(durationSeconds > 0 ? "Keeps your Mac awake for \(DurationFormat.compact(durationSeconds))." : "Pick a duration.")
                         .font(.caption).foregroundStyle(MaraTheme.muted)
                 } else {
@@ -68,6 +70,8 @@ struct CustomKeepAwakeView: View {
         .background(MaraTheme.bg)
         .preferredColorScheme(.dark)
         .tint(MaraTheme.accent)
+        // 캐시된 창이라 @State가 살아남는다 — 열 때마다 기본 시각을 현재+1h로 리셋 (duration 입력은 관례상 유지)
+        .onAppear { untilTime = Date().addingTimeInterval(3600) }
     }
 
     /// Until: 오늘의 해당 시각, 이미 지났으면 내일 — 알람의 표준 의미.
@@ -79,7 +83,8 @@ struct CustomKeepAwakeView: View {
             let cal = Calendar.current
             let hm = cal.dateComponents([.hour, .minute], from: untilTime)
             var target = cal.nextDate(after: Date(), matching: hm, matchingPolicy: .nextTime) ?? untilTime
-            if target <= Date() { target = target.addingTimeInterval(24 * 3600) }
+            // DST-safe rollover: 달력 기준 +1일 (24 * 3600 고정 대신)
+            if target <= Date() { target = cal.date(byAdding: .day, value: 1, to: target) ?? target }
             return .until(target)
         }
     }
@@ -94,6 +99,9 @@ struct CustomKeepAwakeView: View {
             Stepper(unit, value: value, in: range, step: step)
                 .labelsHidden()
                 .controlSize(.small)
+                // F4: VoiceOver가 label+value를 두 번 읽지 않도록 명시적으로 지정
+                .accessibilityLabel(unit == "h" ? "Hours" : "Minutes")
+                .accessibilityValue("\(value.wrappedValue)")
         }
     }
 }

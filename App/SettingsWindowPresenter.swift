@@ -13,7 +13,7 @@ final class SettingsWindowPresenter {
 
     func show() {
         if window == nil { window = Self.makeWindow(content: makeContent()) }
-        NSApp.activate(ignoringOtherApps: true)
+        NSApp.activate()
         window?.makeKeyAndOrderFront(nil)
     }
 

@@ -14,7 +14,7 @@ final class CustomKeepAwakePresenter {
 
     func show() {
         if window == nil { window = makeWindow() }
-        NSApp.activate(ignoringOtherApps: true)
+        NSApp.activate()
         window?.makeKeyAndOrderFront(nil)
     }
 
