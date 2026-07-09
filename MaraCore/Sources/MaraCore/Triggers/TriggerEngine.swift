@@ -52,7 +52,7 @@ public final class TriggerEngine {
         sessionCancellable = nil
         // trigger-origin 세션이 활성이면 함께 종료 (orphan 방지)
         if case let .active(cfg, _) = session.state, cfg.origin == .trigger {
-            session.stop()
+            session.stop(reason: .triggerCleared)
         }
     }
 
@@ -70,7 +70,7 @@ public final class TriggerEngine {
         guard isAnySatisfied else {
             suppressed = false   // 모든 트리거 false → 재무장
             if case let .active(cfg, _) = session.state, cfg.origin == .trigger {
-                session.stop()
+                session.stop(reason: .triggerCleared)
             }
             return
         }

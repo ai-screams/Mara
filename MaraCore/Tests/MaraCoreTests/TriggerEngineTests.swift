@@ -157,6 +157,21 @@ extension TriggerEngineTests {
 }
 
 extension TriggerEngineTests {
+    // 트리거 해제로 자동 종료 시 .triggerCleared reason이 기록되어야 한다.
+    func test_triggerDrop_recordsTriggerClearedReason() {
+        let (sm, _) = makeSession()
+        let t = MockTrigger(satisfied: false)
+        let engine = TriggerEngine(session: sm, scope: { .systemOnly })
+        engine.updateEvaluators([t])
+        t.set(true)                            // 트리거 충족 → trigger-origin 세션 시작
+        XCTAssertTrue(sm.state.isActive)
+        t.set(false)                           // 해제 → 자동 종료
+        XCTAssertFalse(sm.state.isActive)
+        XCTAssertEqual(sm.recentEvents.last?.kind, .stopped(.triggerCleared))
+    }
+}
+
+extension TriggerEngineTests {
     // 동일 kind의 평가기 인스턴스 교체 시 중간 stop/start(assertion 해제·재취득)가 없어야 한다.
     func test_updateEvaluators_replacingInstance_noSpuriousChurn() {
         let (sm, p) = makeSession()
