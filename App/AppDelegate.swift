@@ -47,6 +47,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func refreshStatusButton(_ state: SessionState) {
         guard let button = statusItem?.button else { return }
         button.image = Self.statusIcon(active: state.isActive)
+        // 색은 contentTintColor로 입힌다 — 팔레트 컬러 non-template 이미지는 메뉴바에서
+        // 단색으로 렌더된다(macOS 26 관측). template + tint가 정석이고 다크/라이트에도 안전.
+        button.contentTintColor = state.isActive ? .systemOrange : nil
         button.imagePosition = .imageLeading
         button.title = durationLabel(for: state).map { " " + $0 } ?? ""
     }
@@ -68,19 +71,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         return m == 0 ? "\(h)h" : "\(h)h\(m)m"
     }
 
-    /// 활성: 뜬 눈 + 주황(색상 유지) / 비활성: 감은 눈 + template(라이트·다크 자동 적응).
+    /// 활성: 뜬 눈 / 비활성: 감은 눈. 둘 다 template — 색은 refreshStatusButton의
+    /// contentTintColor가 입힌다(활성=오렌지, 비활성=메뉴바 톤 자동 적응).
     static func statusIcon(active: Bool) -> NSImage {
         let symbol = active ? "eye.fill" : "eye.slash.fill"
-        let description = active ? "Mara — keep-awake 활성" : "Mara — 비활성"
-        let base = NSImage(systemSymbolName: symbol, accessibilityDescription: description) ?? NSImage()
-        guard active else {
-            base.isTemplate = true
-            return base
-        }
-        let config = NSImage.SymbolConfiguration(paletteColors: [.systemOrange])
-        let colored = base.withSymbolConfiguration(config) ?? base
-        colored.isTemplate = false
-        return colored
+        let description = active ? "Mara — keep-awake active" : "Mara — inactive"
+        let image = NSImage(systemSymbolName: symbol, accessibilityDescription: description) ?? NSImage()
+        image.isTemplate = true
+        return image
     }
 
     // MARK: - Menu (rebuilt on open for live state)
@@ -89,11 +87,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.removeAllItems()
         let state = env.session.state
 
-        addItem(to: menu, title: state.isActive ? "Turn Off" : "Keep Awake", action: #selector(toggleKeepAwake))
+        addItem(to: menu, title: state.isActive ? "Turn Off" : "Keep Awake",
+                action: #selector(toggleKeepAwake),
+                symbol: state.isActive ? "eye.slash.fill" : "eye.fill")
 
         if case let .active(cfg, _) = state, cfg.origin == .trigger {
-            let t = NSMenuItem(title: "자동 활성 (트리거)", action: nil, keyEquivalent: "")
+            let t = NSMenuItem(title: "Auto-activated (trigger)", action: nil, keyEquivalent: "")
             t.isEnabled = false
+            t.image = Self.menuSymbol("bolt.fill")
             menu.addItem(t)
         }
 
@@ -105,13 +106,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         durMenu.addItem(durationItem("2 hours", 2 * 60 * 60))
         durMenu.addItem(durationItem("5 hours", 5 * 60 * 60))
         let durParent = NSMenuItem(title: "Keep awake for…", action: nil, keyEquivalent: "")
+        durParent.image = Self.menuSymbol("timer")
         durParent.submenu = durMenu
         menu.addItem(durParent)
 
-        let display = addItem(to: menu, title: "Keep display awake", action: #selector(toggleDisplay))
+        let display = addItem(to: menu, title: "Keep display awake",
+                              action: #selector(toggleDisplay), symbol: "display")
         display.state = currentKeepDisplay ? .on : .off
 
-        let login = addItem(to: menu, title: "Launch at Login", action: #selector(toggleLaunchAtLogin))
+        let login = addItem(to: menu, title: "Launch at Login",
+                            action: #selector(toggleLaunchAtLogin), symbol: "play.circle")
         login.state = LaunchAtLogin.isEnabled ? .on : .off
 
         menu.addItem(.separator())
@@ -124,18 +128,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             keyEquivalent: ""
         )
         update.target = updaterController
+        update.image = Self.menuSymbol("arrow.triangle.2.circlepath")
         menu.addItem(update)
 
-        addItem(to: menu, title: "Settings…", action: #selector(openSettings), key: ",")
-        addItem(to: menu, title: "Quit Mara", action: #selector(quit), key: "q")
+        addItem(to: menu, title: "Settings…", action: #selector(openSettings), key: ",",
+                symbol: "gearshape")
+        addItem(to: menu, title: "Quit Mara", action: #selector(quit), key: "q", symbol: "power")
     }
 
     @discardableResult
-    private func addItem(to menu: NSMenu, title: String, action: Selector, key: String = "") -> NSMenuItem {
+    private func addItem(to menu: NSMenu, title: String, action: Selector, key: String = "",
+                         symbol: String? = nil) -> NSMenuItem {
         let item = NSMenuItem(title: title, action: action, keyEquivalent: key)
         item.target = self
+        item.image = symbol.flatMap(Self.menuSymbol)
         menu.addItem(item)
         return item
+    }
+
+    /// 메뉴 항목용 템플릿 심볼 — 시스템이 메뉴 톤(라이트/다크·비활성)에 맞춰 자동 렌더한다.
+    private static func menuSymbol(_ name: String) -> NSImage? {
+        NSImage(systemSymbolName: name, accessibilityDescription: nil)
     }
 
     private func durationItem(_ title: String, _ seconds: TimeInterval) -> NSMenuItem {
@@ -175,11 +188,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func openSettings() {
         if settingsWindow == nil {
             let host = NSHostingController(
-                rootView: SettingsView(prefs: env.prefs, currentNetwork: { [env] in env.currentNetwork })
+                rootView: SettingsView(
+                    prefs: env.prefs,
+                    session: env.session,
+                    currentNetwork: { [env] in env.currentNetwork },
+                    checkForUpdates: { [updaterController] in updaterController.checkForUpdates(nil) }
+                )
             )
             let window = NSWindow(contentViewController: host)
             window.title = "Mara Settings"
-            window.styleMask = [.titled, .closable]
+            // "Night Watch" 크롬: 콘텐츠가 titlebar까지 차도록 투명 처리하고 창 배경을
+            // 테마 색으로 고정 — 뷰의 preferredColorScheme(.dark)와 함께 항상-다크를 완성한다.
+            window.styleMask = [.titled, .closable, .fullSizeContentView]
+            window.titlebarAppearsTransparent = true
+            window.titleVisibility = .hidden
+            window.appearance = NSAppearance(named: .darkAqua)
+            window.backgroundColor = MaraTheme.bgNSColor
+            window.isMovableByWindowBackground = true
             window.isReleasedWhenClosed = false
             window.center()
             settingsWindow = window
