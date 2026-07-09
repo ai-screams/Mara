@@ -16,14 +16,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     )
 
     private lazy var statusBar = StatusBarController(env: env)
-    private lazy var settingsPresenter = SettingsWindowPresenter { [env, updaterController] in
+    // init은 UNUserNotificationCenter.current() 획득/delegate 설정만 — 권한 프롬프트는 Settings 토글에서만 발생.
+    private let notificationService = NotificationService()
+    private lazy var settingsPresenter = SettingsWindowPresenter { [env, updaterController, notificationService] in
         SettingsView(
             prefs: env.prefs,
             session: env.session,
             currentNetwork: { env.currentNetwork },
-            checkForUpdates: { updaterController.checkForUpdates(nil) }
+            checkForUpdates: { updaterController.checkForUpdates(nil) },
+            requestNotificationAuth: { await notificationService.requestAuthorization() }
         )
     }
+    private var sessionNotifier: SessionNotifier?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -33,5 +37,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             action: #selector(SPUStandardUpdaterController.checkForUpdates(_:))
         )
         statusBar.install()
+        sessionNotifier = SessionNotifier(
+            session: env.session,
+            isEnabled: { [env] in env.prefs.notifyAutoSessionChanges },
+            service: notificationService
+        )
     }
 }

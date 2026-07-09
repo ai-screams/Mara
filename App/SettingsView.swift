@@ -8,6 +8,7 @@ struct SettingsView: View {
     @ObservedObject var session: SessionManager
     let currentNetwork: () -> NetworkIdentity?
     var checkForUpdates: () -> Void = {}
+    var requestNotificationAuth: () async -> Bool = { false }
 
     var body: some View {
         VStack(spacing: 18) {
@@ -34,6 +35,21 @@ struct SettingsView: View {
             SettingsStepperRow(symbol: "battery.25", title: "Low-battery auto-off",
                                value: $prefs.lowBatteryThreshold, range: 5...50, step: 5)
             SettingsCaption("Ends the session safely when battery level (on battery power) drops below the threshold.")
+            SettingsToggleRow(symbol: "bell.badge", title: "Notify on automatic start & end",
+                              isOn: $prefs.notifyAutoSessionChanges)
+                .onChange(of: prefs.notifyAutoSessionChanges) { _, enabled in
+                    guard enabled else { return }
+                    // 연타 시 Task가 중복 enqueue될 수 있으나 requestAuthorization은 최초 프롬프트 후 멱등(캐시 상태 반환)이라 무해.
+                    Task { @MainActor in
+                        // 시스템 프롬프트는 최초 1회. 거부 상태면 토글을 되돌린다(강요 금지).
+                        if await requestNotificationAuth() == false {
+                            prefs.notifyAutoSessionChanges = false
+                        }
+                    }
+                }
+            if let last = session.recentEvents.last {
+                SettingsCaption("Last: \(Self.eventLine(last))")
+            }
         }
     }
 
@@ -157,5 +173,22 @@ struct SettingsView: View {
                     .filter { !$0.isEmpty }
             }
         )
+    }
+
+    // MARK: - Event formatter
+
+    /// 최근 이벤트 한 줄 요약(영어) — 메뉴를 로그 뷰어로 만들지 않는다는 원칙에 따라 1개만.
+    static func eventLine(_ event: SessionEvent) -> String {
+        let time = event.at.formatted(date: .omitted, time: .shortened)
+        switch event.kind {
+        case .started(let cfg):
+            return cfg.origin == .trigger ? "started by trigger · \(time)" : "started · \(time)"
+        case .stopped(.manual):               return "turned off · \(time)"
+        case .stopped(.timerExpired):         return "timer expired · \(time)"
+        case .stopped(.lowBattery(let p)):    return "ended — low battery \(p)% · \(time)"
+        case .stopped(.triggerCleared):       return "ended — trigger cleared · \(time)"
+        case .stopped(.replacedByNewSession): return "restarted · \(time)"
+        case .scopeChanged:                   return "scope changed · \(time)"
+        }
     }
 }
