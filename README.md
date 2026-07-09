@@ -23,7 +23,7 @@ A macOS menu-bar app that keeps your Mac from sleeping. Caffeine-style, but buil
 - Toggle keep-awake on and off from the menu bar
 - Indefinite, or a `15m` / `1h` / `2h` / `5h` timer
 - Keep the system awake only, or the display too
-- Menu-bar eye icon: an open orange eye with the time remaining when active, a closed eye when off
+- Menu-bar eye icon: an open orange eye with the selected duration when active, a closed eye when off
 - Low-battery auto-off: on battery, the keep-awake session ends once you drop below your threshold
 - Launch at login via Apple's `SMAppService`
 - Automatic triggers:
@@ -55,15 +55,17 @@ Click the menu-bar icon for:
 - `Keep awake for…`: `15 minutes`, `1 hour`, `2 hours`, `5 hours`
 - `Keep display awake`
 - `Launch at Login`
+- `Check for Updates…`
+- `Settings…`
 - `Quit Mara`
 
-When a session is started by an automatic trigger, the menu shows a `자동 활성 (트리거)` status. If you turn it off manually, it will not restart while the trigger is still true; it re-arms only after every trigger has cleared. Manual control always takes precedence over triggers.
+When a session is started by an automatic trigger, the menu shows an `Auto-activated (trigger)` status. If you turn it off manually, it will not restart while the trigger is still true; it re-arms only after every trigger has cleared. Manual control always takes precedence over triggers.
 
 ## Architecture
 
 | Area | Responsibility |
 |---|---|
-| `App/` | SwiftUI `MenuBarExtra`, menu-bar status icon, preferences persistence, launch-at-login, wiring of the OS adapters |
+| `App/` | AppKit `NSStatusItem` menu-bar entry, SwiftUI settings window, preferences persistence, launch-at-login, wiring of the OS adapters |
 | `MaraCore/` | Swift Package. OS-free session/trigger/scheduling core behind protocols |
 | `MaraCore/Sources/MaraCore/SleepEngine.swift` | Idempotent reconcile of display/system IOKit assertions |
 | `MaraCore/Sources/MaraCore/SessionManager.swift` | Single session state, timer, scope changes, low-battery veto |
