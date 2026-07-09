@@ -187,17 +187,22 @@ BG="$BUILD_DIR/background.tiff"
 tiffutil -cathidpicheck "$BG_SRC/background.png" "$BG_SRC/background@2x.png" -out "$BG" >/dev/null
 
 if command -v create-dmg >/dev/null 2>&1; then
-    # create-dmg는 성공해도 종료코드가 비정상일 때가 있어 가드한다.
-    create-dmg \
-        --volname "$APP_NAME" \
-        ${VOLICON:+--volicon "$VOLICON"} \
-        --background "$BG" \
-        --window-size 540 380 \
-        --icon-size 100 \
-        --icon "$APP_NAME.app" 140 200 \
-        --app-drop-link 400 200 \
-        --no-internet-enable \
-        "$DMG" "$STAGE" || true
+    # 인자는 반드시 zsh 배열로 구성한다. `${VOLICON:+--volicon "$VOLICON"}`는 zsh에서
+    # 단어 분리가 안 돼 "--volicon /path"가 한 인자로 붙는다 — v0.1.0~v0.2.3의 모든 CI DMG가
+    # 이 버그로 조용히 hdiutil 폴백(민짜 창)으로 만들어졌다.
+    typeset -a dmg_args
+    dmg_args=(--volname "$APP_NAME")
+    [[ -n "$VOLICON" ]] && dmg_args+=(--volicon "$VOLICON")
+    dmg_args+=(
+        --background "$BG"
+        --window-size 540 380
+        --icon-size 100
+        --icon "$APP_NAME.app" 140 200
+        --app-drop-link 400 200
+        --no-internet-enable
+    )
+    # create-dmg는 성공해도 종료코드가 비정상일 때가 있어 가드한다(검증은 아래 배경 게이트가 담당).
+    create-dmg "${dmg_args[@]}" "$DMG" "$STAGE" || true
 fi
 if [[ ! -f "$DMG" ]]; then
     print "  (create-dmg 미사용/실패 → hdiutil 폴백)"
@@ -207,6 +212,17 @@ fi
 
 # create-dmg는 실패해도 부분 산출물을 남길 수 있어(위 `|| true`), 유효한 이미지인지 확인한다.
 hdiutil imageinfo "$DMG" >/dev/null 2>&1 || die "생성된 DMG가 유효하지 않음: $DMG"
+
+# 브랜드 배경 게이트: create-dmg가 있는 환경(CI 포함)에서 폴백(민짜 창)이 조용히
+# 게시되는 회귀를 차단한다. create-dmg는 배경을 볼륨의 .background/에 넣는다.
+if command -v create-dmg >/dev/null 2>&1; then
+    print "▸ [+] DMG 브랜드 배경 검증…"
+    MOUNT_DIR="$(mktemp -d)"
+    hdiutil attach "$DMG" -nobrowse -readonly -mountpoint "$MOUNT_DIR" >/dev/null
+    bg_ok=true; [[ -d "$MOUNT_DIR/.background" ]] || bg_ok=false
+    hdiutil detach "$MOUNT_DIR" -quiet || true
+    [[ "$bg_ok" == true ]] || die "DMG에 .background 없음 — create-dmg 실패 후 폴백이 사용됨(위 로그 확인)"
+fi
 
 # DMG 컨테이너도 Developer ID 서명 → 공증 → staple(다운로드 시 경고 0, spctl open 통과).
 print "▸ [+] DMG 서명 + 공증 + staple…"
