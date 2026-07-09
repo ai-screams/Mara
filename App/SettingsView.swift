@@ -2,7 +2,7 @@ import SwiftUI
 import MaraCore
 
 /// "Night Watch" 설정 창 — 항상 다크(MaraTheme), 눈 아이콘 glow 헤더 + 카드형 섹션.
-/// 창 크롬(투명 titlebar·배경색)은 AppDelegate.openSettings가 맞춰준다.
+/// 카드/행 컴포넌트는 SettingsComponents.swift, 창 크롬은 SettingsWindowPresenter 담당.
 struct SettingsView: View {
     @ObservedObject var prefs: PrefsStore
     @ObservedObject var session: SessionManager
@@ -12,39 +12,8 @@ struct SettingsView: View {
     var body: some View {
         VStack(spacing: 18) {
             header
-
-            card("GENERAL") {
-                toggleRow("display", "Keep display awake by default",
-                          isOn: $prefs.defaultKeepDisplayAwake)
-                stepperRow("battery.25", "Low-battery auto-off",
-                           value: $prefs.lowBatteryThreshold, in: 5...50, step: 5)
-                caption("Ends the session safely when battery level (on battery power) drops below the threshold.")
-            }
-
-            card("AUTOMATION") {
-                toggleRow("bolt.fill", "Keep awake while charging",
-                          isOn: $prefs.triggerConfig.chargingEnabled)
-                toggleRow("display.2", "Keep awake with external display",
-                          isOn: $prefs.triggerConfig.externalDisplayEnabled)
-                toggleRow("app.badge", "Keep awake while specific apps run",
-                          isOn: $prefs.triggerConfig.appRunningEnabled)
-                if prefs.triggerConfig.appRunningEnabled {
-                    caption("App bundle IDs to watch (one per line)")
-                    TextEditor(text: bundleIDsBinding)
-                        .frame(height: 72)
-                        .font(.system(.callout, design: .monospaced))
-                        .foregroundStyle(MaraTheme.textMid)
-                        .scrollContentBackground(.hidden)
-                        .padding(6)
-                        .background(Color.black.opacity(0.28), in: RoundedRectangle(cornerRadius: 6))
-                }
-                toggleRow("wifi", "Keep awake on specific networks",
-                          isOn: $prefs.triggerConfig.networkEnabled)
-                if prefs.triggerConfig.networkEnabled {
-                    networkList
-                }
-            }
-
+            generalCard
+            automationCard
             footer
         }
         .padding(.horizontal, 22)
@@ -54,6 +23,38 @@ struct SettingsView: View {
         .background(MaraTheme.bg)
         .preferredColorScheme(.dark)
         .tint(MaraTheme.accent)
+    }
+
+    // MARK: - Cards
+
+    private var generalCard: some View {
+        SettingsCard(title: "GENERAL") {
+            SettingsToggleRow(symbol: "display", title: "Keep display awake by default",
+                              isOn: $prefs.defaultKeepDisplayAwake)
+            SettingsStepperRow(symbol: "battery.25", title: "Low-battery auto-off",
+                               value: $prefs.lowBatteryThreshold, range: 5...50, step: 5)
+            SettingsCaption("Ends the session safely when battery level (on battery power) drops below the threshold.")
+        }
+    }
+
+    private var automationCard: some View {
+        SettingsCard(title: "AUTOMATION") {
+            SettingsToggleRow(symbol: "bolt.fill", title: "Keep awake while charging",
+                              isOn: $prefs.triggerConfig.chargingEnabled)
+            SettingsToggleRow(symbol: "display.2", title: "Keep awake with external display",
+                              isOn: $prefs.triggerConfig.externalDisplayEnabled)
+            SettingsToggleRow(symbol: "app.badge", title: "Keep awake while specific apps run",
+                              isOn: $prefs.triggerConfig.appRunningEnabled)
+            if prefs.triggerConfig.appRunningEnabled {
+                SettingsCaption("App bundle IDs to watch (one per line)")
+                bundleIDsEditor
+            }
+            SettingsToggleRow(symbol: "wifi", title: "Keep awake on specific networks",
+                              isOn: $prefs.triggerConfig.networkEnabled)
+            if prefs.triggerConfig.networkEnabled {
+                networkList
+            }
+        }
     }
 
     // MARK: - Header / Footer
@@ -100,47 +101,16 @@ struct SettingsView: View {
         return "\(short) (\(build))"
     }
 
-    // MARK: - Card & rows
+    // MARK: - Trigger inputs
 
-    private func card(_ title: String, @ViewBuilder content: () -> some View) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(title)
-                .font(.caption2.weight(.bold))
-                .kerning(1.4)
-                .foregroundStyle(MaraTheme.muted)
-                .padding(.leading, 2)
-            VStack(alignment: .leading, spacing: 11) { content() }
-                .padding(13)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(MaraTheme.card, in: RoundedRectangle(cornerRadius: 10))
-        }
-    }
-
-    private func toggleRow(_ symbol: String, _ title: String, isOn: Binding<Bool>) -> some View {
-        HStack(spacing: 9) {
-            icon(symbol)
-            Text(title).font(.callout).foregroundStyle(.white)
-            Spacer(minLength: 8)
-            Toggle(title, isOn: isOn)
-                .labelsHidden()
-                .toggleStyle(.switch)
-                .controlSize(.small)
-        }
-    }
-
-    private func stepperRow(_ symbol: String, _ title: String,
-                            value: Binding<Int>, in range: ClosedRange<Int>, step: Int) -> some View {
-        HStack(spacing: 9) {
-            icon(symbol)
-            Text(title).font(.callout).foregroundStyle(.white)
-            Spacer(minLength: 8)
-            Text("\(value.wrappedValue)%")
-                .font(.callout.monospacedDigit())
-                .foregroundStyle(MaraTheme.accent)
-            Stepper(title, value: value, in: range, step: step)
-                .labelsHidden()
-                .controlSize(.small)
-        }
+    private var bundleIDsEditor: some View {
+        TextEditor(text: bundleIDsBinding)
+            .frame(height: 72)
+            .font(.system(.callout, design: .monospaced))
+            .foregroundStyle(MaraTheme.textMid)
+            .scrollContentBackground(.hidden)
+            .padding(6)
+            .background(Color.black.opacity(0.28), in: RoundedRectangle(cornerRadius: 6))
     }
 
     private var networkList: some View {
@@ -175,18 +145,6 @@ struct SettingsView: View {
                 }
             }
         }
-    }
-
-    private func icon(_ symbol: String) -> some View {
-        Image(systemName: symbol)
-            .font(.system(size: 13))
-            .foregroundStyle(MaraTheme.accent)
-            .frame(width: 18)
-            .accessibilityHidden(true)
-    }
-
-    private func caption(_ text: String) -> some View {
-        Text(text).font(.caption).foregroundStyle(MaraTheme.muted)
     }
 
     private var bundleIDsBinding: Binding<String> {
