@@ -12,15 +12,6 @@ public final class SessionManager: ObservableObject {
     private let eventsSubject = PassthroughSubject<SessionEvent, Never>()
     private static let maxRecentEvents = 20
 
-    private func record(_ kind: SessionEvent.Kind) {
-        let event = SessionEvent(at: clock.now, kind: kind)
-        recentEvents.append(event)
-        if recentEvents.count > Self.maxRecentEvents {
-            recentEvents.removeFirst(recentEvents.count - Self.maxRecentEvents)
-        }
-        eventsSubject.send(event)
-    }
-
     private let engine: SleepEngine
     private let scheduler: Scheduling
     private let clock: Clock
@@ -100,5 +91,16 @@ public final class SessionManager: ObservableObject {
         case .duration(let t): return clock.now.addingTimeInterval(t)
         case .until(let date): return date
         }
+    }
+
+    // MARK: - Private
+
+    private func record(_ kind: SessionEvent.Kind) {
+        let event = SessionEvent(at: clock.now, kind: kind)
+        recentEvents.append(event)
+        if recentEvents.count > Self.maxRecentEvents {
+            recentEvents = Array(recentEvents.suffix(Self.maxRecentEvents))
+        }
+        eventsSubject.send(event)
     }
 }

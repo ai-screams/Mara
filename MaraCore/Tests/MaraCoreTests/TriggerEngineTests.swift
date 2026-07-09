@@ -205,6 +205,7 @@ extension TriggerEngineTests {
         if case let .active(cfg, _) = sm.state { XCTAssertEqual(cfg.origin, .trigger) } else { XCTFail() }
         engine.stop()
         XCTAssertFalse(sm.state.isActive, "trigger session must be stopped by engine.stop()")
+        XCTAssertEqual(sm.recentEvents.last?.kind, .stopped(.triggerCleared))
     }
 
     // engine.stop() 은 수동 세션을 중단하지 않아야 한다.

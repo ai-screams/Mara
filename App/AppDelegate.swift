@@ -16,6 +16,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     )
 
     private lazy var statusBar = StatusBarController(env: env)
+    // init은 UNUserNotificationCenter.current() 획득/delegate 설정만 — 권한 프롬프트는 Settings 토글에서만 발생.
+    private let notificationService = NotificationService()
     private lazy var settingsPresenter = SettingsWindowPresenter { [env, updaterController, notificationService] in
         SettingsView(
             prefs: env.prefs,
@@ -25,7 +27,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             requestNotificationAuth: { await notificationService.requestAuthorization() }
         )
     }
-    private let notificationService = NotificationService()
     private var sessionNotifier: SessionNotifier?
 
     func applicationDidFinishLaunching(_ notification: Notification) {

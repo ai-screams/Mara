@@ -39,6 +39,7 @@ struct SettingsView: View {
                               isOn: $prefs.notifyAutoSessionChanges)
                 .onChange(of: prefs.notifyAutoSessionChanges) { _, enabled in
                     guard enabled else { return }
+                    // 연타 시 Task가 중복 enqueue될 수 있으나 requestAuthorization은 최초 프롬프트 후 멱등(캐시 상태 반환)이라 무해.
                     Task { @MainActor in
                         // 시스템 프롬프트는 최초 1회. 거부 상태면 토글을 되돌린다(강요 금지).
                         if await requestNotificationAuth() == false {

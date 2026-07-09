@@ -71,7 +71,7 @@ final class SessionEventTests: XCTestCase {
     func test_recentEvents_keepsBoundedHistory() {
         let (sm, _, _) = makeSUT()
         for _ in 0..<30 { sm.start(cfg()); sm.stop() }
-        XCTAssertLessThanOrEqual(sm.recentEvents.count, 20)
+        XCTAssertEqual(sm.recentEvents.count, 20)
         XCTAssertEqual(sm.recentEvents.last?.kind, .stopped(.manual))
     }
 

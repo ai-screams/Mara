@@ -14,6 +14,16 @@ final class SessionNotifier {
                 service.post(title: c.title, body: c.body)
             }
         }
+        // 런치 레이스 보정: AppEnvironment.init이 applicationDidFinishLaunching보다 먼저
+        // 트리거를 조정해 세션을 열 수 있다. PassthroughSubject는 재방출하지 않으므로,
+        // 구독 설정 후 현재 상태를 동기로 확인해 놓친 start 알림을 보상한다.
+        // @MainActor이므로 init 완료 전 eventsSubject가 인터리브할 수 없어 이중 발송은 없다.
+        if case .active(let cfg, _) = session.state,
+           cfg.origin == .trigger,
+           isEnabled(),
+           let c = Self.content(for: SessionEvent(at: .now, kind: .started(cfg))) {
+            service.post(title: c.title, body: c.body)
+        }
     }
 
     /// nil = 알리지 않는 이벤트. 문구는 App 전용(영어) — Core enum에는 문자열이 없다.
