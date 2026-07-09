@@ -16,19 +16,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         NSApp.setActivationPolicy(.accessory)
 
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        item.isVisible = true         // 명시 필요: 기본값이 항상 true가 아니며(false로 시작 관측됨),
-                                      // false면 상태아이템 창이 화면 밖에 파킹돼 메뉴바에 나타나지 않는다.
+        // autosave 이름을 명시해야 한다. 기본 이름 "Item-0"은 macOS 26 메뉴바 관리(Control Center)의
+        // 숨김 상태("NSStatusItem Visible Item-0" = 0)와 충돌해 아이템이 메뉴바에 그려지지 않는다.
+        item.autosaveName = "Mara"
         let menu = NSMenu()
         menu.delegate = self          // 열릴 때마다 menuNeedsUpdate로 라이브 상태 반영
         item.menu = menu
         statusItem = item
         refreshStatusButton(env.session.state)
+        item.isVisible = true         // 콘텐츠를 채운 뒤 마지막에 표시(기본값이 항상 true가 아님)
 
         // 세션 상태(@Published, main에서만 변이)를 구독해 아이콘/지속시간 라벨을 갱신.
         // @Published는 willSet에서 발화하므로 방출된 state를 그대로 넘겨야 한다(재-read 시 이전 값).
         env.session.$state
             .sink { [weak self] state in MainActor.assumeIsolated { self?.refreshStatusButton(state) } }
             .store(in: &cancellables)
+
     }
 
     // MARK: - Status button (eye icon + duration)

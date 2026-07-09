@@ -1,6 +1,6 @@
 name: Mara
 options:
-  bundleIdPrefix: com.mara
+  bundleIdPrefix: com.aiscream
   deploymentTarget:
     macOS: "14.0"
   createIntermediateGroups: true
@@ -16,7 +16,7 @@ targets:
       - package: MaraCore
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.mara.app
+        PRODUCT_BUNDLE_IDENTIFIER: com.aiscream.Mara
         MARKETING_VERSION: "0.1.0"
         CURRENT_PROJECT_VERSION: "1"
         INFOPLIST_FILE: App/Info.plist
