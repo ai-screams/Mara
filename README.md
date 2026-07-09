@@ -1,44 +1,63 @@
-# Mara
+<p align="center">
+  <a href="https://ai-scream.ai/mara/">
+    <img src="docs/assets/og-image.png" alt="Mara — Keep your Mac awake" width="720">
+  </a>
+</p>
 
-[![CI](https://github.com/ai-screams/mara/actions/workflows/ci.yml/badge.svg)](https://github.com/ai-screams/mara/actions/workflows/ci.yml)
-[![Secret Scan](https://github.com/ai-screams/mara/actions/workflows/secret-scan.yml/badge.svg)](https://github.com/ai-screams/mara/actions/workflows/secret-scan.yml)
-[![Latest release](https://img.shields.io/github/v/release/ai-screams/mara?label=release&color=ff9500)](https://github.com/ai-screams/mara/releases/latest)
-[![License](https://img.shields.io/badge/license-Proprietary-lightgrey)](LICENSE)
+<p align="center">
+  <b>The eye that keeps your Mac awake.</b><br>
+  A macOS menu-bar app that keeps your Mac from sleeping — Caffeine-style, built the honest way.
+</p>
 
-[![macOS](https://img.shields.io/badge/macOS-14%2B-000000?logo=apple&logoColor=white)](https://www.apple.com/macos/)
-[![Swift](https://img.shields.io/badge/Swift-5.9-F05138?logo=swift&logoColor=white)](https://swift.org)
-[![Universal](https://img.shields.io/badge/Universal-Apple%20Silicon%20%26%20Intel-000000?logo=apple&logoColor=white)](#install)
-[![Notarized](https://img.shields.io/badge/Apple-Notarized-34c759?logo=apple&logoColor=white)](RELEASING.md)
-[![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-ea4aaa?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/ai-screams)
-[![Ko-fi](https://img.shields.io/badge/Ko--fi-Support-ff5e5b?logo=kofi&logoColor=white)](https://ko-fi.com/pignuante)
+<p align="center">
+  <a href="https://ai-scream.ai/mara/">Website</a> ·
+  <a href="https://github.com/ai-screams/mara/releases/latest">Download</a> ·
+  <a href="RELEASING.md">Release process</a>
+</p>
 
-A macOS menu-bar app that keeps your Mac from sleeping. Caffeine-style, but built the honest way — no permission bypasses, no undocumented tricks. It uses only **official IOKit power assertions**, **IOKit power-source state**, **SMAppService**, and the **system routing table**.
+<p align="center">
+  <a href="https://github.com/ai-screams/mara/actions/workflows/ci.yml"><img src="https://github.com/ai-screams/mara/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/ai-screams/mara/actions/workflows/secret-scan.yml"><img src="https://github.com/ai-screams/mara/actions/workflows/secret-scan.yml/badge.svg" alt="Secret Scan"></a>
+  <a href="https://github.com/ai-screams/mara/releases/latest"><img src="https://img.shields.io/github/v/release/ai-screams/mara?label=release&color=ff9500" alt="Latest release"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Proprietary-lightgrey" alt="License"></a>
+</p>
 
-[Website](https://ai-scream.ai/mara/) · [Latest release](https://github.com/ai-screams/mara/releases/latest) · [Release process](RELEASING.md)
+<p align="center">
+  <a href="https://www.apple.com/macos/"><img src="https://img.shields.io/badge/macOS-14%2B-000000?logo=apple&logoColor=white" alt="macOS 14+"></a>
+  <a href="https://swift.org"><img src="https://img.shields.io/badge/Swift-5.9-F05138?logo=swift&logoColor=white" alt="Swift 5.9"></a>
+  <a href="#install"><img src="https://img.shields.io/badge/Universal-Apple%20Silicon%20%26%20Intel-000000?logo=apple&logoColor=white" alt="Universal"></a>
+  <a href="RELEASING.md"><img src="https://img.shields.io/badge/Apple-Notarized-34c759?logo=apple&logoColor=white" alt="Notarized"></a>
+  <a href="https://sparkle-project.org"><img src="https://img.shields.io/badge/Auto--update-Sparkle-ff9500" alt="Auto-update via Sparkle"></a>
+  <a href="https://github.com/sponsors/ai-screams"><img src="https://img.shields.io/badge/Sponsor-%E2%9D%A4-ea4aaa?logo=githubsponsors&logoColor=white" alt="Sponsor"></a>
+  <a href="https://ko-fi.com/pignuante"><img src="https://img.shields.io/badge/Ko--fi-Support-ff5e5b?logo=kofi&logoColor=white" alt="Ko-fi"></a>
+</p>
 
-> On the name: in folklore, a *mara* is a spirit that sits on a sleeper's chest and disturbs their rest — the root of *nightmare* (night + mare).
+> On the name: in folklore, a *mara* is a spirit that sits on a sleeper's chest and disturbs their rest — the root of *nightmare* (night + mare). Mara keeps watch so your Mac stays restless.
+
+No permission bypasses, no undocumented tricks. Mara uses only **official IOKit power assertions**, **IOKit power-source state**, **SMAppService**, and the **system routing table** — zero Location, Accessibility, or Screen Recording prompts.
 
 ## Features
 
-- Toggle keep-awake on and off from the menu bar
-- Indefinite, or a `15m` / `1h` / `2h` / `5h` timer
-- Keep the system awake only, or the display too
-- Menu-bar eye icon: an open orange eye with the selected duration when active, a closed eye when off
-- Low-battery auto-off: on battery, the keep-awake session ends once you drop below your threshold
-- Launch at login via Apple's `SMAppService`
-- Automatic triggers:
-  - AC power connected
-  - An external display connected
-  - A watched app (by bundle ID) running
-  - A specific network
+- **One-click keep-awake** from the menu bar — the eye opens and turns orange while your Mac is kept awake
+- **Indefinite or timed**: `15m` / `1h` / `2h` / `5h` (the selected duration shows next to the icon)
+- **System-only or display too** — choose whether the screen is allowed to sleep
+- **Low-battery auto-off**: on battery, the session ends safely once you drop below your threshold
+- **Automatic triggers** — keep awake while:
+  - AC power is connected
+  - an external display is connected
+  - a watched app (by bundle ID) is running
+  - you're on a specific network
+- **Night Watch settings** — an always-dark, brand-styled settings window whose eye mirrors the live session state
+- **Automatic updates** via [Sparkle](https://sparkle-project.org): every release ships an EdDSA-signed update feed
+- **Launch at login** via Apple's `SMAppService`
 
 The network trigger uses no location permission. It normalizes and matches the default gateway's MAC address, so there is no CoreLocation prompt.
 
 ## Install
 
 1. Download `Mara-<version>.dmg` from the [latest release](https://github.com/ai-screams/mara/releases/latest).
-2. Open the DMG and drag **Mara** into your `Applications` folder.
-3. Launch Mara — an eye icon appears in the menu bar.
+2. Open the DMG and drag **Mara** onto the Applications link in the installer window.
+3. Launch Mara — a closed-eye icon appears in the menu bar. Click it and choose `Keep Awake`.
 
 Requirements:
 
@@ -47,9 +66,11 @@ Requirements:
 - Developer ID–signed and Apple-notarized DMG (opens Gatekeeper-clean, no warning)
 - No Location, Accessibility, or Screen Recording permissions
 
+Updates are delivered in-app: Mara checks the signed release feed and offers new versions automatically (or use `Check for Updates…` in the menu).
+
 ## Usage
 
-Click the menu-bar icon for:
+Click the menu-bar eye for:
 
 - `Keep Awake` / `Turn Off`
 - `Keep awake for…`: `15 minutes`, `1 hour`, `2 hours`, `5 hours`
@@ -71,7 +92,8 @@ When a session is started by an automatic trigger, the menu shows an `Auto-activ
 | `MaraCore/Sources/MaraCore/SessionManager.swift` | Single session state, timer, scope changes, low-battery veto |
 | `MaraCore/Sources/MaraCore/Triggers/` | Charging, external-display, app-running, and network triggers with suppression/re-arm logic |
 | `MaraCore/Tests/` | Core unit tests, routing-table parser tests, and real-IOKit assertion integration tests |
-| `scripts/release.sh` | XcodeGen, archive, Developer ID export, notarization, staple, DMG build and verification |
+| `scripts/release.sh` | XcodeGen, archive, Developer ID export, notarization, staple, branded DMG build and verification |
+| `scripts/dmg/` | Night Watch DMG installer background (generator + committed 1x/2x assets) |
 | `docs/` | Public landing page served via GitHub Pages |
 
 Global-hotkey (Carbon) code is kept in `App/HotkeyManager.swift` but is currently disabled. Closed-lid (clamshell) keep-awake needs a privileged daemon with a lease-based recovery model and is out of scope for now.
@@ -105,7 +127,7 @@ make build
 
 ## Releasing
 
-Distribution is a Developer ID–signed, Apple-notarized, drag-to-Applications DMG.
+Distribution is a Developer ID–signed, Apple-notarized, drag-to-Applications DMG with a branded installer window, plus an EdDSA-signed Sparkle appcast for automatic updates.
 
 ```bash
 xcrun notarytool store-credentials mara-notary \
@@ -121,9 +143,9 @@ DEVELOPMENT_TEAM=7K6MK3KP9K NOTARY_PROFILE=mara-notary make release
 - `xcodegen generate`
 - Release archive
 - Developer ID export
-- Hardened Runtime / signature verification
+- Deep signature / Hardened Runtime verification (including embedded Sparkle)
 - App notarization and staple
-- DMG creation
+- Branded DMG creation (Night Watch installer window)
 - DMG signing, notarization, and staple
 - `spctl` and `stapler` verification
 
@@ -134,14 +156,14 @@ git tag v1.0.0
 git push origin v1.0.0
 ```
 
-The release workflow runs in a protected `release` environment (requires reviewer approval before the signing/notarization secrets are exposed), builds and notarizes the DMG, and attaches it plus its `.sha256` checksum to a GitHub Release. Prerelease tags (containing `-`, e.g. `v1.0.0-rc.1`) are published as pre-releases and excluded from "latest". Full steps and required secrets are in [RELEASING.md](RELEASING.md).
+The release workflow runs in a protected `release` environment (requires reviewer approval before the signing/notarization secrets are exposed), builds and notarizes the DMG, signs the update feed after verifying the signing key matches the key embedded in the app, and attaches the DMG, its `.sha256` checksum, and `appcast.xml` to a GitHub Release. Installed apps pick updates up from `releases/latest/download/appcast.xml`. Prerelease tags (containing `-`, e.g. `v1.0.0-rc.1`) are published as pre-releases and excluded from "latest". Full steps and required secrets are in [RELEASING.md](RELEASING.md).
 
 ## Quality gates
 
 - CI: `swift test`, XcodeGen project generation, unsigned Debug build
 - Secret Scan: TruffleHog verified/unknown results
-- GitHub Actions supply-chain hardening: actions pinned to commit SHAs, kept current by Dependabot
-- Release verification: `spctl -t open`, `xcrun stapler validate`
+- GitHub Actions supply-chain hardening: actions pinned to commit SHAs, kept current by Dependabot; protected `v*` tags with an approved-commit checkout guard
+- Release verification: `spctl -t open`, `xcrun stapler validate`, Sparkle key-match gate
 
 ## Support
 
