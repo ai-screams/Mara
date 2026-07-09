@@ -87,9 +87,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.removeAllItems()
         let state = env.session.state
 
-        addItem(to: menu, title: state.isActive ? "Turn Off" : "Keep Awake",
-                action: #selector(toggleKeepAwake),
-                symbol: state.isActive ? "eye.slash.fill" : "eye.fill")
+        // representedObject = 메뉴가 그려진 시점의 활성 여부(사용자 의도). 메뉴가 열린 사이
+        // 세션이 끝나도(타이머 만료·저전력 종료) "Turn Off" 클릭이 새 세션을 시작하지 않게 한다.
+        let awakeItem = addItem(to: menu, title: state.isActive ? "Turn Off" : "Keep Awake",
+                                action: #selector(toggleKeepAwake(_:)),
+                                symbol: state.isActive ? "eye.slash.fill" : "eye.fill")
+        awakeItem.representedObject = state.isActive
 
         if case let .active(cfg, _) = state, cfg.origin == .trigger {
             let t = NSMenuItem(title: "Auto-activated (trigger)", action: nil, keyEquivalent: "")
@@ -166,8 +169,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     // MARK: - Actions
 
-    @objc private func toggleKeepAwake() {
-        env.session.toggle(SessionConfig(scope: env.prefs.defaultScope, duration: .indefinite, origin: .manual))
+    @objc private func toggleKeepAwake(_ sender: NSMenuItem) {
+        // 의도 기반 분기: 메뉴가 그려질 때 활성이었다면 사용자의 의도는 '끄기'다.
+        // 열린 메뉴가 낡아 상태가 이미 바뀌었어도 반대 동작(재시작)을 하지 않는다.
+        let intendedOff = sender.representedObject as? Bool ?? env.session.state.isActive
+        if intendedOff {
+            env.session.stop()   // 이미 꺼져 있으면 no-op
+        } else {
+            env.session.start(SessionConfig(scope: env.prefs.defaultScope, duration: .indefinite, origin: .manual))
+        }
     }
 
     @objc private func startTimed(_ sender: NSMenuItem) {

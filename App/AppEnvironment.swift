@@ -41,6 +41,9 @@ final class AppEnvironment: ObservableObject {
         reconcileTriggers(prefs.triggerConfig)
         prefs.$triggerConfig
             .dropFirst()   // 초기값 재방출 무시 (위에서 한 번 반영함)
+            // Settings의 TextEditor가 키 입력마다 triggerConfig를 재할당하므로, 평가기
+            // 전체 재구성이 타이핑마다 돌지 않게 잠깐 모아서 반영한다(main 스케줄러 → 격리 유지).
+            .debounce(for: .milliseconds(300), scheduler: DispatchQueue.main)
             .sink { [weak self] cfg in MainActor.assumeIsolated { self?.reconcileTriggers(cfg) } }
             .store(in: &cancellables)
         // installHotkey()  // 글로벌 핫키 보류

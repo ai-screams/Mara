@@ -28,6 +28,16 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           fetch-depth: 0 # CFBundleVersion = git 커밋 수(단조 증가)라 전체 히스토리 필요(shallow면 1)
+          # TOCTOU 방어: 승인 게이트는 잡 시작 전에 걸리므로, 가변 태그 ref 대신
+          # 런 생성 시점의 커밋(github.sha)을 고정 체크아웃한다 — 승인 후 태그를
+          # 옮겨도(force-update) 승인된 커밋이 빌드된다. 태그 룰셋(protect-release-tags)과 이중 방어.
+          ref: ${{ github.sha }}
+
+      - name: Assert tag has not moved since run creation
+        run: |
+          set -euo pipefail
+          [ "$(git rev-parse HEAD)" = "${{ github.sha }}" ] || { echo "::error::checked-out commit != run-creation commit (tag moved post-approval?)"; exit 1; }
+          echo "✅ Building approved commit ${{ github.sha }}."
 
       - name: Select Xcode
         uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1
