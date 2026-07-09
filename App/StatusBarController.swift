@@ -13,6 +13,8 @@ final class StatusBarController: NSObject, NSMenuDelegate {
 
     /// Settings 창 열기 — 창 소유자(AppDelegate)가 주입.
     var onOpenSettings: (() -> Void)?
+    /// 커스텀 타이머 다이얼로그 열기 — 창 소유자(AppDelegate)가 주입.
+    var onOpenCustomKeepAwake: (() -> Void)?
     /// Sparkle "Check for Updates…" 메뉴 항목의 (타깃, 셀렉터). Sparkle import를
     /// 이 파일로 끌어오지 않으려고 제네릭 타깃/셀렉터로 받는다.
     var checkForUpdates: (target: AnyObject, action: Selector)?
@@ -110,6 +112,17 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         durMenu.addItem(durationItem("1 hour", 60 * 60))
         durMenu.addItem(durationItem("2 hours", 2 * 60 * 60))
         durMenu.addItem(durationItem("5 hours", 5 * 60 * 60))
+        // 최근 커스텀 duration(MRU 최대 3) — 원클릭 재사용. Until은 기록되지 않는다.
+        if !env.prefs.recentCustomDurations.isEmpty {
+            durMenu.addItem(.separator())
+            for seconds in env.prefs.recentCustomDurations {
+                durMenu.addItem(durationItem(DurationFormat.compact(seconds), seconds))
+            }
+        }
+        durMenu.addItem(.separator())
+        let custom = NSMenuItem(title: "Custom…", action: #selector(openCustomKeepAwake), keyEquivalent: "")
+        custom.target = self
+        durMenu.addItem(custom)
         let durParent = NSMenuItem(title: "Keep awake for…", action: nil, keyEquivalent: "")
         durParent.image = Self.menuSymbol("timer")
         durParent.submenu = durMenu
@@ -196,6 +209,10 @@ final class StatusBarController: NSObject, NSMenuDelegate {
 
     @objc private func openSettings() {
         onOpenSettings?()
+    }
+
+    @objc private func openCustomKeepAwake() {
+        onOpenCustomKeepAwake?()
     }
 
     @objc private func quit() {

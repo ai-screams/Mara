@@ -18,6 +18,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private lazy var statusBar = StatusBarController(env: env)
     // init은 UNUserNotificationCenter.current() 획득/delegate 설정만 — 권한 프롬프트는 Settings 토글에서만 발생.
     private let notificationService = NotificationService()
+    private lazy var customKeepAwakePresenter = CustomKeepAwakePresenter { [env] duration in
+        // duration 모드만 MRU에 기록 — 절대시각(until)은 재사용 의미가 없다.
+        if case let .duration(seconds) = duration { env.prefs.rememberCustomDuration(seconds) }
+        env.session.start(SessionConfig(scope: env.prefs.defaultScope, duration: duration, origin: .manual))
+    }
     private lazy var settingsPresenter = SettingsWindowPresenter { [env, updaterController, notificationService] in
         SettingsView(
             prefs: env.prefs,
@@ -32,6 +37,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         statusBar.onOpenSettings = { [weak self] in self?.settingsPresenter.show() }
+        statusBar.onOpenCustomKeepAwake = { [weak self] in self?.customKeepAwakePresenter.show() }
         statusBar.checkForUpdates = (
             target: updaterController,
             action: #selector(SPUStandardUpdaterController.checkForUpdates(_:))
