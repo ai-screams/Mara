@@ -11,3 +11,11 @@ enum MaraTheme {
 
     static let bgNSColor = NSColor(red: 0x17 / 255, green: 0x17 / 255, blue: 0x1A / 255, alpha: 1)
 }
+
+/// 브랜드 아이콘의 단일 출처 — 활성=뜬 눈 / 비활성=감은 눈 의미를 여기서만 정의한다.
+/// (메뉴바 아이콘·Settings 헤더는 현재 상태를, "Keep Awake/Turn Off" 메뉴 항목은
+/// 클릭 후 도달할 다음 상태를 반전해 사용한다.)
+enum MaraSymbol {
+    static let awake = "eye.fill"
+    static let resting = "eye.slash.fill"
+}

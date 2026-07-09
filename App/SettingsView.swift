@@ -63,7 +63,7 @@ struct SettingsView: View {
     private var header: some View {
         let active = session.state.isActive
         return VStack(spacing: 5) {
-            Image(systemName: active ? "eye.fill" : "eye.slash.fill")
+            Image(systemName: active ? MaraSymbol.awake : MaraSymbol.resting)
                 .font(.system(size: 32))
                 .foregroundStyle(active ? MaraTheme.accent : MaraTheme.muted)
                 .shadow(color: active ? MaraTheme.accent.opacity(0.55) : .clear, radius: 14)

@@ -73,7 +73,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     /// 활성: 뜬 눈 / 비활성: 감은 눈. 둘 다 template — 색은 refreshStatusButton의
     /// contentTintColor가 입힌다(활성=오렌지, 비활성=메뉴바 톤 자동 적응).
     static func statusIcon(active: Bool) -> NSImage {
-        let symbol = active ? "eye.fill" : "eye.slash.fill"
+        let symbol = active ? MaraSymbol.awake : MaraSymbol.resting
         let description = active ? "Mara — keep-awake active" : "Mara — inactive"
         let image = NSImage(systemSymbolName: symbol, accessibilityDescription: description) ?? NSImage()
         image.isTemplate = true
@@ -90,7 +90,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         // 세션이 끝나도(타이머 만료·저전력 종료) "Turn Off" 클릭이 새 세션을 시작하지 않게 한다.
         let awakeItem = addItem(to: menu, title: state.isActive ? "Turn Off" : "Keep Awake",
                                 action: #selector(toggleKeepAwake(_:)),
-                                symbol: state.isActive ? "eye.slash.fill" : "eye.fill")
+                                symbol: state.isActive ? MaraSymbol.resting : MaraSymbol.awake)
         awakeItem.representedObject = state.isActive
 
         if case let .active(cfg, _) = state, cfg.origin == .trigger {
