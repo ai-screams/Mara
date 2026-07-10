@@ -8,6 +8,9 @@
   정체성 조회: `security find-identity -v -p codesigning` (Apple Development 항목 사용).
   Sparkle 중첩 코드를 inside-out으로 먼저: Frameworks의 `*.xpc`/`Autoupdate` → `Sparkle.framework` → 앱 순.
 - 실행 교체 전 `pgrep -x Mara` 확인 → `osascript -e 'tell application "Mara" to quit'` → 교체 → `open`.
+- QA 빌드 설치 전 **산출물 심볼 검증** 필수: `grep -c -a '<새 셀렉터/타입명>' <APP>/Contents/MacOS/Mara` ≥1 확인 후 설치.
+  서브에이전트는 각자 derivedDataPath에 빌드하므로 컨트롤러 경로의 산출물은 낡았을 수 있다(실사고 1회).
+  유니코드 포함 문자열("Custom…" 등)은 strings|grep에 안 잡힘 — ASCII 심볼명으로 검사.
 
 ## Architecture (배치 규칙)
 
@@ -29,6 +32,7 @@
 ## macOS 26 menu-bar quirks (상세는 auto-memory·코드 주석)
 
 - 렌더 확인의 ground truth는 사용자 스크린샷/occlusionState — API 값(isVisible, tint)은 거짓말한다.
+- 알림 권한의 ground truth는 전달된 배너 — `com.apple.ncprefs.plist`에 앱이 없어도 정상 전달될 수 있다.
 
 ## Conventions
 
