@@ -31,7 +31,8 @@ final class TriggerConfigTests: XCTestCase {
             chargingEnabled: true,
             externalDisplayEnabled: false,
             appRunningEnabled: true,
-            watchedBundleIDs: ["com.apple.Safari", "com.foo.Bar"],
+            watchedBundleIDs: [BundleIdentifier(validating: "com.apple.Safari")!,
+                               BundleIdentifier(validating: "com.foo.Bar")!],
             networkEnabled: true,
             watchedNetworks: ["00:10:db:ff:10:02"]
         )
@@ -49,6 +50,51 @@ final class TriggerConfigTests: XCTestCase {
         XCTAssertEqual(d.watchedBundleIDs, [])
         XCTAssertEqual(d.watchedNetworks, [])
     }
+
+    // MARK: - BundleIdentifier 채택 (후보 4)
+
+    func test_decode_dropsInvalidAndDuplicateBundleIDs_withoutWiping() throws {
+        // 조작/레거시 plist: 무효 항목·중복은 개별 필터 — 전체 config wipe 금지.
+        let json = #"{"appRunningEnabled":true,"watchedBundleIDs":["com.a","bad id","com.a","","com.b"]}"#
+        let cfg = try JSONDecoder().decode(TriggerConfig.self, from: Data(json.utf8))
+        XCTAssertEqual(cfg.watchedBundleIDs.map(\.rawValue), ["com.a", "com.b"])
+        XCTAssertTrue(cfg.appRunningEnabled)   // 다른 필드는 살아있어야 한다(wipe 아님 증명)
+    }
+
+    func test_encode_roundTrip_keepsLegacyJSONShape() throws {
+        var cfg = TriggerConfig.defaults
+        XCTAssertTrue(cfg.addWatchedBundleID("com.apple.Safari"))
+        let data = try JSONEncoder().encode(cfg)
+        // 인코딩이 기존과 같은 순수 문자열 배열 모양이어야 한다.
+        let obj = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        XCTAssertEqual(obj?["watchedBundleIDs"] as? [String], ["com.apple.Safari"])
+        // 라운드트립 무손실
+        let back = try JSONDecoder().decode(TriggerConfig.self, from: data)
+        XCTAssertEqual(back.watchedBundleIDs, cfg.watchedBundleIDs)
+    }
+
+    func test_addWatchedBundleID_validatesAndDeduplicates() {
+        var cfg = TriggerConfig.defaults
+        XCTAssertTrue(cfg.addWatchedBundleID("com.apple.Safari"))
+        XCTAssertFalse(cfg.addWatchedBundleID("com.apple.Safari"))   // 중복 → no-op
+        XCTAssertFalse(cfg.addWatchedBundleID("bad id"))             // 무효 → no-op
+        XCTAssertEqual(cfg.watchedBundleIDs.map(\.rawValue), ["com.apple.Safari"])
+    }
+
+    func test_removeWatchedBundleID() {
+        var cfg = TriggerConfig.defaults
+        cfg.addWatchedBundleID("com.a")
+        cfg.addWatchedBundleID("com.b")
+        cfg.removeWatchedBundleID(BundleIdentifier(validating: "com.a")!)
+        XCTAssertEqual(cfg.watchedBundleIDs.map(\.rawValue), ["com.b"])
+    }
+
+    func test_activeSpecs_mapsBundleIdentifiersToRawStrings() {
+        var cfg = TriggerConfig.defaults
+        cfg.appRunningEnabled = true
+        cfg.addWatchedBundleID("com.a")
+        XCTAssertEqual(cfg.activeSpecs(), [.appRunning(["com.a"])])
+    }
 }
 
 // MARK: - activeSpecs() 순수 결정 로직
@@ -61,7 +107,7 @@ extension TriggerConfigTests {
     ) -> TriggerConfig {
         TriggerConfig(
             chargingEnabled: charging, externalDisplayEnabled: externalDisplay,
-            appRunningEnabled: appRunning, watchedBundleIDs: bundleIDs,
+            appRunningEnabled: appRunning, watchedBundleIDs: bundleIDs.map { BundleIdentifier(validating: $0)! },
             networkEnabled: network, watchedNetworks: networks
         )
     }

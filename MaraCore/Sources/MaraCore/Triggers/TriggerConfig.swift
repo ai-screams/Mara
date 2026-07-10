@@ -5,7 +5,7 @@ public struct TriggerConfig: Codable, Equatable {
     public var chargingEnabled: Bool
     public var externalDisplayEnabled: Bool
     public var appRunningEnabled: Bool
-    public var watchedBundleIDs: [String]
+    public var watchedBundleIDs: [BundleIdentifier]
     public var networkEnabled: Bool
     public var watchedNetworks: [String]  // normalized gateway MAC strings
 
@@ -24,7 +24,7 @@ public struct TriggerConfig: Codable, Equatable {
         chargingEnabled: Bool,
         externalDisplayEnabled: Bool,
         appRunningEnabled: Bool,
-        watchedBundleIDs: [String],
+        watchedBundleIDs: [BundleIdentifier],
         networkEnabled: Bool,
         watchedNetworks: [String]
     ) {
@@ -54,7 +54,13 @@ public struct TriggerConfig: Codable, Equatable {
         chargingEnabled         = try c.decodeIfPresent(Bool.self,     forKey: .chargingEnabled)         ?? false
         externalDisplayEnabled  = try c.decodeIfPresent(Bool.self,     forKey: .externalDisplayEnabled)  ?? false
         appRunningEnabled       = try c.decodeIfPresent(Bool.self,     forKey: .appRunningEnabled)       ?? false
-        watchedBundleIDs        = try c.decodeIfPresent([String].self, forKey: .watchedBundleIDs)        ?? []
+        // [String]으로 받아 개별 검증 — 무효/중복 항목만 버리고 나머지는 보존한다
+        // (BundleIdentifier 단독 디코드는 throw라 배열 통째 디코드는 wipe 위험).
+        let rawIDs = try c.decodeIfPresent([String].self, forKey: .watchedBundleIDs) ?? []
+        var seen = Set<BundleIdentifier>()
+        watchedBundleIDs = rawIDs
+            .compactMap { BundleIdentifier(validating: $0) }
+            .filter { seen.insert($0).inserted }
         networkEnabled          = try c.decodeIfPresent(Bool.self,     forKey: .networkEnabled)          ?? false
         watchedNetworks         = try c.decodeIfPresent([String].self, forKey: .watchedNetworks)         ?? []
     }
@@ -77,11 +83,25 @@ public extension TriggerConfig {
         if chargingEnabled { specs.append(.charging) }
         if externalDisplayEnabled { specs.append(.externalDisplay) }
         if appRunningEnabled && !watchedBundleIDs.isEmpty {
-            specs.append(.appRunning(Set(watchedBundleIDs)))
+            specs.append(.appRunning(Set(watchedBundleIDs.map(\.rawValue))))
         }
         if networkEnabled && !watchedNetworks.isEmpty {
             specs.append(.network(Set(watchedNetworks.map { NetworkIdentity(gatewayMAC: $0) })))
         }
         return specs
+    }
+}
+
+public extension TriggerConfig {
+    /// 검증+중복 방지 추가. 무효 형식이거나 이미 있으면 no-op. 반환: 실제 추가 여부.
+    @discardableResult
+    mutating func addWatchedBundleID(_ raw: String) -> Bool {
+        guard let id = BundleIdentifier(validating: raw), !watchedBundleIDs.contains(id) else { return false }
+        watchedBundleIDs.append(id)
+        return true
+    }
+
+    mutating func removeWatchedBundleID(_ id: BundleIdentifier) {
+        watchedBundleIDs.removeAll { $0 == id }
     }
 }

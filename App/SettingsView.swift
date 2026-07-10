@@ -10,6 +10,15 @@ struct SettingsView: View {
     let currentNetwork: () -> NetworkIdentity?
     var checkForUpdates: () -> Void = {}
     var requestNotificationAuth: () async -> Bool = { false }
+    @State private var appPicker: AppPickerPayload?
+    @State private var manualBundleID = ""
+
+    /// sheet(item:)용 페이로드 — isPresented+별도 @State 조합은 첫 표시가 낡은(빈) 상태를
+    /// 캡처하는 SwiftUI 함정이 있다(실사고: 빈 피커). 데이터가 곧 표시 트리거가 되게 한다.
+    private struct AppPickerPayload: Identifiable {
+        let id = UUID()
+        let apps: [RunningAppItem]
+    }
 
     var body: some View {
         VStack(spacing: 18) {
@@ -66,8 +75,7 @@ struct SettingsView: View {
                               isOn: $prefs.triggerConfig.appRunningEnabled)
             statusRow(for: .appRunning)
             if prefs.triggerConfig.appRunningEnabled {
-                SettingsCaption("App bundle IDs to watch (one per line)")
-                bundleIDsEditor
+                watchedAppsList
             }
             SettingsToggleRow(symbol: "wifi", title: "Keep awake on specific networks",
                               isOn: $prefs.triggerConfig.networkEnabled)
@@ -138,14 +146,66 @@ struct SettingsView: View {
 
     // MARK: - Trigger inputs
 
-    private var bundleIDsEditor: some View {
-        TextEditor(text: bundleIDsBinding)
-            .frame(height: 72)
-            .font(.system(.callout, design: .monospaced))
-            .foregroundStyle(MaraTheme.textMid)
-            .scrollContentBackground(.hidden)
+    private var watchedAppsList: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            Button {
+                // 여는 순간 1회 스냅샷으로 고정 — 시트가 떠 있는 동안 부모 재렌더(진단 갱신 등)마다
+                // NSWorkspace를 재열거하지 않고, 추가한 행이 목록에서 사라지는 대신 체크로 남는다.
+                appPicker = AppPickerPayload(apps: RunningAppSnapshot.fetch(
+                    excluding: Set(prefs.triggerConfig.watchedBundleIDs.map(\.rawValue))))
+            } label: {
+                Label("Add Running App…", systemImage: "plus.circle.fill")
+                    .font(.callout)
+            }
+            .buttonStyle(.borderless)
+            .foregroundStyle(MaraTheme.accent)
+            .sheet(item: $appPicker) { payload in
+                RunningAppPickerView(
+                    apps: payload.apps,
+                    onAdd: { prefs.triggerConfig.addWatchedBundleID($0) }
+                )
+            }
+
+            ForEach(prefs.triggerConfig.watchedBundleIDs, id: \.self) { id in
+                HStack {
+                    Text(id.rawValue)
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundStyle(MaraTheme.textMid)
+                    Spacer()
+                    Button {
+                        prefs.triggerConfig.removeWatchedBundleID(id)
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(MaraTheme.muted)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Remove \(id.rawValue)")
+                }
+            }
+
+            // Advanced: 검증된 수동 입력 — 제출 시에만 반영, 성공 시에만 비운다.
+            HStack(spacing: 6) {
+                TextField("Add bundle ID manually", text: $manualBundleID)
+                    .textFieldStyle(.plain)
+                    .font(.system(.caption, design: .monospaced))
+                    .foregroundStyle(MaraTheme.textMid)
+                    .onSubmit(submitManualBundleID)
+                Button("Add", action: submitManualBundleID)
+                    .buttonStyle(.borderless)
+                    .font(.caption)
+                    .foregroundStyle(MaraTheme.accent)
+                    .disabled(manualBundleID.trimmingCharacters(in: .whitespaces).isEmpty)
+            }
             .padding(6)
             .background(Color.black.opacity(0.28), in: RoundedRectangle(cornerRadius: 6))
+        }
+    }
+
+    private func submitManualBundleID() {
+        // 무효 형식/중복이면 필드를 비우지 않는다 — 사용자가 고칠 수 있게 남긴다.
+        if prefs.triggerConfig.addWatchedBundleID(manualBundleID) {
+            manualBundleID = ""
+        }
     }
 
     private var networkList: some View {
@@ -180,18 +240,6 @@ struct SettingsView: View {
                 }
             }
         }
-    }
-
-    private var bundleIDsBinding: Binding<String> {
-        Binding(
-            get: { prefs.triggerConfig.watchedBundleIDs.joined(separator: "\n") },
-            set: { text in
-                prefs.triggerConfig.watchedBundleIDs = text
-                    .split(separator: "\n")
-                    .map { $0.trimmingCharacters(in: .whitespaces) }
-                    .filter { !$0.isEmpty }
-            }
-        )
     }
 
     // MARK: - Trigger diagnostics formatter
