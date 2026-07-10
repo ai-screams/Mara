@@ -26,6 +26,10 @@ final class PrefsStore: ObservableObject {
     @Published var recentCustomDurations: [TimeInterval] {
         didSet { UserDefaults.standard.set(recentCustomDurations, forKey: Keys.recentCustomDurations) }
     }
+    /// 첫 실행 안내 팝오버 표시 여부 — 표시 시점에 즉시 true로 기록해 1회성을 보장한다.
+    @Published var hasShownFirstRunGuide: Bool {
+        didSet { UserDefaults.standard.set(hasShownFirstRunGuide, forKey: Keys.hasShownFirstRunGuide) }
+    }
     var defaultScope: KeepAwakeScope { KeepAwakeScope(keepDisplay: defaultKeepDisplayAwake) }
     private enum Keys {
         static let defaultKeepDisplayAwake = "defaultKeepDisplayAwake"
@@ -33,6 +37,7 @@ final class PrefsStore: ObservableObject {
         static let triggerConfig = "triggerConfig"
         static let notifyAutoSessionChanges = "notifyAutoSessionChanges"
         static let recentCustomDurations = "recentCustomDurations"
+        static let hasShownFirstRunGuide = "hasShownFirstRunGuide"
     }
     init() {
         let d = UserDefaults.standard
@@ -41,10 +46,12 @@ final class PrefsStore: ObservableObject {
             Keys.lowBatteryThreshold: 20,
             Keys.notifyAutoSessionChanges: false,
             Keys.recentCustomDurations: [TimeInterval](),
+            Keys.hasShownFirstRunGuide: false,
         ])
         defaultKeepDisplayAwake = d.bool(forKey: Keys.defaultKeepDisplayAwake)
         lowBatteryThreshold = d.integer(forKey: Keys.lowBatteryThreshold)
         notifyAutoSessionChanges = d.bool(forKey: Keys.notifyAutoSessionChanges)
+        hasShownFirstRunGuide = d.bool(forKey: Keys.hasShownFirstRunGuide)
         // 신뢰 경계: plist는 외부에서 조작될 수 있다 — 비유한·비양수 값과 초과 길이를 로드 시 걸러낸다.
         let loaded = (d.array(forKey: Keys.recentCustomDurations) as? [TimeInterval]) ?? []
         recentCustomDurations = Array(loaded.filter { $0.isFinite && $0 > 0 }.prefix(3))

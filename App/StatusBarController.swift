@@ -9,6 +9,8 @@ import MaraCore
 final class StatusBarController: NSObject, NSMenuDelegate {
     private let env: AppEnvironment
     private var statusItem: NSStatusItem?
+    /// 첫 실행 안내 팝오버의 앵커 — install() 이후에만 non-nil. 읽기 전용 노출.
+    var statusButton: NSStatusBarButton? { statusItem?.button }
     private var cancellables = Set<AnyCancellable>()
     /// 카운트다운 갱신 타이머. sink가 세션 변화마다 재설정하며,
     /// 만료는 SessionManager 타이머가 stop → sink 경유로 invalidate된다.
