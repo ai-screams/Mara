@@ -10,9 +10,14 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     private let env: AppEnvironment
     private var statusItem: NSStatusItem?
     private var cancellables = Set<AnyCancellable>()
+    /// 카운트다운 갱신 타이머. sink가 세션 변화마다 재설정하며,
+    /// 만료는 SessionManager 타이머가 stop → sink 경유로 invalidate된다.
+    private var countdownTimer: Timer?
 
     /// Settings 창 열기 — 창 소유자(AppDelegate)가 주입.
     var onOpenSettings: (() -> Void)?
+    /// 커스텀 타이머 다이얼로그 열기 — 창 소유자(AppDelegate)가 주입.
+    var onOpenCustomKeepAwake: (() -> Void)?
     /// Sparkle "Check for Updates…" 메뉴 항목의 (타깃, 셀렉터). Sparkle import를
     /// 이 파일로 끌어오지 않으려고 제네릭 타깃/셀렉터로 받는다.
     var checkForUpdates: (target: AnyObject, action: Selector)?
@@ -31,6 +36,9 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         menu.delegate = self          // 열릴 때마다 menuNeedsUpdate로 라이브 상태 반영
         item.menu = menu
         statusItem = item
+        // 숫자 폭 흔들림 방지: 모노스페이스 숫자 폰트로 라벨 너비를 안정화한다.
+        item.button?.font = NSFont.monospacedDigitSystemFont(
+            ofSize: NSFont.systemFontSize(for: .small), weight: .regular)
         refreshStatusButton(env.session.state)
         item.isVisible = true         // 콘텐츠를 채운 뒤 마지막에 표시(기본값이 항상 true가 아님)
 
@@ -41,30 +49,39 @@ final class StatusBarController: NSObject, NSMenuDelegate {
             .store(in: &cancellables)
     }
 
-    // MARK: - Status button (eye icon + duration)
+    // MARK: - Status button (eye icon + countdown)
 
     private func refreshStatusButton(_ state: SessionState) {
+        // 항상 기존 카운트다운 타이머를 먼저 취소한다.
+        // sink가 세션 변화마다 재설정하며, 만료는 SessionManager 타이머가 stop → sink 경유로 invalidate된다.
+        countdownTimer?.invalidate()
+        countdownTimer = nil
+
         guard let button = statusItem?.button else { return }
         button.image = Self.statusIcon(active: state.isActive)
         button.imagePosition = .imageLeading
         button.title = durationLabel(for: state).map { " " + $0 } ?? ""
-    }
 
-    /// 활성 세션의 지속시간 라벨(15m / 1h / ∞). 비활성이면 nil.
-    private func durationLabel(for state: SessionState) -> String? {
-        guard case let .active(config, _) = state else { return nil }
-        switch config.duration {
-        case .indefinite:      return "∞"
-        case .duration(let t): return Self.durationText(t)
-        case .until(let date): return Self.durationText(max(0, date.timeIntervalSinceNow))
+        // expiresAt이 있는 활성 세션: 다음 라벨 전환 시각에 non-repeating 타이머를 건다.
+        if case let .active(_, expiresAt) = state, let expiry = expiresAt {
+            let remaining = expiry.timeIntervalSinceNow
+            let interval = CountdownFormat.nextTick(remaining: remaining)
+            let timer = Timer(timeInterval: interval, repeats: false) { [weak self] _ in
+                guard let self else { return }
+                // 발화 시 현재 state를 다시 읽어 최신 상태로 재귀 예약한다.
+                MainActor.assumeIsolated { self.refreshStatusButton(self.env.session.state) }
+            }
+            timer.tolerance = 1.0   // 에너지 배려: 1초 오차 허용
+            RunLoop.main.add(timer, forMode: .common)
+            countdownTimer = timer
         }
     }
 
-    static func durationText(_ seconds: TimeInterval) -> String {
-        let minutes = Int((seconds / 60).rounded())
-        if minutes < 60 { return "\(minutes)m" }
-        let h = minutes / 60, m = minutes % 60
-        return m == 0 ? "\(h)h" : "\(h)h\(m)m"
+    /// 활성 세션의 라벨: expiresAt 기반 카운트다운(4h55m → … → 1m) 또는 무한(∞). 비활성이면 nil.
+    private func durationLabel(for state: SessionState) -> String? {
+        guard case let .active(_, expiresAt) = state else { return nil }
+        guard let expiry = expiresAt else { return "∞" }
+        return CountdownFormat.label(remaining: expiry.timeIntervalSinceNow)
     }
 
     /// 활성: 뜬 눈(오렌지) / 비활성: 감은 눈(template — 메뉴바 톤 자동 적응).
@@ -112,11 +129,30 @@ final class StatusBarController: NSObject, NSMenuDelegate {
 
         menu.addItem(.separator())
 
+        // 서브메뉴도 메인 메뉴와 같은 디자인 언어: 전 항목 SF Symbol + "Recent" 섹션 헤더.
         let durMenu = NSMenu()
         durMenu.addItem(durationItem("15 minutes", 15 * 60))
         durMenu.addItem(durationItem("1 hour", 60 * 60))
         durMenu.addItem(durationItem("2 hours", 2 * 60 * 60))
         durMenu.addItem(durationItem("5 hours", 5 * 60 * 60))
+        // 최근 커스텀 duration(MRU 최대 3) — 원클릭 재사용. Until은 기록되지 않는다.
+        if !env.prefs.recentCustomDurations.isEmpty {
+            durMenu.addItem(.separator())
+            durMenu.addItem(.sectionHeader(title: "Recent"))
+            for seconds in env.prefs.recentCustomDurations {
+                durMenu.addItem(durationItem(DurationFormat.compact(seconds), seconds,
+                                             symbol: "clock.arrow.circlepath"))
+            }
+            let clear = NSMenuItem(title: "Clear Recent", action: #selector(clearRecentDurations), keyEquivalent: "")
+            clear.target = self
+            clear.image = Self.menuSymbol("xmark.circle")
+            durMenu.addItem(clear)
+        }
+        durMenu.addItem(.separator())
+        let custom = NSMenuItem(title: "Custom…", action: #selector(openCustomKeepAwake), keyEquivalent: "")
+        custom.target = self
+        custom.image = Self.menuSymbol("slider.horizontal.3")
+        durMenu.addItem(custom)
         let durParent = NSMenuItem(title: "Keep awake for…", action: nil, keyEquivalent: "")
         durParent.image = Self.menuSymbol("timer")
         durParent.submenu = durMenu
@@ -160,10 +196,12 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         NSImage(systemSymbolName: name, accessibilityDescription: nil)
     }
 
-    private func durationItem(_ title: String, _ seconds: TimeInterval) -> NSMenuItem {
+    private func durationItem(_ title: String, _ seconds: TimeInterval,
+                              symbol: String = "clock") -> NSMenuItem {
         let item = NSMenuItem(title: title, action: #selector(startTimed(_:)), keyEquivalent: "")
         item.target = self
         item.representedObject = seconds
+        item.image = Self.menuSymbol(symbol)
         return item
     }
 
@@ -203,6 +241,14 @@ final class StatusBarController: NSObject, NSMenuDelegate {
 
     @objc private func openSettings() {
         onOpenSettings?()
+    }
+
+    @objc private func clearRecentDurations() {
+        env.prefs.clearRecentCustomDurations()
+    }
+
+    @objc private func openCustomKeepAwake() {
+        onOpenCustomKeepAwake?()
     }
 
     @objc private func quit() {

@@ -39,7 +39,8 @@ No permission bypasses, no undocumented tricks. Mara uses only **official IOKit 
 ## Features
 
 - **One-click keep-awake** from the menu bar — the eye opens and turns orange while your Mac is kept awake
-- **Indefinite or timed**: `15m` / `1h` / `2h` / `5h` (the selected duration shows next to the icon)
+- **Indefinite or timed**: presets (`15m` / `1h` / `2h` / `5h`), any custom duration, or until a time of day — recent custom durations are one click away
+- **Live countdown** next to the icon: 5-minute ticks, switching to 1-minute steps for the last five minutes
 - **System-only or display too** — choose whether the screen is allowed to sleep
 - **Low-battery auto-off**: on battery, the session ends safely once you drop below your threshold
 - **Automatic triggers** — keep awake while:
