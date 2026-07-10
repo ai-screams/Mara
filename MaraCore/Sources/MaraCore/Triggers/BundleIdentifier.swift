@@ -1,19 +1,24 @@
 import Foundation
 
-/// Bundle ID 값 타입 — 형식 검증을 Core에 고정한다(오타·공백·무효 문자가 config로 새지 않게).
-/// 규칙(CFBundleIdentifier): 비어있지 않고, ASCII 영숫자·하이픈(-)·마침표(.)만 허용.
+/// Bundle ID 값 타입 — 형식 검증을 Core에 고정한다(오타·빈 값이 config로 새지 않게).
+/// 규칙: trim 후 비어있지 않고, 내부 공백·제어문자가 없을 것.
+/// Apple 권고 문자셋([A-Za-z0-9-.])보다 의도적으로 넓다 — OS 로더는 권고를 강제하지 않고
+/// 언더스코어 등이 포함된 실존 앱(Electron 계열 등)이 있어, 여기서 좁히면 그런 앱을
+/// 감시할 수 없고 업그레이드 시 기존 저장 항목이 소실된다(Codex 감사 지적).
+/// 검증 목적은 오타(내부 공백/빈 값) 차단이지 App Store 규정 준수가 아니다.
 /// 대소문자는 보존하고 매칭은 exact — 피커가 OS의 정확한 문자열을 제공하므로 정규화하지 않는다.
 public struct BundleIdentifier: Hashable, Sendable {
     public let rawValue: String
 
-    private static let allowed = Set<Character>(
-        "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-."
-    )
+    private static let rejected = CharacterSet.whitespacesAndNewlines
+        .union(.controlCharacters)
 
     /// 형식 위반이면 nil. 앞뒤 공백·개행은 잘라낸 뒤 검증한다(수동 입력 관용).
     public init?(validating raw: String) {
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, trimmed.allSatisfy({ Self.allowed.contains($0) }) else { return nil }
+        guard !trimmed.isEmpty,
+              !trimmed.unicodeScalars.contains(where: { Self.rejected.contains($0) })
+        else { return nil }
         self.rawValue = trimmed
     }
 }

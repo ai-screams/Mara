@@ -19,11 +19,17 @@ final class BundleIdentifierTests: XCTestCase {
         XCTAssertNil(BundleIdentifier(validating: "   \n"))
     }
 
-    func test_invalid_disallowedCharacters() {
-        XCTAssertNil(BundleIdentifier(validating: "com foo"))        // 내부 공백
-        XCTAssertNil(BundleIdentifier(validating: "com.foo/bar"))    // 슬래시
-        XCTAssertNil(BundleIdentifier(validating: "com.한글.app"))    // 비ASCII
-        XCTAssertNil(BundleIdentifier(validating: "com.foo_bar"))    // 언더스코어 (CFBundleIdentifier 비허용)
+    func test_invalid_internalWhitespaceOrControl() {
+        XCTAssertNil(BundleIdentifier(validating: "com foo"))          // 내부 공백 — 오타 차단이 검증의 목적
+        XCTAssertNil(BundleIdentifier(validating: "com.a\nb"))         // 내부 개행
+        XCTAssertNil(BundleIdentifier(validating: "com.a\u{0000}b"))   // 제어문자
+    }
+
+    func test_valid_beyondAppleRecommendedCharset() {
+        // Apple 권고([A-Za-z0-9-.])보다 넓게 허용 — 언더스코어 포함 실존 앱(Electron 계열)과
+        // 구버전 자유 입력으로 저장된 항목의 업그레이드 생존을 위해 (Codex 감사 반영).
+        XCTAssertEqual(BundleIdentifier(validating: "com.foo_bar")?.rawValue, "com.foo_bar")
+        XCTAssertEqual(BundleIdentifier(validating: "com.한글.app")?.rawValue, "com.한글.app")
     }
 
     func test_caseIsPreserved_matchingIsExact() {
