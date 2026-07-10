@@ -13,7 +13,7 @@ final class AppEnvironment: ObservableObject {
     private let apps = NSWorkspaceAppsObserver()
     private let networkProvider = RoutingTableNetworkProvider()
 
-    private let triggerEngine: TriggerEngine
+    let triggerEngine: TriggerEngine
     // 글로벌 핫키 기능 보류(비활성화) — 코드는 보존, 재활성화 시 주석 해제.
     // private var hotkey: HotkeyManager?
     private var cancellables = Set<AnyCancellable>()

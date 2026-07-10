@@ -86,3 +86,24 @@ struct SettingsIcon: View {
             .accessibilityHidden(true)
     }
 }
+
+/// 트리거 진단 상태 한 줄 — 상태 점(활성=accent / 비활성=muted) + 캡션.
+/// indent=true면 토글 라벨 텍스트와 정렬되도록 아이콘 폭(18)+간격(9)만큼 들여쓴다.
+struct SettingsStatusRow: View {
+    let active: Bool
+    let text: String
+    var indent: Bool = true
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Circle()
+                .fill(active ? MaraTheme.accent : MaraTheme.muted.opacity(0.6))
+                .frame(width: 6, height: 6)
+            Text(text)
+                .font(.caption)
+                .foregroundStyle(active ? MaraTheme.accent : MaraTheme.muted)
+        }
+        .padding(.leading, indent ? 27 : 0)
+        .accessibilityElement(children: .combine)
+    }
+}

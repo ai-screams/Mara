@@ -6,6 +6,7 @@ import MaraCore
 struct SettingsView: View {
     @ObservedObject var prefs: PrefsStore
     @ObservedObject var session: SessionManager
+    @ObservedObject var triggers: TriggerEngine
     let currentNetwork: () -> NetworkIdentity?
     var checkForUpdates: () -> Void = {}
     var requestNotificationAuth: () async -> Bool = { false }
@@ -57,19 +58,37 @@ struct SettingsView: View {
         SettingsCard(title: "AUTOMATION") {
             SettingsToggleRow(symbol: "bolt.fill", title: "Keep awake while charging",
                               isOn: $prefs.triggerConfig.chargingEnabled)
+            statusRow(for: .charging)
             SettingsToggleRow(symbol: "display.2", title: "Keep awake with external display",
                               isOn: $prefs.triggerConfig.externalDisplayEnabled)
+            statusRow(for: .externalDisplay)
             SettingsToggleRow(symbol: "app.badge", title: "Keep awake while specific apps run",
                               isOn: $prefs.triggerConfig.appRunningEnabled)
+            statusRow(for: .appRunning)
             if prefs.triggerConfig.appRunningEnabled {
                 SettingsCaption("App bundle IDs to watch (one per line)")
                 bundleIDsEditor
             }
             SettingsToggleRow(symbol: "wifi", title: "Keep awake on specific networks",
                               isOn: $prefs.triggerConfig.networkEnabled)
+            statusRow(for: .network)
             if prefs.triggerConfig.networkEnabled {
                 networkList
             }
+            if triggers.snapshot.isSuppressed {
+                // 카드 레벨 안내 — 특정 트리거 소속이 아니므로 들여쓰지 않는다.
+                SettingsStatusRow(active: false,
+                                  text: "Paused — turned off manually; resumes after all triggers clear",
+                                  indent: false)
+            }
+        }
+    }
+
+    /// 켜진 트리거에만 진단 상태 행을 렌더한다 (꺼진 트리거는 행 없음).
+    @ViewBuilder
+    private func statusRow(for kind: TriggerKind) -> some View {
+        if let status = Self.triggerStatus(kind, config: prefs.triggerConfig, snapshot: triggers.snapshot) {
+            SettingsStatusRow(active: status.active, text: status.text)
         }
     }
 
@@ -173,6 +192,51 @@ struct SettingsView: View {
                     .filter { !$0.isEmpty }
             }
         )
+    }
+
+    // MARK: - Trigger diagnostics formatter
+
+    /// Core 진단 값 → 표시 문구(영어) 매핑. 토글 OFF면 nil(행 숨김).
+    /// enabled인데 감시 목록이 비면 armed되지 않으므로(activeSpecs 제외) 안내 문구를 반환한다.
+    static func triggerStatus(_ kind: TriggerKind, config: TriggerConfig, snapshot: TriggerEngineSnapshot)
+        -> (active: Bool, text: String)? {
+        switch kind {
+        case .charging:
+            guard config.chargingEnabled else { return nil }
+        case .externalDisplay:
+            guard config.externalDisplayEnabled else { return nil }
+        case .appRunning:
+            guard config.appRunningEnabled else { return nil }
+            guard !config.watchedBundleIDs.isEmpty else {
+                return (false, "Add app bundle IDs below to activate")
+            }
+        case .network:
+            guard config.networkEnabled else { return nil }
+            guard !config.watchedNetworks.isEmpty else {
+                return (false, "Remember a network below to activate")
+            }
+        }
+        // 설정 반영은 300ms debounce — 재조정 전엔 스냅샷에 아직 없을 수 있다(일시 상태).
+        guard let snap = snapshot.trigger(kind) else { return (false, "Checking…") }
+        let active = snap.isSatisfied
+        switch snap.diagnostic {
+        case .charging(let onAC):
+            return (active, onAC ? "Active — on AC power" : "Inactive — on battery")
+        case .externalDisplay(let count):
+            return (active, active ? "Active — \(count) displays" : "Inactive — built-in display only")
+        case .appRunning(let matched):
+            if matched.count == 1, let id = matched.first {
+                return (active, "Active — \(id) running")
+            }
+            return (active, active ? "Active — \(matched.count) watched apps running"
+                                   : "Inactive — no watched app running")
+        case .network(let current, let matched):
+            guard let current else { return (active, "Inactive — can't resolve gateway") }
+            return (active, matched ? "Active — \(current.gatewayMAC)"
+                                    : "Inactive — different network")
+        case nil:
+            return (active, active ? "Active" : "Inactive")
+        }
     }
 
     // MARK: - Event formatter
