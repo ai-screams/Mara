@@ -54,3 +54,16 @@ public final class AppRunningTrigger: TriggerEvaluator {
             .eraseToAnyPublisher()
     }
 }
+
+extension AppRunningTrigger: TriggerDiagnosing {
+    public var diagnostic: TriggerDiagnostic {
+        .appRunning(matched: apps.runningBundleIDs.intersection(watched))
+    }
+    public var diagnostics: AnyPublisher<TriggerDiagnostic, Never> {
+        let watched = self.watched
+        return apps.changes
+            .map { TriggerDiagnostic.appRunning(matched: $0.intersection(watched)) }
+            .removeDuplicates()
+            .eraseToAnyPublisher()
+    }
+}

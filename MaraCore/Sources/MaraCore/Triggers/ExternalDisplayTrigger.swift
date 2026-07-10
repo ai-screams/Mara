@@ -32,3 +32,13 @@ public final class ExternalDisplayTrigger: TriggerEvaluator {
         screens.changes.map { $0 > 1 }.removeDuplicates().eraseToAnyPublisher()
     }
 }
+
+extension ExternalDisplayTrigger: TriggerDiagnosing {
+    public var diagnostic: TriggerDiagnostic { .externalDisplay(screenCount: screens.screenCount) }
+    public var diagnostics: AnyPublisher<TriggerDiagnostic, Never> {
+        screens.changes
+            .map { TriggerDiagnostic.externalDisplay(screenCount: $0) }
+            .removeDuplicates()
+            .eraseToAnyPublisher()
+    }
+}

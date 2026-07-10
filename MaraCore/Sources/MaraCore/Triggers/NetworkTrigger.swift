@@ -17,3 +17,17 @@ public final class NetworkTrigger: TriggerEvaluator {
             .eraseToAnyPublisher()
     }
 }
+
+extension NetworkTrigger: TriggerDiagnosing {
+    public var diagnostic: TriggerDiagnostic {
+        let current = network.current
+        return .network(current: current, matched: current.map { watched.contains($0) } ?? false)
+    }
+    public var diagnostics: AnyPublisher<TriggerDiagnostic, Never> {
+        let watched = self.watched
+        return network.changes
+            .map { TriggerDiagnostic.network(current: $0, matched: $0.map { watched.contains($0) } ?? false) }
+            .removeDuplicates()
+            .eraseToAnyPublisher()
+    }
+}

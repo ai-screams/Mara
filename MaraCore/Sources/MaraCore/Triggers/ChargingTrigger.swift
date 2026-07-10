@@ -14,3 +14,13 @@ public final class ChargingTrigger: TriggerEvaluator {
             .eraseToAnyPublisher()
     }
 }
+
+extension ChargingTrigger: TriggerDiagnosing {
+    public var diagnostic: TriggerDiagnostic { .charging(onAC: battery.snapshot.isOnAC) }
+    public var diagnostics: AnyPublisher<TriggerDiagnostic, Never> {
+        battery.snapshots
+            .map { TriggerDiagnostic.charging(onAC: $0.isOnAC) }
+            .removeDuplicates()
+            .eraseToAnyPublisher()
+    }
+}
