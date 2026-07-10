@@ -118,6 +118,9 @@ final class StatusBarController: NSObject, NSMenuDelegate {
             for seconds in env.prefs.recentCustomDurations {
                 durMenu.addItem(durationItem(DurationFormat.compact(seconds), seconds))
             }
+            let clear = NSMenuItem(title: "Clear Recent", action: #selector(clearRecentDurations), keyEquivalent: "")
+            clear.target = self
+            durMenu.addItem(clear)
         }
         durMenu.addItem(.separator())
         let custom = NSMenuItem(title: "Custom…", action: #selector(openCustomKeepAwake), keyEquivalent: "")
@@ -209,6 +212,10 @@ final class StatusBarController: NSObject, NSMenuDelegate {
 
     @objc private func openSettings() {
         onOpenSettings?()
+    }
+
+    @objc private func clearRecentDurations() {
+        env.prefs.clearRecentCustomDurations()
     }
 
     @objc private func openCustomKeepAwake() {
