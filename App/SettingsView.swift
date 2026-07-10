@@ -10,9 +10,15 @@ struct SettingsView: View {
     let currentNetwork: () -> NetworkIdentity?
     var checkForUpdates: () -> Void = {}
     var requestNotificationAuth: () async -> Bool = { false }
-    @State private var showAppPicker = false
-    @State private var pickerApps: [RunningAppItem] = []
+    @State private var appPicker: AppPickerPayload?
     @State private var manualBundleID = ""
+
+    /// sheet(item:)용 페이로드 — isPresented+별도 @State 조합은 첫 표시가 낡은(빈) 상태를
+    /// 캡처하는 SwiftUI 함정이 있다(실사고: 빈 피커). 데이터가 곧 표시 트리거가 되게 한다.
+    private struct AppPickerPayload: Identifiable {
+        let id = UUID()
+        let apps: [RunningAppItem]
+    }
 
     var body: some View {
         VStack(spacing: 18) {
@@ -145,18 +151,17 @@ struct SettingsView: View {
             Button {
                 // 여는 순간 1회 스냅샷으로 고정 — 시트가 떠 있는 동안 부모 재렌더(진단 갱신 등)마다
                 // NSWorkspace를 재열거하지 않고, 추가한 행이 목록에서 사라지는 대신 체크로 남는다.
-                pickerApps = RunningAppSnapshot.fetch(
-                    excluding: Set(prefs.triggerConfig.watchedBundleIDs.map(\.rawValue)))
-                showAppPicker = true
+                appPicker = AppPickerPayload(apps: RunningAppSnapshot.fetch(
+                    excluding: Set(prefs.triggerConfig.watchedBundleIDs.map(\.rawValue))))
             } label: {
                 Label("Add Running App…", systemImage: "plus.circle.fill")
                     .font(.callout)
             }
             .buttonStyle(.borderless)
             .foregroundStyle(MaraTheme.accent)
-            .sheet(isPresented: $showAppPicker) {
+            .sheet(item: $appPicker) { payload in
                 RunningAppPickerView(
-                    apps: pickerApps,
+                    apps: payload.apps,
                     onAdd: { prefs.triggerConfig.addWatchedBundleID($0) }
                 )
             }
