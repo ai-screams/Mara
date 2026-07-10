@@ -57,8 +57,8 @@ public final class TriggerEngine: ObservableObject {
             active[kind] = (evaluator, c, d)
         }
         reconciling = false
-        reevaluate()        // 재조정 완료 후 딱 한 번만 평가
-        refreshSnapshot()   // suppression이 안 변한 경로에서도 armed 목록 변화를 반영
+        // 재조정 완료 후 딱 한 번만 평가 — 스냅샷 갱신은 reevaluate()의 defer가 담당한다.
+        reevaluate()
     }
 
     public func stop() {
