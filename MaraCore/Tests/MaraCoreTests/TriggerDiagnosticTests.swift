@@ -68,6 +68,18 @@ final class TriggerDiagnosticTests: XCTestCase {
         XCTAssertEqual(received, [.appRunning(matched: ["com.tinyspeck.slackmacgap"])])
     }
 
+    func test_appRunning_diagnosticsPublishesWhenWatchedAppQuits() {
+        let apps = MockApps(["com.tinyspeck.slackmacgap"])
+        let t = AppRunningTrigger(apps: apps, watched: ["com.tinyspeck.slackmacgap"])
+        var received: [TriggerDiagnostic] = []
+        t.diagnostics.sink { received.append($0) }.store(in: &cancellables)
+        apps.set([])   // 감시 앱 종료 → matched 변화가 방출되어야 한다
+        XCTAssertEqual(received, [
+            .appRunning(matched: ["com.tinyspeck.slackmacgap"]),
+            .appRunning(matched: []),
+        ])
+    }
+
     // MARK: - Network
 
     func test_network_diagnosticCoversNilCurrentAndMatch() {
