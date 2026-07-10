@@ -11,6 +11,7 @@ struct SettingsView: View {
     var checkForUpdates: () -> Void = {}
     var requestNotificationAuth: () async -> Bool = { false }
     @State private var showAppPicker = false
+    @State private var pickerApps: [RunningAppItem] = []
     @State private var manualBundleID = ""
 
     var body: some View {
@@ -142,6 +143,10 @@ struct SettingsView: View {
     private var watchedAppsList: some View {
         VStack(alignment: .leading, spacing: 7) {
             Button {
+                // 여는 순간 1회 스냅샷으로 고정 — 시트가 떠 있는 동안 부모 재렌더(진단 갱신 등)마다
+                // NSWorkspace를 재열거하지 않고, 추가한 행이 목록에서 사라지는 대신 체크로 남는다.
+                pickerApps = RunningAppSnapshot.fetch(
+                    excluding: Set(prefs.triggerConfig.watchedBundleIDs.map(\.rawValue)))
                 showAppPicker = true
             } label: {
                 Label("Add Running App…", systemImage: "plus.circle.fill")
@@ -151,8 +156,7 @@ struct SettingsView: View {
             .foregroundStyle(MaraTheme.accent)
             .sheet(isPresented: $showAppPicker) {
                 RunningAppPickerView(
-                    apps: RunningAppSnapshot.fetch(
-                        excluding: Set(prefs.triggerConfig.watchedBundleIDs.map(\.rawValue))),
+                    apps: pickerApps,
                     onAdd: { prefs.triggerConfig.addWatchedBundleID($0) }
                 )
             }
