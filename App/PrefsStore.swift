@@ -43,7 +43,7 @@ final class PrefsStore: ObservableObject {
         let d = UserDefaults.standard
         d.register(defaults: [
             Keys.defaultKeepDisplayAwake: true,
-            Keys.lowBatteryThreshold: 20,
+            Keys.lowBatteryThreshold: 50,
             Keys.notifyAutoSessionChanges: false,
             Keys.recentCustomDurations: [TimeInterval](),
             Keys.hasShownFirstRunGuide: false,
