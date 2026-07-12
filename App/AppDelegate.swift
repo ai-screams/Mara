@@ -1,3 +1,4 @@
+import AppIntents
 import AppKit
 import MaraCore
 import Sparkle
@@ -37,6 +38,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var sessionNotifier: SessionNotifier?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // App Intents 의존성 — 구체 타입으로 등록(프로토콜 existential 등록은 회피).
+        // add(dependency:)는 인자를 @autoclosure @escaping으로 받음 — 클래스 내부라 self 명시 필요.
+        AppDependencyManager.shared.add(dependency: self.env.sessionCommander)
         NSApp.setActivationPolicy(.accessory)
         statusBar.onOpenSettings = { [weak self] in self?.settingsPresenter.show() }
         statusBar.onOpenCustomKeepAwake = { [weak self] in self?.customKeepAwakePresenter.show() }

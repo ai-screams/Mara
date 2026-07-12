@@ -14,6 +14,7 @@ final class AppEnvironment: ObservableObject {
     private let networkProvider = RoutingTableNetworkProvider()
 
     let triggerEngine: TriggerEngine
+    let sessionCommander: SessionCommander
     // 글로벌 핫키 기능 보류(비활성화) — 코드는 보존, 재활성화 시 주석 해제.
     // private var hotkey: HotkeyManager?
     private var cancellables = Set<AnyCancellable>()
@@ -31,6 +32,7 @@ final class AppEnvironment: ObservableObject {
         // 트리거 엔진은 1회 생성(durable) — suppression이 config 변경에도 유지됨
         let prefs = self.prefs
         self.triggerEngine = TriggerEngine(session: session, scope: { prefs.defaultScope })
+        self.sessionCommander = SessionCommander(session: session, scope: { prefs.defaultScope }, clock: SystemClock())
 
         // PrefsStore(@Published)는 main에서만 변이되므로 두 sink 모두 main에서 delivery된다.
         // assumeIsolated로 @MainActor 코어(session/reconcileTriggers) 호출을 격리 보장한다.
