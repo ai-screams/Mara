@@ -38,6 +38,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
+        // accessory 앱엔 기본 메인 메뉴가 없어 창의 Cmd+W·텍스트 편집 단축키가 안 걸린다 — 최소 표준 메뉴 설치.
+        MainMenu.install(appName: "Mara")
         statusBar.onOpenSettings = { [weak self] in self?.settingsPresenter.show() }
         statusBar.onOpenCustomKeepAwake = { [weak self] in self?.customKeepAwakePresenter.show() }
         statusBar.checkForUpdates = (
