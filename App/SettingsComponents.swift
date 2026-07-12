@@ -50,15 +50,33 @@ struct SettingsStepperRow: View {
     let range: ClosedRange<Int>
     let step: Int
 
+    // 텍스트 입력·스테퍼 모두 이 바인딩을 통해서만 값을 쓴다 → 범위 밖 입력(예: 250)이
+    // prefs/Core로 새지 않는다(과도값이 배터리 자동종료 베토를 오작동시키는 것을 원천 차단).
+    private var clamped: Binding<Int> {
+        Binding(get: { value },
+                set: { value = min(max($0, range.lowerBound), range.upperBound) })
+    }
+
     var body: some View {
         HStack(spacing: 9) {
             SettingsIcon(symbol)
             Text(title).font(.callout).foregroundStyle(.white)
             Spacer(minLength: 8)
-            Text("\(value)%")
-                .font(.callout.monospacedDigit())
-                .foregroundStyle(MaraTheme.accent)
-            Stepper(title, value: $value, in: range, step: step)
+            // 직접 입력 가능한 숫자 필드 + "%" — 편집 영역임을 은은한 박스로 표시(수동 bundle ID 필드와 동일 패턴).
+            HStack(spacing: 1) {
+                TextField(title, value: clamped, format: .number)
+                    .labelsHidden()
+                    .textFieldStyle(.plain)
+                    .multilineTextAlignment(.trailing)
+                    .font(.callout.monospacedDigit())
+                    .foregroundStyle(MaraTheme.accent)
+                    .frame(width: 30)
+                Text("%").font(.callout).foregroundStyle(MaraTheme.accent)
+            }
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background(Color.black.opacity(0.28), in: RoundedRectangle(cornerRadius: 6))
+            Stepper(title, value: clamped, in: range, step: step)
                 .labelsHidden()
                 .controlSize(.small)
         }
