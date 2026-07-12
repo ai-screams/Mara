@@ -26,8 +26,9 @@ jobs:
           cd MaraCore
           swift test
 
-      - name: Install XcodeGen
-        run: brew install xcodegen
+      - name: Install XcodeGen (pinned, checksum-verified)
+        # release.yml 과 동일 스크립트 — 이 PR CI 가 릴리스와 같은 설치 경로를 실증한다.
+        run: scripts/install-xcodegen.sh
 
       - name: Generate Xcode project
         run: xcodegen generate

@@ -18,3 +18,7 @@ MaraCore/.build/
 *.xcuserstate
 xcuserdata/
 dist/
+
+# Python bytecode (from scripts/ed25519_pub.py etc.)
+__pycache__/
+*.pyc

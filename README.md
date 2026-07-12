@@ -94,6 +94,8 @@ When a session is started by an automatic trigger, the menu shows an `Auto-activ
 | `MaraCore/Sources/MaraCore/Triggers/` | Charging, external-display, app-running, and network triggers with suppression/re-arm logic |
 | `MaraCore/Tests/` | Core unit tests, routing-table parser tests, and real-IOKit assertion integration tests |
 | `scripts/release.sh` | XcodeGen, archive, Developer ID export, notarization, staple, branded DMG build and verification |
+| `scripts/install-xcodegen.sh` | Checksum-pinned XcodeGen install, shared by CI and the release job |
+| `scripts/ed25519_pub.py` | Stdlib-only Ed25519 public-key derivation for the release key-match gate (no third-party deps) |
 | `scripts/dmg/` | Night Watch DMG installer background (generator + committed 1x/2x assets) |
 | `docs/` | Public landing page served via GitHub Pages |
 
@@ -163,7 +165,11 @@ The release workflow runs in a protected `release` environment (requires reviewe
 
 - CI: `swift test`, XcodeGen project generation, unsigned Debug build
 - Secret Scan: TruffleHog verified/unknown results
-- GitHub Actions supply-chain hardening: actions pinned to commit SHAs, kept current by Dependabot; protected `v*` tags with an approved-commit checkout guard
+- GitHub Actions supply-chain hardening:
+  - all third-party actions pinned to commit SHAs, kept current by Dependabot
+  - **XcodeGen** installed from a checksum-pinned release (`scripts/install-xcodegen.sh`) — the same script runs in CI and in the release job, so every PR exercises the exact release install path
+  - the **update-signing-key check derives the Ed25519 public key with the Python standard library only** (`scripts/ed25519_pub.py`, RFC 8032, self-tested against the spec's vectors on every run) — no third-party package is downloaded or executed in the job that holds the Sparkle signing key
+  - protected `v*` tags with an approved-commit checkout guard
 - Release verification: `spctl -t open`, `xcrun stapler validate`, Sparkle key-match gate
 
 ## Support

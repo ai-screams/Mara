@@ -52,8 +52,12 @@ jobs:
           p12-file-base64: ${{ secrets.DEVELOPER_ID_CERT_P12 }}
           p12-password: ${{ secrets.DEVELOPER_ID_CERT_PASSWORD }}
 
-      - name: Install tools
-        run: brew install xcodegen create-dmg
+      - name: Install XcodeGen (pinned, checksum-verified)
+        # ci.yml 과 동일 스크립트 — PR CI 가 이미 이 설치 경로를 실증하므로 릴리스 전에 회귀가 잡힌다.
+        run: scripts/install-xcodegen.sh
+
+      - name: Install create-dmg
+        run: brew install create-dmg
 
       - name: Build, sign, notarize, package
         env:
@@ -84,11 +88,10 @@ jobs:
         run: |
           set -euo pipefail
           APP_PUB="$(/usr/libexec/PlistBuddy -c 'Print :SUPublicEDKey' build/release/export/Mara.app/Contents/Info.plist)"
-          python3 -m venv "$RUNNER_TEMP/edvenv"
-          # 서명키가 env에 있는 잡이라 도구 공급망을 좁힌다: 버전 핀(정확 일치).
-          "$RUNNER_TEMP/edvenv/bin/pip" install --quiet 'cryptography==44.0.0'
-          DERIVED_PUB="$("$RUNNER_TEMP/edvenv/bin/python" -c 'import os,base64;from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey as K;from cryptography.hazmat.primitives import serialization as S;s=base64.b64decode(os.environ["SPARKLE_ED_PRIVATE_KEY"]);s=s[:32] if len(s)==64 else s;print(base64.b64encode(K.from_private_bytes(s).public_key().public_bytes(S.Encoding.Raw,S.PublicFormat.Raw)).decode())')"
-          rm -rf "$RUNNER_TEMP/edvenv"
+          # 서명키가 env에 있는 잡이라, 개인키 옆에서 3rd-party 코드를 돌리지 않는다:
+          # pip `cryptography`(+cffi) 다운로드·실행 대신 stdlib-만 파생기를 쓴다(공급망 표면 제거).
+          # 스크립트는 매 실행 시 RFC 8032 벡터로 자기검증 후 파생 — 틀리면 여기서 실패(게시 전, fail-safe).
+          DERIVED_PUB="$(python3 scripts/ed25519_pub.py)"
           if [ "$APP_PUB" != "$DERIVED_PUB" ]; then
             echo "::error::SUPublicEDKey in app ($APP_PUB) != key derived from SPARKLE_ED_PRIVATE_KEY ($DERIVED_PUB). Clients would reject every update."
             exit 1
