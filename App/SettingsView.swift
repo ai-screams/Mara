@@ -43,7 +43,7 @@ struct SettingsView: View {
             SettingsToggleRow(symbol: "display", title: "Keep display awake by default",
                               isOn: $prefs.defaultKeepDisplayAwake)
             SettingsStepperRow(symbol: "battery.25", title: "Low-battery auto-off",
-                               value: $prefs.lowBatteryThreshold, range: 5...50, step: 5)
+                               value: $prefs.lowBatteryThreshold, range: 5...95, step: 5)
             SettingsCaption("Ends the session safely when battery level (on battery power) drops below the threshold.")
             SettingsToggleRow(symbol: "bell.badge", title: "Notify on automatic start & end",
                               isOn: $prefs.notifyAutoSessionChanges)
