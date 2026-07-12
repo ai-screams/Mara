@@ -44,7 +44,11 @@ public final class SessionCommander: SessionCommanding {
     public func startKeepAwake(duration: TimeInterval?) {
         let sessionDuration: SessionDuration
         if let duration {
-            sessionDuration = .duration(min(max(duration, 0), Self.maxDuration))
+            // 비유한(NaN/∞)은 클램프를 우회한다 — Swift의 min/max는 NaN 비교가 false라 NaN을 그대로 통과시킨다.
+            // 신뢰 불가 입력은 0으로 안전 축퇴(코드베이스 관례: DurationFormat/PrefsStore도 비유한→0/drop).
+            // keep-awake 도구에선 "쓰레기 입력 → 무기한 유지"보다 "→ 유지 안 함"이 fail-safe.
+            let clamped = duration.isFinite ? min(max(duration, 0), Self.maxDuration) : 0
+            sessionDuration = .duration(clamped)
         } else {
             sessionDuration = .indefinite
         }

@@ -45,12 +45,31 @@ final class SessionCommanderTests: XCTestCase {
         XCTAssertEqual(cfg.duration, .duration(SessionCommander.maxDuration))
     }
 
-    func test_start_clampsNegativeToZero_thenExpiresImmediately() {
-        // 음수는 0으로 클램프 → duration(0). SessionManager는 즉시 만료 스케줄(테스트 스케줄러는 수동 발화).
+    func test_start_clampsNegativeToZero() {
         let (cmd, sm, _) = make()
-        cmd.startKeepAwake(duration: -60)
+        cmd.startKeepAwake(duration: -60)   // 음수 → 0으로 클램프
         guard case let .active(cfg, _) = sm.state else { return XCTFail() }
         XCTAssertEqual(cfg.duration, .duration(0))
+    }
+
+    func test_start_exactly24h_passesUnclamped() {
+        // 상한 경계값은 클램프 없이 그대로 통과해야 한다.
+        let (cmd, sm, _) = make()
+        cmd.startKeepAwake(duration: SessionCommander.maxDuration)
+        guard case let .active(cfg, _) = sm.state else { return XCTFail() }
+        XCTAssertEqual(cfg.duration, .duration(SessionCommander.maxDuration))
+    }
+
+    func test_start_nonFiniteDuration_degradesToZero() {
+        // NaN/∞는 min/max 클램프를 우회하므로(NaN 비교 = false) isFinite 가드로 0 축퇴 — invalid Date 오염 방지.
+        for bad in [Double.nan, .infinity, -.infinity] {
+            let (cmd, sm, _) = make()
+            cmd.startKeepAwake(duration: bad)
+            guard case let .active(cfg, expiresAt) = sm.state else { return XCTFail() }
+            XCTAssertEqual(cfg.duration, .duration(0), "\(bad)")
+            // expiresAt은 유효 Date여야 한다(NaN이 흘러갔다면 invalid).
+            XCTAssertEqual(expiresAt?.timeIntervalSince1970.isFinite, true, "\(bad)")
+        }
     }
 
     func test_start_whileActive_replaces() {
