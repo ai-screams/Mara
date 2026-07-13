@@ -266,7 +266,7 @@ struct SettingsView: View {
         case .batteryUnavailable:
             return (false, "Unavailable — can't read power source")
         case .externalDisplay(let active, let count):
-            return (active, active ? "Active — \(count) displays" : "Inactive — built-in display only")
+            return (active, active ? "Active — \(count) \(count == 1 ? "display" : "displays")" : "Inactive — built-in display only")
         case .appRunningSingle(let active, let id):
             return (active, "Active — \(id) running")
         case .appRunningMultiple(let count):

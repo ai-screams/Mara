@@ -92,7 +92,10 @@ public final class SessionManager: ObservableObject {
     public func stop(reason: SessionStopReason) -> Result<Void, SessionFailure> {
         let wasActive = state.isActive
         let hasAssertions = engine.isDisplayHeld || engine.isSystemHeld
-        guard wasActive || hasAssertions else { return .success(()) }
+        guard wasActive || hasAssertions else {
+            lastFailure = nil
+            return .success(())
+        }
         if case .failure(let failure) = engine.releaseAll() {
             let sessionFailure = SessionFailure.power(failure)
             lastFailure = sessionFailure

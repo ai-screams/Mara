@@ -132,6 +132,31 @@ extension SessionManagerTests {
         XCTAssertEqual(p.live.count, 0)
     }
 
+    func test_updateScopeAssertionFailure_keepsExistingSessionAndExposesFailure() {
+        let (sm, p, _, _) = makeSUT()
+        XCTAssertNoThrow(try sm.start(
+            SessionConfig(scope: .systemOnly, duration: .duration(3600), origin: .manual)
+        ).get())
+        let stateBefore = sm.state
+        guard case let .active(configBefore, expiresAtBefore) = stateBefore else {
+            return XCTFail("expected active before")
+        }
+        p.failNextCreate = true
+
+        guard case .failure(.power(let failure)) = sm.updateScope(.displayAndSystem) else {
+            return XCTFail("expected update scope failure")
+        }
+
+        XCTAssertEqual(sm.state, stateBefore)
+        guard case let .active(configAfter, expiresAtAfter) = sm.state else {
+            return XCTFail("expected active after")
+        }
+        XCTAssertEqual(configAfter.scope, .systemOnly)
+        XCTAssertEqual(configAfter, configBefore)
+        XCTAssertEqual(expiresAtAfter, expiresAtBefore)
+        XCTAssertEqual(sm.lastFailure, .power(failure))
+    }
+
     func test_startAssertionFailure_staysInactiveAndExposesFailure() {
         let (sm, p, scheduler, _) = makeSUT()
         p.failNextCreate = true
