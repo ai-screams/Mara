@@ -48,11 +48,11 @@ fi
 file_ok=true
 xcrun llvm-cov export "$BIN" -instr-profile "$PROF" -summary-only Sources/ \
   | python3 ../scripts/coverage_file_gate.py \
-      --file 'SleepEngine.swift=95' \
-      --file 'SessionManager.swift=90' \
-      --file 'PowerAssertion.swift=90' \
-      --file 'BatteryMonitoring.swift=75' \
-      --file 'Triggers/RoutingTableNetworkProvider.swift=45' \
+      --file 'Sources/MaraCore/SleepEngine.swift=95' \
+      --file 'Sources/MaraCore/SessionManager.swift=90' \
+      --file 'Sources/MaraCore/PowerAssertion.swift=90' \
+      --file 'Sources/MaraCore/BatteryMonitoring.swift=75' \
+      --file 'Sources/MaraCore/Triggers/RoutingTableNetworkProvider.swift=45' \
   || file_ok=false
 
 [[ "$overall_ok" == true && "$file_ok" == true ]]

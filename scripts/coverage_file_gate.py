@@ -20,7 +20,11 @@ def main() -> int:
     for spec in args.file:
         suffix, raw_floor = spec.rsplit("=", 1)
         floor = float(raw_floor)
-        matches = [value for path, value in percentages.items() if path.endswith(suffix)]
+        matches = [
+            value
+            for path, value in percentages.items()
+            if path == suffix or path.endswith("/" + suffix)
+        ]
         if len(matches) != 1:
             print(f"::error::coverage file gate expected one match for {suffix}, got {len(matches)}")
             failed = True
