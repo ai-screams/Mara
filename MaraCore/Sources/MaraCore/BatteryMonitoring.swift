@@ -2,30 +2,47 @@ import Foundation
 import Combine
 import IOKit.ps
 
-public struct BatterySnapshot: Equatable {
-    public let percentage: Int   // 0-100, AC 데스크탑이면 100
-    public let isOnAC: Bool
-    public init(percentage: Int, isOnAC: Bool) { self.percentage = percentage; self.isOnAC = isOnAC }
+public enum BatterySnapshot: Equatable, Sendable {
+    case battery(percentage: Int, isOnAC: Bool)
+    case desktop
+    case unavailable
+
+    /// 테스트·외부 adapter 호환용. 입력은 실제 배터리 관측값으로 취급한다.
+    public init(percentage: Int, isOnAC: Bool) {
+        self = .battery(percentage: min(max(percentage, 0), 100), isOnAC: isOnAC)
+    }
+
+    public var isOnAC: Bool {
+        switch self {
+        case .battery(_, let isOnAC): return isOnAC
+        case .desktop: return true
+        case .unavailable: return false
+        }
+    }
 }
 
+@MainActor
 public protocol BatteryMonitoring: AnyObject {
     var snapshot: BatterySnapshot { get }
     var snapshots: AnyPublisher<BatterySnapshot, Never> { get }
 }
 
+@MainActor
 public final class IOKitBatteryMonitor: BatteryMonitoring {
     private let subject: CurrentValueSubject<BatterySnapshot, Never>
     private var runLoopSource: CFRunLoopSource?
 
     public init() {
         subject = CurrentValueSubject(IOKitBatteryMonitor.read())
-        start()
+        if !start() {
+            subject.send(.unavailable)
+        }
     }
 
     public var snapshot: BatterySnapshot { subject.value }
     public var snapshots: AnyPublisher<BatterySnapshot, Never> { subject.eraseToAnyPublisher() }
 
-    private func start() {
+    private func start() -> Bool {
         // context = passUnretained(self)가 이 패턴의 정석이다. IOPSNotificationCreateRunLoopSource는
         // context를 raw void*로 저장할 뿐 CFRetain하지 않으므로, passRetained(self)로 잡으면 아무도
         // 해제하지 않는 self의 +1이 남아 **누수**가 되고 deinit이 영원히 호출되지 않는다(실증 확인 —
@@ -36,34 +53,40 @@ public final class IOKitBatteryMonitor: BatteryMonitoring {
         let context = Unmanaged.passUnretained(self).toOpaque()
         guard let source = IOPSNotificationCreateRunLoopSource({ ctx in
             guard let ctx else { return }
-            let me = Unmanaged<IOKitBatteryMonitor>.fromOpaque(ctx).takeUnretainedValue()
-            me.subject.send(IOKitBatteryMonitor.read())
-        }, context)?.takeRetainedValue() else { return }
+            MainActor.assumeIsolated {
+                let me = Unmanaged<IOKitBatteryMonitor>.fromOpaque(ctx).takeUnretainedValue()
+                me.subject.send(IOKitBatteryMonitor.read())
+            }
+        }, context)?.takeRetainedValue() else { return false }
         runLoopSource = source
         CFRunLoopAddSource(CFRunLoopGetMain(), source, .defaultMode)
+        return true
     }
 
     static func read() -> BatterySnapshot {
         guard let blob = IOPSCopyPowerSourcesInfo()?.takeRetainedValue(),
-              let list = IOPSCopyPowerSourcesList(blob)?.takeRetainedValue() as? [CFTypeRef],
-              let ps = list.first,
-              let desc = IOPSGetPowerSourceDescription(blob, ps)?.takeUnretainedValue() as? [String: Any]
-        else {
-            return BatterySnapshot(percentage: 100, isOnAC: true)  // 배터리 없음 = 데스크탑
-        }
-        let current = desc[kIOPSCurrentCapacityKey] as? Int ?? 100
-        let max = desc[kIOPSMaxCapacityKey] as? Int ?? 100
-        let state = desc[kIOPSPowerSourceStateKey] as? String ?? kIOPSACPowerValue
-        let pct = max > 0 ? Int(Double(current) / Double(max) * 100.0) : 100
-        return BatterySnapshot(percentage: pct, isOnAC: state == kIOPSACPowerValue)
+              let list = IOPSCopyPowerSourcesList(blob)?.takeRetainedValue() as? [CFTypeRef]
+        else { return .unavailable }
+        guard let source = list.first else { return .desktop }
+        guard let description = IOPSGetPowerSourceDescription(blob, source)?.takeUnretainedValue()
+                as? [String: Any],
+              let current = description[kIOPSCurrentCapacityKey] as? Int,
+              let maximum = description[kIOPSMaxCapacityKey] as? Int,
+              maximum > 0,
+              let state = description[kIOPSPowerSourceStateKey] as? String
+        else { return .unavailable }
+        let percentage = min(max(Int(Double(current) / Double(maximum) * 100.0), 0), 100)
+        return .battery(percentage: percentage, isOnAC: state == kIOPSACPowerValue)
     }
 
     deinit {
-        // 제거 후 무효화(방어적): invalidate는 source가 등록된 모든 런루프에서 제거하고
-        // 무효 표시하여, 어떤 참조가 남아도 콜백이 다시 발화하지 않도록 보장한다.
-        if let s = runLoopSource {
-            CFRunLoopRemoveSource(CFRunLoopGetMain(), s, .defaultMode)
-            CFRunLoopSourceInvalidate(s)
+        MainActor.assumeIsolated {
+            // 제거 후 무효화: 콜백과 정리를 같은 main actor에 직렬화해 raw context가
+            // 해제 후 호출되는 틈을 막는다.
+            if let source = runLoopSource {
+                CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .defaultMode)
+                CFRunLoopSourceInvalidate(source)
+            }
         }
     }
 }

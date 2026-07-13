@@ -1,6 +1,6 @@
 import Combine
 
-public struct NetworkIdentity: Hashable, Codable {
+public struct NetworkIdentity: Hashable, Codable, Sendable {
     public let gatewayMAC: String
     public init(gatewayMAC: String) {
         self.gatewayMAC = NetworkIdentity.normalize(gatewayMAC)
@@ -16,6 +16,7 @@ public struct NetworkIdentity: Hashable, Codable {
     }
 }
 
+@MainActor
 public protocol NetworkIdentityProviding: AnyObject {
     var current: NetworkIdentity? { get }
     var changes: AnyPublisher<NetworkIdentity?, Never> { get }

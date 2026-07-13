@@ -2,6 +2,7 @@ import XCTest
 import Combine
 @testable import MaraCore
 
+@MainActor
 final class TriggerEvaluatorTests: XCTestCase {
     func test_mockTrigger_publishesChanges() {
         let t = MockTrigger(kind: .charging, satisfied: false)
@@ -25,6 +26,13 @@ extension TriggerEvaluatorTests {
         screens.set(1)   // 분리
         c.cancel()
         XCTAssertEqual(received, [false, true, false])
+    }
+
+    func test_externalDisplayTrigger_singleExternalScreen_isSatisfied() {
+        let screens = MockScreens(count: 1, externalCount: 1)
+        let trigger = ExternalDisplayTrigger(screens: screens)
+
+        XCTAssertTrue(trigger.isSatisfied, "single-monitor desktops and clamshell mode are external")
     }
 }
 
@@ -55,5 +63,14 @@ extension TriggerEvaluatorTests {
         c.cancel()
         XCTAssertEqual(received, [false, true, false])
         XCTAssertFalse(t.isSatisfied)
+    }
+
+    func test_chargingTrigger_unavailableDoesNotActivate() {
+        let battery = MockBattery(percentage: 80, isOnAC: true)
+        let trigger = ChargingTrigger(battery: battery)
+        battery.emitUnavailable()
+
+        XCTAssertFalse(trigger.isSatisfied)
+        XCTAssertEqual(trigger.diagnostic, .batteryUnavailable)
     }
 }

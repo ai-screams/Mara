@@ -2,7 +2,8 @@
 
 ## Build & test
 
-- `xcodegen generate` 필수 선행 — `Mara.xcodeproj`는 생성물(gitignored). `make test|generate|build|release`.
+- `scripts/generate-project.sh` 필수 선행 — `Mara.xcodeproj`는 생성물(gitignored)이고,
+  helper가 커밋된 SwiftPM revision lock을 복원한다. `make test|generate|build|release`.
 - 단일 테스트: `cd MaraCore && swift test --filter <TestName>`.
 - 로컬 스모크: Release 빌드 후 반드시 Apple Development 정체성으로 재서명(ad-hoc 금지, 글로벌 규칙).
   정체성 조회: `security find-identity -v -p codesigning` (Apple Development 항목 사용).

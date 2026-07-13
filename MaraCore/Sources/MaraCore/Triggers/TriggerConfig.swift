@@ -1,7 +1,7 @@
 import Foundation
 
 /// 자동화(트리거) 설정. 순수 도메인 데이터 — 영속(UserDefaults 인코딩)은 App(PrefsStore)이 담당한다.
-public struct TriggerConfig: Codable, Equatable {
+public struct TriggerConfig: Codable, Equatable, Sendable {
     public var chargingEnabled: Bool
     public var externalDisplayEnabled: Bool
     public var appRunningEnabled: Bool
@@ -68,7 +68,7 @@ public struct TriggerConfig: Codable, Equatable {
 
 /// 활성화된 트리거의 종류와 파라미터(순수 값). config → 어떤 트리거를 켤지의 **결정**만 표현하며,
 /// 실제 OS 어댑터를 물린 evaluator 인스턴스화는 App 레이어가 담당한다(순수/불순 분리).
-public enum TriggerSpec: Equatable {
+public enum TriggerSpec: Equatable, Sendable {
     case charging
     case externalDisplay
     case appRunning(Set<String>)

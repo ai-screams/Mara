@@ -122,6 +122,17 @@ final class StatusBarController: NSObject, NSMenuDelegate {
                                 symbol: state.isActive ? MaraSymbol.resting : MaraSymbol.awake)
         awakeItem.representedObject = state.isActive
 
+        if let failure = env.session.lastFailure {
+            let errorItem = NSMenuItem(
+                title: "Last operation failed — \(SessionFailureText.describe(failure))",
+                action: nil,
+                keyEquivalent: ""
+            )
+            errorItem.isEnabled = false
+            errorItem.image = Self.menuSymbol("exclamationmark.triangle.fill")
+            menu.addItem(errorItem)
+        }
+
         if case let .active(cfg, _) = state, cfg.origin == .trigger {
             let t = NSMenuItem(title: "Auto-activated (trigger)", action: nil, keyEquivalent: "")
             t.isEnabled = false
@@ -220,21 +231,29 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         // 열린 메뉴가 낡아 상태가 이미 바뀌었어도 반대 동작(재시작)을 하지 않는다.
         let intendedOff = sender.representedObject as? Bool ?? env.session.state.isActive
         if intendedOff {
-            env.session.stop()   // 이미 꺼져 있으면 no-op
+            report(env.session.stop())   // 이미 꺼져 있으면 no-op
         } else {
-            env.session.start(SessionConfig(scope: env.prefs.defaultScope, duration: .indefinite, origin: .manual))
+            report(env.session.start(
+                SessionConfig(scope: env.prefs.defaultScope, duration: .indefinite, origin: .manual)
+            ))
         }
     }
 
     @objc private func startTimed(_ sender: NSMenuItem) {
         guard let seconds = sender.representedObject as? TimeInterval else { return }
-        env.session.start(SessionConfig(scope: env.prefs.defaultScope, duration: .duration(seconds), origin: .manual))
+        report(env.session.start(
+            SessionConfig(scope: env.prefs.defaultScope, duration: .duration(seconds), origin: .manual)
+        ))
     }
 
     @objc private func toggleDisplay() {
         let newValue = !currentKeepDisplay
-        env.prefs.defaultKeepDisplayAwake = newValue              // 기본값 영속
-        env.session.updateScope(KeepAwakeScope(keepDisplay: newValue))  // 활성이면 라이브 반영
+        let result = env.session.updateScope(KeepAwakeScope(keepDisplay: newValue))
+        guard case .success = result else {
+            report(result)
+            return
+        }
+        env.prefs.defaultKeepDisplayAwake = newValue
     }
 
     @objc private func toggleLaunchAtLogin() {
@@ -255,5 +274,9 @@ final class StatusBarController: NSObject, NSMenuDelegate {
 
     @objc private func quit() {
         NSApp.terminate(nil)
+    }
+
+    private func report(_ result: Result<Void, SessionFailure>) {
+        if case .failure = result { NSSound.beep() }
     }
 }

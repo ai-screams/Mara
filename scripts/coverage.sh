@@ -4,8 +4,8 @@
 # 라인 커버리지를 계산하고, COVERAGE_MIN 미만이면 CI를 실패시킨다.
 #
 # 자체 완결 — 외부 서비스(Codecov 등) 없이 llvm-cov만 사용. 리포트는 CI Step Summary에 남긴다.
-# OS 어댑터(IOKit/NSWorkspace/Dispatch 래퍼)는 태생적으로 유닛테스트 불가라 총합을 끌어내리므로,
-# 플로어는 "의미 있는 회귀만 잡되 어댑터 노이즈엔 여유"를 두고 정한다(기본 80%).
+# 전체 평균 외에 핵심 세션/전원/네트워크 파일별 하한도 적용한다. 포맷터 고커버리지가
+# 제품 핵심의 실패 경로 공백을 가리는 것을 막는다.
 set -euo pipefail
 
 MIN="${COVERAGE_MIN:-80}"
@@ -37,9 +37,22 @@ COV="$(python3 -c "print(round(float('${RAW_COV}'), 1))")"
 } >> "${GITHUB_STEP_SUMMARY:-/dev/stdout}"
 
 echo "MaraCore line coverage: ${COV}% (floor ${MIN}%)"
+overall_ok=true
 if python3 -c "import sys; sys.exit(0 if float('${RAW_COV}') >= float('${MIN}') else 1)"; then
   echo "✅ coverage OK"
 else
   echo "::error::coverage ${COV}% is below floor ${MIN}% — add tests or adjust COVERAGE_MIN"
-  exit 1
+  overall_ok=false
 fi
+
+file_ok=true
+xcrun llvm-cov export "$BIN" -instr-profile "$PROF" -summary-only Sources/ \
+  | python3 ../scripts/coverage_file_gate.py \
+      --file 'SleepEngine.swift=95' \
+      --file 'SessionManager.swift=90' \
+      --file 'PowerAssertion.swift=90' \
+      --file 'BatteryMonitoring.swift=75' \
+      --file 'Triggers/RoutingTableNetworkProvider.swift=45' \
+  || file_ok=false
+
+[[ "$overall_ok" == true && "$file_ok" == true ]]

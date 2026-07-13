@@ -1,6 +1,6 @@
 import Foundation
 
-public enum KeepAwakeScope: Equatable {
+public enum KeepAwakeScope: Equatable, Sendable {
     case systemOnly
     case displayAndSystem
     public var keepsDisplayAwake: Bool { self == .displayAndSystem }
@@ -12,18 +12,22 @@ public extension KeepAwakeScope {
     }
 }
 
-public enum SessionDuration: Equatable {
+public enum SessionDuration: Equatable, Sendable {
     case indefinite
     case duration(TimeInterval)
     case until(Date)
 }
 
-public enum SessionOrigin: Equatable {
+public extension SessionDuration {
+    static let maximumFiniteInterval: TimeInterval = 24 * 3600
+}
+
+public enum SessionOrigin: Equatable, Sendable {
     case manual
     case trigger
 }
 
-public struct SessionConfig: Equatable {
+public struct SessionConfig: Equatable, Sendable {
     public var scope: KeepAwakeScope
     public var duration: SessionDuration
     public var origin: SessionOrigin
@@ -38,7 +42,7 @@ public extension SessionConfig {
     }
 }
 
-public enum SessionState: Equatable {
+public enum SessionState: Equatable, Sendable {
     case inactive
     case active(SessionConfig, expiresAt: Date?)
     public var isActive: Bool {
@@ -48,7 +52,7 @@ public enum SessionState: Equatable {
 }
 
 /// 세션이 꺼진 이유. UI 문자열 없이 도메인 의미만 담는다(문구는 App 레이어 책임).
-public enum SessionStopReason: Equatable {
+public enum SessionStopReason: Equatable, Sendable {
     case manual
     case timerExpired
     case lowBattery(percent: Int)
@@ -57,8 +61,8 @@ public enum SessionStopReason: Equatable {
 }
 
 /// 세션 수명 이벤트. SessionManager가 최근 이력을 bounded로 보관하고 publisher로도 방출한다.
-public struct SessionEvent: Equatable {
-    public enum Kind: Equatable {
+public struct SessionEvent: Equatable, Sendable {
+    public enum Kind: Equatable, Sendable {
         case started(SessionConfig)
         case stopped(SessionStopReason)
         case scopeChanged(KeepAwakeScope)
@@ -69,4 +73,10 @@ public struct SessionEvent: Equatable {
         self.at = at
         self.kind = kind
     }
+}
+
+public enum SessionFailure: Error, Equatable, Sendable {
+    case invalidDuration
+    case invalidUntilDate
+    case power(SleepEngineFailure)
 }

@@ -5,6 +5,7 @@ import IOKit.pwr_mgt
 /// 통합 테스트: Mock이 아니라 실제 `IOKitPowerAssertionProvider`/`SleepEngine`이
 /// OS 전원 관리에 어서션을 실제로 등록/해제하는지 `IOPMCopyAssertionsByProcess`로 교차검증한다.
 /// 비권한 API. 고유 이름으로 필터해 이 프로세스의 무관한 어서션과 격리하고, defer로 항상 정리한다.
+@MainActor
 final class PowerAssertionIntegrationTests: XCTestCase {
 
     private let systemType = kIOPMAssertionTypePreventUserIdleSystemSleep as String
@@ -26,14 +27,17 @@ final class PowerAssertionIntegrationTests: XCTestCase {
         let name = "MaraIT.provider.\(UUID().uuidString)"
         let provider = IOKitPowerAssertionProvider()
 
-        let token = provider.create(type: .preventSystemSleep, name: name)
-        defer { if let token { provider.release(token) } }
+        var token = try? provider.create(type: .preventSystemSleep, name: name).get()
+        defer { if let token { _ = provider.release(token) } }
         XCTAssertNotNil(token, "IOKit create should succeed (unprivileged)")
 
         let held = assertionTypes(named: name)
         XCTAssertEqual(held, [systemType], "one real system-sleep assertion should be registered with the OS")
 
-        if let token { provider.release(token) }
+        if let live = token {
+            XCTAssertNoThrow(try provider.release(live).get())
+            token = nil
+        }
         XCTAssertEqual(assertionTypes(named: name), [], "assertion should be gone after release")
     }
 

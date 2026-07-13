@@ -2,12 +2,13 @@
 /// `TriggerDiagnostic`(왜 충족/불충족인가)에서 한 단계 더 나아가, config·snapshot을 합쳐
 /// "행을 숨길지 / 활성화 안내를 낼지 / 재조정 중인지 / 어떤 활성·비활성 상태인지"를 고른다.
 /// App 계층이 이 값을 영어 문구로 렌더한다(Core에 UI 문자열 금지 규칙 유지).
-public enum TriggerStatusText: Equatable {
+public enum TriggerStatusText: Equatable, Sendable {
     /// enabled인데 감시 목록이 비어 armed되지 않음 — 목록 추가 안내 대상(appRunning/network).
     case needsWatchList(TriggerKind)
     /// 설정 반영 debounce(300ms) 중이라 스냅샷에 아직 없음(일시 상태).
     case checking
     case charging(active: Bool, onAC: Bool)
+    case batteryUnavailable
     case externalDisplay(active: Bool, count: Int)
     /// 매칭 앱 정확히 1개(활성 여부는 함께 전달 — 원 로직의 튜플 active를 보존).
     case appRunningSingle(active: Bool, id: String)
@@ -41,6 +42,8 @@ public enum TriggerStatusText: Equatable {
         switch snap.diagnostic {
         case .charging(let onAC):
             return .charging(active: active, onAC: onAC)
+        case .batteryUnavailable:
+            return .batteryUnavailable
         case .externalDisplay(let count):
             return .externalDisplay(active: active, count: count)
         case .appRunning(let matched):

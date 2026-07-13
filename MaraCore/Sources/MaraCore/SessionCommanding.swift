@@ -2,7 +2,7 @@ import Foundation
 
 /// keep-awake 상태 스냅샷 — Shortcuts/외부 명령 소비자용 읽기 값.
 /// remaining은 유한 세션의 남은 초(무기한이면 nil), isTriggered는 트리거 시스템이 현재 세션을 소유 중인지.
-public struct KeepAwakeStatus: Equatable {
+public struct KeepAwakeStatus: Equatable, Sendable {
     public let isActive: Bool
     public let remaining: TimeInterval?
     public let isTriggered: Bool
@@ -18,9 +18,12 @@ public struct KeepAwakeStatus: Equatable {
 @MainActor
 public protocol SessionCommanding {
     /// duration=nil이면 무기한, 유한이면 [0, 24h]로 클램프해 시작한다. origin은 .manual.
-    func startKeepAwake(duration: TimeInterval?)
-    /// 수동 종료(.manual). 비활성이면 무해한 no-op.
-    func stopKeepAwake()
+    /// assertion 생성 실패는 `.failure(.power)`로 반환하며 활성 상태를 거짓 보고하지 않는다.
+    @discardableResult
+    func startKeepAwake(duration: TimeInterval?) -> Result<Void, SessionFailure>
+    /// 수동 종료(.manual). 비활성이면 무해한 no-op. assertion 해제 실패 시 세션은 활성으로 남는다.
+    @discardableResult
+    func stopKeepAwake() -> Result<Void, SessionFailure>
     func status() -> KeepAwakeStatus
 }
 
@@ -29,7 +32,7 @@ public protocol SessionCommanding {
 @MainActor
 public final class SessionCommander: SessionCommanding {
     /// duration 클램프 상한. UI(CustomKeepAwakeView 0…24h 스테퍼)와 동일 범위를 Shortcuts 경로에도 강제.
-    public static let maxDuration: TimeInterval = 24 * 3600
+    public static let maxDuration: TimeInterval = SessionDuration.maximumFiniteInterval
 
     private let session: SessionManager
     private let scope: () -> KeepAwakeScope
@@ -41,7 +44,8 @@ public final class SessionCommander: SessionCommanding {
         self.clock = clock
     }
 
-    public func startKeepAwake(duration: TimeInterval?) {
+    @discardableResult
+    public func startKeepAwake(duration: TimeInterval?) -> Result<Void, SessionFailure> {
         let sessionDuration: SessionDuration
         if let duration {
             // 비유한(NaN/∞)은 클램프를 우회한다 — Swift의 min/max는 NaN 비교가 false라 NaN을 그대로 통과시킨다.
@@ -52,10 +56,11 @@ public final class SessionCommander: SessionCommanding {
         } else {
             sessionDuration = .indefinite
         }
-        session.start(SessionConfig(scope: scope(), duration: sessionDuration, origin: .manual))
+        return session.start(SessionConfig(scope: scope(), duration: sessionDuration, origin: .manual))
     }
 
-    public func stopKeepAwake() {
+    @discardableResult
+    public func stopKeepAwake() -> Result<Void, SessionFailure> {
         session.stop(reason: .manual)
     }
 

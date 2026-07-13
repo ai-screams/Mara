@@ -24,7 +24,8 @@ jobs:
       - name: Run MaraCore unit tests (with coverage)
         run: |
           cd MaraCore
-          swift test --enable-code-coverage
+          swift test --enable-code-coverage \
+            -Xswiftc -warnings-as-errors
 
       - name: Coverage report & floor gate
         # 라인 커버리지를 Step Summary에 리포트하고 COVERAGE_MIN(기본 80%) 미만이면 실패.
@@ -35,9 +36,11 @@ jobs:
         run: scripts/install-xcodegen.sh
 
       - name: Generate Xcode project
-        run: xcodegen generate
+        run: scripts/generate-project.sh
 
       - name: Build app (no code signing)
         run: |
           xcodebuild -project Mara.xcodeproj -scheme Mara \
-            -configuration Debug CODE_SIGNING_ALLOWED=NO build
+            -configuration Debug -disableAutomaticPackageResolution \
+            CODE_SIGNING_ALLOWED=NO SWIFT_STRICT_CONCURRENCY=complete \
+            SWIFT_TREAT_WARNINGS_AS_ERRORS=YES build

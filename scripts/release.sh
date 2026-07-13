@@ -77,8 +77,8 @@ rm -rf "$BUILD_DIR" "$DIST_DIR"
 mkdir -p "$BUILD_DIR" "$DIST_DIR"
 
 # ── 0) Xcode 프로젝트 생성 (Mara.xcodeproj는 gitignore된 생성물) ──────────────
-print "▸ [0/6] xcodegen generate…"
-xcodegen generate
+print "▸ [0/6] xcodegen generate + locked SwiftPM resolution…"
+"$ROOT_DIR/scripts/generate-project.sh"
 
 # ── 1) Archive (Release + Hardened Runtime, Developer ID 서명) ────────────────
 print "▸ [1/6] archive…"
@@ -88,6 +88,7 @@ xcodebuild archive \
     -configuration Release \
     -destination "generic/platform=macOS" \
     -archivePath "$ARCHIVE" \
+    -disableAutomaticPackageResolution \
     DEVELOPMENT_TEAM="$DEVELOPMENT_TEAM" \
     MARKETING_VERSION="$VERSION" \
     CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \

@@ -10,7 +10,11 @@ final class PrefsStore: ObservableObject {
         didSet { UserDefaults.standard.set(defaultKeepDisplayAwake, forKey: Keys.defaultKeepDisplayAwake) }
     }
     @Published var lowBatteryThreshold: Int {
-        didSet { UserDefaults.standard.set(lowBatteryThreshold, forKey: Keys.lowBatteryThreshold) }
+        didSet {
+            let sanitized = Self.sanitizeBatteryThreshold(lowBatteryThreshold)
+            if sanitized != lowBatteryThreshold { lowBatteryThreshold = sanitized }
+            UserDefaults.standard.set(sanitized, forKey: Keys.lowBatteryThreshold)
+        }
     }
     @Published var triggerConfig: TriggerConfig {
         didSet {
@@ -49,7 +53,7 @@ final class PrefsStore: ObservableObject {
             Keys.hasShownFirstRunGuide: false,
         ])
         defaultKeepDisplayAwake = d.bool(forKey: Keys.defaultKeepDisplayAwake)
-        lowBatteryThreshold = d.integer(forKey: Keys.lowBatteryThreshold)
+        lowBatteryThreshold = Self.sanitizeBatteryThreshold(d.integer(forKey: Keys.lowBatteryThreshold))
         notifyAutoSessionChanges = d.bool(forKey: Keys.notifyAutoSessionChanges)
         hasShownFirstRunGuide = d.bool(forKey: Keys.hasShownFirstRunGuide)
         // 신뢰 경계: plist는 외부에서 조작될 수 있다 — 비유한·비양수 값과 초과 길이를 로드 시 걸러낸다(Core).
@@ -74,5 +78,9 @@ final class PrefsStore: ObservableObject {
     func rememberCustomDuration(_ seconds: TimeInterval) {
         guard seconds.isFinite && seconds > 0 else { return }
         recentCustomDurations = CustomDurationMRU.inserting(seconds, into: recentCustomDurations)
+    }
+
+    private static func sanitizeBatteryThreshold(_ value: Int) -> Int {
+        min(max(value, 5), 100)
     }
 }

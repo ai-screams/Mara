@@ -1,6 +1,7 @@
 import Combine
 @testable import MaraCore
 
+@MainActor
 final class MockBattery: BatteryMonitoring {
     private let subject: CurrentValueSubject<BatterySnapshot, Never>
     init(percentage: Int = 100, isOnAC: Bool = true) {
@@ -11,4 +12,5 @@ final class MockBattery: BatteryMonitoring {
     func emit(percentage: Int, isOnAC: Bool) {
         subject.send(BatterySnapshot(percentage: percentage, isOnAC: isOnAC))
     }
+    func emitUnavailable() { subject.send(.unavailable) }
 }

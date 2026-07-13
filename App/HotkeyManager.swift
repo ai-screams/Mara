@@ -9,6 +9,7 @@ import AppKit
 /// context pointer passed to `InstallEventHandler` is safe because `unregister()` and
 /// `deinit` always execute on the main thread before the object is freed, guaranteeing
 /// the callback can never fire with a stale pointer.
+@MainActor
 final class HotkeyManager {
     private var hotKeyRef: EventHotKeyRef?
     private var eventHandler: EventHandlerRef?
@@ -27,8 +28,10 @@ final class HotkeyManager {
         let selfPtr = Unmanaged.passUnretained(self).toOpaque()
         InstallEventHandler(GetApplicationEventTarget(), { _, _, userData -> OSStatus in
             guard let userData else { return noErr }
-            let me = Unmanaged<HotkeyManager>.fromOpaque(userData).takeUnretainedValue()
-            me.onToggle()
+            MainActor.assumeIsolated {
+                let me = Unmanaged<HotkeyManager>.fromOpaque(userData).takeUnretainedValue()
+                me.onToggle()
+            }
             return noErr
         }, 1, &eventType, selfPtr, &eventHandler)
 
@@ -43,5 +46,7 @@ final class HotkeyManager {
         hotKeyRef = nil; eventHandler = nil
     }
 
-    deinit { unregister() }
+    deinit {
+        MainActor.assumeIsolated { unregister() }
+    }
 }

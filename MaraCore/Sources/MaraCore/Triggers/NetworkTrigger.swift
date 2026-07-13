@@ -1,5 +1,6 @@
 import Combine
 
+@MainActor
 public final class NetworkTrigger: TriggerEvaluator {
     public let kind: TriggerKind = .network
     private let network: NetworkIdentityProviding

@@ -1,11 +1,13 @@
 import Combine
 import AppKit
 
+@MainActor
 public protocol RunningAppsObserving: AnyObject {
     var runningBundleIDs: Set<String> { get }
     var changes: AnyPublisher<Set<String>, Never> { get }
 }
 
+@MainActor
 public final class NSWorkspaceAppsObserver: RunningAppsObserving {
     private let subject: CurrentValueSubject<Set<String>, Never>
     private var observers: [NSObjectProtocol] = []
@@ -16,7 +18,8 @@ public final class NSWorkspaceAppsObserver: RunningAppsObserving {
         for name in [NSWorkspace.didLaunchApplicationNotification,
                      NSWorkspace.didTerminateApplicationNotification] {
             observers.append(nc.addObserver(forName: name, object: nil, queue: .main) {
-                [weak self] _ in self?.subject.send(Self.snapshot())
+                [weak self] _ in
+                MainActor.assumeIsolated { self?.subject.send(Self.snapshot()) }
             })
         }
     }
@@ -29,11 +32,14 @@ public final class NSWorkspaceAppsObserver: RunningAppsObserving {
     public var changes: AnyPublisher<Set<String>, Never> { subject.eraseToAnyPublisher() }
 
     deinit {
-        let nc = NSWorkspace.shared.notificationCenter
-        observers.forEach { nc.removeObserver($0) }
+        MainActor.assumeIsolated {
+            let center = NSWorkspace.shared.notificationCenter
+            observers.forEach { center.removeObserver($0) }
+        }
     }
 }
 
+@MainActor
 public final class AppRunningTrigger: TriggerEvaluator {
     public let kind: TriggerKind = .appRunning
     private let apps: RunningAppsObserving

@@ -99,7 +99,7 @@ jobs:
           echo "✅ Signing key matches embedded SUPublicEDKey ($APP_PUB)."
 
       # Sparkle 자동 업데이트 피드. DMG를 EdDSA 개인키(release 환경 secret)로 서명하고 appcast.xml 생성.
-      # 도구(generate_appcast)는 SPM이 exactVersion(2.9.3) 핀으로 받아둔 Sparkle 아티팩트에서 가져온다 —
+      # 도구(generate_appcast)는 committed Package.resolved revision으로 고정한 Sparkle 아티팩트에서 가져온다 —
       # 별도 tarball 다운로드(미검증)를 없애 서명키 옆에서 도는 코드의 공급망 위험을 제거.
       # 피드는 단일 항목(최신 1건)이며 releases/latest/download/appcast.xml(고정 URL)로 서빙 → "항상 최신 제공" 모델.
       - name: Generate signed Sparkle appcast
@@ -114,6 +114,7 @@ jobs:
           esac
           xcodebuild -resolvePackageDependencies \
             -project ./Mara.xcodeproj -scheme Mara \
+            -disableAutomaticPackageResolution \
             -derivedDataPath "$RUNNER_TEMP/spm" >/dev/null
           GEN="$(find "$RUNNER_TEMP/spm/SourcePackages/artifacts" -type f -name generate_appcast | head -1)"
           [ -n "$GEN" ] || { echo "generate_appcast not found in SPM-resolved Sparkle artifact"; exit 1; }

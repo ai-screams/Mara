@@ -1,7 +1,7 @@
 import Foundation
 import IOKit.pwr_mgt
 
-public enum PowerAssertionType {
+public enum PowerAssertionType: Hashable, Sendable {
     case preventDisplaySleep
     case preventSystemSleep
 
@@ -13,20 +13,28 @@ public enum PowerAssertionType {
     }
 }
 
-public struct PowerAssertionToken: Hashable {
+public struct PowerAssertionToken: Hashable, Sendable {
     public let id: UInt32
     public init(id: UInt32) { self.id = id }
 }
 
-public protocol PowerAssertionProviding {
-    func create(type: PowerAssertionType, name: String) -> PowerAssertionToken?
-    func release(_ token: PowerAssertionToken)
+public enum PowerAssertionFailure: Error, Equatable, Sendable {
+    case creationFailed(type: PowerAssertionType, code: Int32)
+    case releaseFailed(token: PowerAssertionToken, code: Int32)
 }
 
+@MainActor
+public protocol PowerAssertionProviding {
+    func create(type: PowerAssertionType, name: String) -> Result<PowerAssertionToken, PowerAssertionFailure>
+    func release(_ token: PowerAssertionToken) -> Result<Void, PowerAssertionFailure>
+}
+
+@MainActor
 public final class IOKitPowerAssertionProvider: PowerAssertionProviding {
     public init() {}
 
-    public func create(type: PowerAssertionType, name: String) -> PowerAssertionToken? {
+    public func create(type: PowerAssertionType,
+                       name: String) -> Result<PowerAssertionToken, PowerAssertionFailure> {
         var id: IOPMAssertionID = 0
         let result = IOPMAssertionCreateWithName(
             type.ioKitName,
@@ -34,11 +42,17 @@ public final class IOKitPowerAssertionProvider: PowerAssertionProviding {
             name as CFString,
             &id
         )
-        guard result == kIOReturnSuccess else { return nil }
-        return PowerAssertionToken(id: id)
+        guard result == kIOReturnSuccess else {
+            return .failure(.creationFailed(type: type, code: result))
+        }
+        return .success(PowerAssertionToken(id: id))
     }
 
-    public func release(_ token: PowerAssertionToken) {
-        _ = IOPMAssertionRelease(IOPMAssertionID(token.id))
+    public func release(_ token: PowerAssertionToken) -> Result<Void, PowerAssertionFailure> {
+        let result = IOPMAssertionRelease(IOPMAssertionID(token.id))
+        guard result == kIOReturnSuccess else {
+            return .failure(.releaseFailed(token: token, code: result))
+        }
+        return .success(())
     }
 }

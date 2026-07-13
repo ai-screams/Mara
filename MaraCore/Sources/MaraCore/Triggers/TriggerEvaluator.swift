@@ -7,6 +7,7 @@ public enum TriggerKind: String, CaseIterable, Sendable {
     case network
 }
 
+@MainActor
 public protocol TriggerEvaluator: AnyObject {
     var kind: TriggerKind { get }
     var isSatisfied: Bool { get }

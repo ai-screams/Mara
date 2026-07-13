@@ -8,7 +8,14 @@ let package = Package(
         .library(name: "MaraCore", targets: ["MaraCore"])
     ],
     targets: [
-        .target(name: "MaraCore"),
-        .testTarget(name: "MaraCoreTests", dependencies: ["MaraCore"])
+        .target(
+            name: "MaraCore",
+            swiftSettings: [.enableUpcomingFeature("StrictConcurrency")]
+        ),
+        .testTarget(
+            name: "MaraCoreTests",
+            dependencies: ["MaraCore"],
+            swiftSettings: [.enableUpcomingFeature("StrictConcurrency")]
+        )
     ]
 )

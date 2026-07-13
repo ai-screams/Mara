@@ -60,6 +60,9 @@ struct SettingsView: View {
             if let last = session.recentEvents.last {
                 SettingsCaption("Last: \(Self.eventLine(last))")
             }
+            if let failure = session.lastFailure {
+                SettingsCaption("Error: \(SessionFailureText.describe(failure))")
+            }
         }
     }
 
@@ -260,6 +263,8 @@ struct SettingsView: View {
             return (false, "Checking…")
         case .charging(let active, let onAC):
             return (active, onAC ? "Active — on AC power" : "Inactive — on battery")
+        case .batteryUnavailable:
+            return (false, "Unavailable — can't read power source")
         case .externalDisplay(let active, let count):
             return (active, active ? "Active — \(count) displays" : "Inactive — built-in display only")
         case .appRunningSingle(let active, let id):

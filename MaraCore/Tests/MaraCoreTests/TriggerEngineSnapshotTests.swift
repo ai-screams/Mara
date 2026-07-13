@@ -6,7 +6,6 @@ import Combine
 @MainActor
 final class TriggerEngineSnapshotTests: XCTestCase {
     private var cancellables = Set<AnyCancellable>()
-    override func tearDown() { cancellables.removeAll(); super.tearDown() }
 
     private func makeSession() -> SessionManager {
         SessionManager(engine: SleepEngine(provider: MockPowerAssertionProvider()),

@@ -1,5 +1,6 @@
 import Combine
 
+@MainActor
 public final class ChargingTrigger: TriggerEvaluator {
     public let kind: TriggerKind = .charging
     private let battery: BatteryMonitoring
@@ -16,10 +17,18 @@ public final class ChargingTrigger: TriggerEvaluator {
 }
 
 extension ChargingTrigger: TriggerDiagnosing {
-    public var diagnostic: TriggerDiagnostic { .charging(onAC: battery.snapshot.isOnAC) }
+    public var diagnostic: TriggerDiagnostic {
+        battery.snapshot == .unavailable
+            ? .batteryUnavailable
+            : .charging(onAC: battery.snapshot.isOnAC)
+    }
     public var diagnostics: AnyPublisher<TriggerDiagnostic, Never> {
         battery.snapshots
-            .map { TriggerDiagnostic.charging(onAC: $0.isOnAC) }
+            .map {
+                $0 == .unavailable
+                    ? TriggerDiagnostic.batteryUnavailable
+                    : TriggerDiagnostic.charging(onAC: $0.isOnAC)
+            }
             .removeDuplicates()
             .eraseToAnyPublisher()
     }

@@ -21,9 +21,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let notificationService = NotificationService()
     private let firstRunGuidePresenter = FirstRunGuidePresenter()
     private lazy var customKeepAwakePresenter = CustomKeepAwakePresenter { [env] duration in
-        // duration 모드만 MRU에 기록 — 절대시각(until)은 재사용 의미가 없다.
+        let result = env.session.start(
+            SessionConfig(scope: env.prefs.defaultScope, duration: duration, origin: .manual)
+        )
+        guard case .success = result else {
+            NSSound.beep()
+            return
+        }
+        // 성공한 duration만 MRU에 기록 — 실패한 입력과 절대시각(until)은 기록하지 않는다.
         if case let .duration(seconds) = duration { env.prefs.rememberCustomDuration(seconds) }
-        env.session.start(SessionConfig(scope: env.prefs.defaultScope, duration: duration, origin: .manual))
     }
     private lazy var settingsPresenter = SettingsWindowPresenter { [env, updaterController, notificationService] in
         SettingsView(

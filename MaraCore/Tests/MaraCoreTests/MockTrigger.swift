@@ -2,6 +2,7 @@ import Foundation
 import Combine
 @testable import MaraCore
 
+@MainActor
 final class MockTrigger: TriggerEvaluator {
     let kind: TriggerKind
     private let subject: CurrentValueSubject<Bool, Never>

@@ -99,6 +99,15 @@ extension SessionManagerTests {
         sm.start(SessionConfig(scope: .systemOnly, duration: .indefinite, origin: .manual))
         XCTAssertTrue(sm.state.isActive)
     }
+
+    func test_unavailableBatteryDoesNotPretendLowOrStopSession() {
+        let (sm, battery) = makeSUTWithBattery(threshold: 100, percentage: 10, isOnAC: true)
+        sm.start(SessionConfig(scope: .systemOnly, duration: .indefinite, origin: .manual))
+
+        battery.emitUnavailable()
+
+        XCTAssertTrue(sm.state.isActive)
+    }
 }
 
 extension SessionManagerTests {
@@ -121,5 +130,67 @@ extension SessionManagerTests {
         sm.updateScope(.displayAndSystem)
         XCTAssertFalse(sm.state.isActive)
         XCTAssertEqual(p.live.count, 0)
+    }
+
+    func test_startAssertionFailure_staysInactiveAndExposesFailure() {
+        let (sm, p, scheduler, _) = makeSUT()
+        p.failNextCreate = true
+
+        guard case .failure(let failure) = sm.start(
+            SessionConfig(scope: .systemOnly, duration: .duration(60), origin: .manual)
+        ) else {
+            return XCTFail("expected start failure")
+        }
+
+        XCTAssertFalse(sm.state.isActive)
+        XCTAssertEqual(sm.lastFailure, failure)
+        XCTAssertTrue(p.live.isEmpty)
+        XCTAssertTrue(scheduler.pending.isEmpty)
+    }
+
+    func test_stopReleaseFailure_keepsSessionActiveAndCanRetry() {
+        let (sm, p, _, _) = makeSUT()
+        sm.start(SessionConfig(scope: .systemOnly, duration: .indefinite, origin: .manual))
+        p.failNextRelease = true
+
+        guard case .failure(let failure) = sm.stop() else {
+            return XCTFail("expected stop failure")
+        }
+        XCTAssertTrue(sm.state.isActive)
+        XCTAssertEqual(sm.lastFailure, failure)
+
+        XCTAssertNoThrow(try sm.stop().get())
+        XCTAssertFalse(sm.state.isActive)
+        XCTAssertNil(sm.lastFailure)
+    }
+
+    func test_startRejectsNonFiniteDurationBeforeTouchingEngine() {
+        let (sm, p, scheduler, _) = makeSUT()
+
+        guard case .failure(.invalidDuration) = sm.start(
+            SessionConfig(scope: .systemOnly, duration: .duration(.infinity), origin: .manual)
+        ) else {
+            return XCTFail("expected invalid duration")
+        }
+        XCTAssertFalse(sm.state.isActive)
+        XCTAssertTrue(p.live.isEmpty)
+        XCTAssertTrue(scheduler.pending.isEmpty)
+    }
+
+    func test_stopInactive_retriesAssertionLeftByFailedRollback() {
+        let (sm, p, _, _) = makeSUT()
+        p.failingCreateTypes = [.preventDisplaySleep]
+        p.failNextRelease = true
+        _ = sm.start(SessionConfig(
+            scope: .displayAndSystem,
+            duration: .indefinite,
+            origin: .manual
+        ))
+        XCTAssertFalse(sm.state.isActive)
+        XCTAssertEqual(p.live.count, 1)
+
+        XCTAssertNoThrow(try sm.stop().get())
+        XCTAssertTrue(p.live.isEmpty)
+        XCTAssertNil(sm.lastFailure)
     }
 }

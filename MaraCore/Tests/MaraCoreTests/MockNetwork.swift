@@ -1,6 +1,7 @@
 import Combine
 @testable import MaraCore
 
+@MainActor
 final class MockNetwork: NetworkIdentityProviding {
     private let subject: CurrentValueSubject<NetworkIdentity?, Never>
     init(_ id: NetworkIdentity? = nil) { subject = CurrentValueSubject(id) }

@@ -6,6 +6,7 @@
 .serena/
 .superpowers/
 .DS_Store
+.scoop-version
 
 # XcodeGen output (generated from project.yml)
 Mara.xcodeproj/

@@ -18,7 +18,7 @@
 <p align="center">
   <a href="https://github.com/ai-screams/mara/actions/workflows/ci.yml"><img src="https://github.com/ai-screams/mara/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://github.com/ai-screams/mara/actions/workflows/secret-scan.yml"><img src="https://github.com/ai-screams/mara/actions/workflows/secret-scan.yml/badge.svg" alt="Secret Scan"></a>
-  <a href="https://github.com/ai-screams/mara/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/coverage-82%25-green" alt="MaraCore coverage (CI-gated ≥80%)"></a>
+  <a href="https://github.com/ai-screams/mara/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/coverage-%E2%89%A580%25-green" alt="MaraCore coverage (CI-gated ≥80%)"></a>
   <a href="https://github.com/ai-screams/mara/releases/latest"><img src="https://img.shields.io/github/v/release/ai-screams/mara?label=release&color=ff9500" alt="Latest release"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Proprietary-lightgrey" alt="License"></a>
 </p>
@@ -144,7 +144,7 @@ DEVELOPMENT_TEAM=7K6MK3KP9K NOTARY_PROFILE=mara-notary make release
 
 `scripts/release.sh` runs:
 
-- `xcodegen generate`
+- `scripts/generate-project.sh` (`xcodegen generate` + committed SwiftPM revision lock restore)
 - Release archive
 - Developer ID export
 - Deep signature / Hardened Runtime verification (including embedded Sparkle)
@@ -164,7 +164,8 @@ The release workflow runs in a protected `release` environment (requires reviewe
 
 ## Quality gates
 
-- CI: `swift test`, XcodeGen project generation, unsigned Debug build
+- CI: `swift test`, coverage gate, revision-locked SwiftPM resolution, and an unsigned Debug build
+- Concurrency: complete strict-concurrency checking with warnings treated as errors for the full app build
 - Secret Scan: TruffleHog verified/unknown results
 - GitHub Actions supply-chain hardening:
   - all third-party actions pinned to commit SHAs, kept current by Dependabot

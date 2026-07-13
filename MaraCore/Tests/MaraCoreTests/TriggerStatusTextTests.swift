@@ -98,3 +98,29 @@ final class TriggerStatusTextTests: XCTestCase {
                        .plain(active: true))
     }
 }
+
+extension TriggerStatusTextTests {
+    func testChargingUnavailableIsExplicit() {
+        let config = TriggerConfig(
+            chargingEnabled: true,
+            externalDisplayEnabled: false,
+            appRunningEnabled: false,
+            watchedBundleIDs: [],
+            networkEnabled: false,
+            watchedNetworks: []
+        )
+        let snapshot = TriggerEngineSnapshot(
+            triggers: [TriggerSnapshot(
+                kind: .charging,
+                isSatisfied: false,
+                diagnostic: .batteryUnavailable
+            )],
+            isSuppressed: false
+        )
+
+        XCTAssertEqual(
+            TriggerStatusText.evaluate(.charging, config: config, snapshot: snapshot),
+            .batteryUnavailable
+        )
+    }
+}

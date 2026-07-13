@@ -2,6 +2,7 @@ import XCTest
 import Combine
 @testable import MaraCore
 
+@MainActor
 final class NetworkTriggerTests: XCTestCase {
     func test_identity_normalizesMAC() {
         // 대문자/축약 옥텟이 소문자 2자리로 정규화되어 동등 비교된다.

@@ -1,6 +1,7 @@
 import Combine
 @testable import MaraCore
 
+@MainActor
 final class MockApps: RunningAppsObserving {
     private let subject: CurrentValueSubject<Set<String>, Never>
     init(_ ids: Set<String> = []) { subject = CurrentValueSubject(ids) }

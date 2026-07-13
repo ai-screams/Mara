@@ -4,6 +4,7 @@ import AppKit
 /// Cmd+W(닫기)·Cmd+C/V/X/A(텍스트 편집)·Cmd+Q가 아무 메뉴에도 안 걸려 동작하지 않던 문제를 해결한다.
 /// 항목은 target=nil(first responder)로 두어 표준 셀렉터가 응답자 체인으로 흘러가게 한다.
 /// 메뉴 막대는 accessory 앱 특성상 앱이 활성(창 포커스)일 때만 보이고 평소엔 숨는다.
+@MainActor
 enum MainMenu {
     static func install(appName: String) {
         let main = NSMenu()

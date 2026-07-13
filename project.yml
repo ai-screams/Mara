@@ -7,7 +7,8 @@ options:
 packages:
   MaraCore:
     path: MaraCore
-  # Package.resolved를 커밋하지 않는 리포이므로 exactVersion이 공급망 핀 역할을 한다.
+  # 사람이 읽는 버전 제약. 불변 revision은 config/Package.resolved가 고정하고,
+  # scripts/generate-project.sh가 생성 workspace에 복원한다.
   Sparkle:
     url: https://github.com/sparkle-project/Sparkle
     exactVersion: 2.9.3
@@ -28,3 +29,5 @@ targets:
         ENABLE_HARDENED_RUNTIME: YES
         CODE_SIGN_STYLE: Automatic
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        SWIFT_STRICT_CONCURRENCY: complete
+        SWIFT_TREAT_WARNINGS_AS_ERRORS: YES

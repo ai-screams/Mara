@@ -35,8 +35,10 @@ APPLE_APP_PASSWORD=abcd-efgh-ijkl-mnop \
 ```
 
 Output: `dist/Mara-<version>.dmg` — signed, notarized, stapled. The version defaults to the latest
-git tag (leading `v` stripped) when omitted. `scripts/release.sh` runs `xcodegen generate` first,
-since `Mara.xcodeproj` is a git-ignored generated project.
+git tag (leading `v` stripped) when omitted. `scripts/release.sh` runs
+`scripts/generate-project.sh` first, since `Mara.xcodeproj` is generated and gitignored. The helper
+restores the committed `config/Package.resolved`, and release builds disable automatic package
+resolution so the audited Sparkle revision cannot drift behind the same version tag.
 
 > Multiple Developer ID certs? Pass an explicit identity:
 > `DEVELOPER_ID_IDENTITY="Developer ID Application: Your Name (7K6MK3KP9K)"`.

@@ -4,6 +4,7 @@ import Combine
 
 /// satisfied와 diagnostic을 독립적으로 조작할 수 있는 진단 제공 목.
 /// (기존 MockTrigger는 TriggerDiagnosing 미채택 상태로 유지 — 미채택 경로(diagnostic == nil) 검증에 쓴다.)
+@MainActor
 final class MockDiagnosingTrigger: TriggerEvaluator, TriggerDiagnosing {
     let kind: TriggerKind
     private let satisfiedSubject: CurrentValueSubject<Bool, Never>
