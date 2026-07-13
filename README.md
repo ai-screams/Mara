@@ -47,9 +47,12 @@ No permission bypasses, no undocumented tricks. Mara uses only **official IOKit 
 - **Automatic triggers** — keep awake while:
   - AC power is connected
   - an external display is connected
-  - a watched app (by bundle ID) is running
+  - a watched app is running — pick it from the currently running apps, or enter a bundle ID manually
   - you're on a specific network
+- **Trigger diagnostics** in Settings show live status for each enabled trigger
+- **Optional notifications** on automatic session start and end — trigger-started sessions, and stops from a timer, low battery, or a cleared trigger; manual actions stay silent (off by default)
 - **Night Watch settings** — an always-dark, brand-styled settings window whose eye mirrors the live session state
+- **Shortcuts support** — start (optionally with a duration), stop, and check status from Apple's Shortcuts app
 - **Automatic updates** via [Sparkle](https://sparkle-project.org): every release ships an EdDSA-signed update feed
 - **Launch at login** via Apple's `SMAppService`
 
@@ -72,10 +75,12 @@ Updates are delivered in-app: Mara checks the signed release feed and offers new
 
 ## Usage
 
+On first launch, a short guide popover points out the menu-bar eye and offers to enable Launch at Login.
+
 Click the menu-bar eye for:
 
 - `Keep Awake` / `Turn Off`
-- `Keep awake for…`: `15 minutes`, `1 hour`, `2 hours`, `5 hours`
+- `Keep awake for…`: `15 minutes`, `1 hour`, `2 hours`, `5 hours` — recently used custom durations reappear under `Recent` (with a `Clear Recent` action), and `Custom…` opens a dialog for any duration or a specific time of day
 - `Keep display awake`
 - `Launch at Login`
 - `Check for Updates…`
@@ -90,8 +95,8 @@ When a session is started by an automatic trigger, the menu shows an `Auto-activ
 |---|---|
 | `App/` | AppKit `NSStatusItem` menu-bar entry, SwiftUI settings window, preferences persistence, launch-at-login, wiring of the OS adapters |
 | `MaraCore/` | Swift Package. OS-free session/trigger/scheduling core behind protocols |
-| `MaraCore/Sources/MaraCore/SleepEngine.swift` | Idempotent reconcile of display/system IOKit assertions |
-| `MaraCore/Sources/MaraCore/SessionManager.swift` | Single session state, timer, scope changes, low-battery veto |
+| `MaraCore/Sources/MaraCore/SleepEngine.swift` | Transactional reconcile of display/system IOKit assertions — acquires all needed tokens before committing state, rolls back only tokens created in that call on partial failure, and retains failed-release tokens so a later `releaseAll()` retries |
+| `MaraCore/Sources/MaraCore/SessionManager.swift` | Single session state, timer, scope changes, low-battery veto — state transitions are atomic (flip only after assertions are confirmed applied/released) and surface failures via a published `lastFailure` |
 | `MaraCore/Sources/MaraCore/Triggers/` | Charging, external-display, app-running, and network triggers with suppression/re-arm logic |
 | `MaraCore/Tests/` | Core unit tests, routing-table parser tests, and real-IOKit assertion integration tests |
 | `scripts/release.sh` | XcodeGen, archive, Developer ID export, notarization, staple, branded DMG build and verification |
@@ -164,7 +169,7 @@ The release workflow runs in a protected `release` environment (requires reviewe
 
 ## Quality gates
 
-- CI: `swift test`, coverage gate, revision-locked SwiftPM resolution, and an unsigned Debug build
+- CI: `swift test`, coverage gate (≥80% overall plus per-file critical floors — SleepEngine 95%, SessionManager 90%, PowerAssertion 90%, BatteryMonitoring 75%, RoutingTableNetworkProvider 45%), revision-locked SwiftPM resolution, and an unsigned Debug build
 - Concurrency: complete strict-concurrency checking with warnings treated as errors for the full app build
 - Secret Scan: TruffleHog verified/unknown results
 - GitHub Actions supply-chain hardening:

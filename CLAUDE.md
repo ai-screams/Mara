@@ -14,12 +14,22 @@
   유니코드 포함 문자열("Custom…" 등)은 strings|grep에 안 잡힘 — ASCII 심볼명으로 검사.
 - xcodebuild·git은 리포 루트에서 실행 — cwd는 셸 호출 간 지속·백그라운드로 상속됨(MaraCore에 남아 무실행 실사고 1회).
   파이프(`| tail`)가 exit code를 삼키므로 컴파일 검증은 "BUILD SUCCEEDED" 문자열 확인으로 판정.
+- 파일별 커버리지 게이트(`scripts/coverage.sh` → `coverage_file_gate.py`)는 **CI 전용**(`make test`는 안 돌림).
+  IOKit 등 OS 어댑터 파일은 헤드리스 CI 러너에서 하드웨어 의존 분기가 죽어 로컬보다 낮게 나온다
+  — 실사고: `BatteryMonitoring.swift` 로컬 84% / CI 73.2%로 75% 플로어에 걸림. **정공법은 floor를 낮추는
+  게 아니라 순수 로직을 OS 호출에서 분리해 유닛테스트하는 것** — `read()`에서 `IOKitBatteryMonitor.parse(_:)`를
+  분리해 CI 80.2%로 통과. 검증 요령: `swift test --filter <순수테스트>`만 돌려 IOKit 경로가 실행 0회인
+  상태에서 순수 함수 본문이 covered면 CI에서도 커버된다는 증거.
 
 ## Architecture (배치 규칙)
 
 - 로직·결정은 `MaraCore/`(OS-free, 프로토콜 뒤, 테스트 가능) — App은 얇은 AppKit 셸. 의존 방향은 App→Core 단방향만.
 - OS 어댑터 추가 시: Core에 프로토콜 정의 → App(`AppEnvironment`)에서 인스턴스화 주입 (기존 Battery/Screen/Apps/Network 패턴).
 - `@Published`는 willSet 발화 — sink에서 재-read 금지, 방출값을 그대로 사용 (기존 코드 주석 참조).
+- Core 연산(`SessionManager.start`/`stop`/`toggle`/`updateScope`)은 `Result<_, SessionFailure>`를 반환하고,
+  부작용(assertion 적용/해제)이 확정된 뒤에만 state를 바꾼다(`SleepEngine.apply`는 한 단계 아래에서
+  `Result<_, SleepEngineFailure>`를 반환 — SessionManager가 `.power(_)`로 감싼다). App 레이어
+  (`SessionFailureText`)가 실패를 문구로 매핑 — UI 문자열은 Core에 넣지 않는다(기존 규칙과 동일).
 - SwiftUI 시트에 클릭 시점 데이터를 전달할 땐 `.sheet(item:)` — isPresented+별도 @State는 첫 표시가
   낡은(빈) 상태를 캡처한다(실사고: 빈 피커 — 리뷰 4회 통과 후 실기기에서만 발현, RunningAppPicker 주석 참조).
 
