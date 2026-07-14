@@ -266,20 +266,35 @@ struct SettingsView: View {
         case .batteryUnavailable:
             return (false, "Unavailable — can't read power source")
         case .externalDisplay(let active, let count):
-            return (active, active ? "Active — \(count) \(count == 1 ? "display" : "displays")" : "Inactive — built-in display only")
+            return externalDisplayStatus(active: active, count: count)
         case .appRunningSingle(let active, let id):
             return (active, "Active — \(id) running")
         case .appRunningMultiple(let count):
             return (true, "Active — \(count) watched apps running")
         case .appRunningNone(let watched):
-            // 감시 개수를 함께 표기 — 오타 가능성 vs 앱 미실행으로 가설을 좁힐 수 있게 한다.
-            return (false, "Inactive — \(watched) \(watched == 1 ? "app" : "apps") watched, none running")
+            return appRunningNoneStatus(watched: watched)
         case .network(let active, let mac, let matched):
-            guard let mac else { return (active, "Inactive — can't resolve gateway") }
-            return (active, matched ? "Active — \(mac)" : "Inactive — different network")
+            return networkStatus(active: active, mac: mac, matched: matched)
         case .plain(let active):
             return (active, active ? "Active" : "Inactive")
         }
+    }
+
+    private static func externalDisplayStatus(active: Bool, count: Int) -> (active: Bool, text: String) {
+        (active, active
+            ? "Active — \(count) \(count == 1 ? "display" : "displays")"
+            : "Inactive — built-in display only")
+    }
+
+    private static func appRunningNoneStatus(watched: Int) -> (active: Bool, text: String) {
+        // 감시 개수를 함께 표기 — 오타 가능성 vs 앱 미실행으로 가설을 좁힐 수 있게 한다.
+        (false, "Inactive — \(watched) \(watched == 1 ? "app" : "apps") watched, none running")
+    }
+
+    private static func networkStatus(active: Bool, mac: String?, matched: Bool)
+        -> (active: Bool, text: String) {
+        guard let mac else { return (active, "Inactive — can't resolve gateway") }
+        return (active, matched ? "Active — \(mac)" : "Inactive — different network")
     }
 
     // MARK: - Event formatter

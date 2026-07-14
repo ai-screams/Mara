@@ -24,6 +24,13 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     /// 이 파일로 끌어오지 않으려고 제네릭 타깃/셀렉터로 받는다.
     var checkForUpdates: (target: AnyObject, action: Selector)?
 
+    private static let durationPresets: [(title: String, seconds: TimeInterval)] = [
+        ("15 minutes", 15 * 60),
+        ("1 hour", 60 * 60),
+        ("2 hours", 2 * 60 * 60),
+        ("5 hours", 5 * 60 * 60),
+    ]
+
     init(env: AppEnvironment) {
         self.env = env
         super.init()
@@ -115,6 +122,17 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         menu.removeAllItems()
         let state = env.session.state
 
+        addSessionHeaderItems(to: menu, state: state)
+        addTriggerStatusItem(to: menu, state: state)
+
+        menu.addItem(.separator())
+        menu.addItem(durationMenuItem())
+        addPreferenceItems(to: menu)
+        menu.addItem(.separator())
+        addFooterItems(to: menu)
+    }
+
+    private func addSessionHeaderItems(to menu: NSMenu, state: SessionState) {
         // representedObject = 메뉴가 그려진 시점의 활성 여부(사용자 의도). 메뉴가 열린 사이
         // 세션이 끝나도(타이머 만료·저전력 종료) "Turn Off" 클릭이 새 세션을 시작하지 않게 한다.
         let awakeItem = addItem(to: menu, title: state.isActive ? "Turn Off" : "Keep Awake",
@@ -132,30 +150,26 @@ final class StatusBarController: NSObject, NSMenuDelegate {
             errorItem.image = Self.menuSymbol("exclamationmark.triangle.fill")
             menu.addItem(errorItem)
         }
+    }
 
+    private func addTriggerStatusItem(to menu: NSMenu, state: SessionState) {
         if case let .active(cfg, _) = state, cfg.origin == .trigger {
             let t = NSMenuItem(title: "Auto-activated (trigger)", action: nil, keyEquivalent: "")
             t.isEnabled = false
             t.image = Self.menuSymbol("bolt.fill")
             menu.addItem(t)
         }
+    }
 
-        menu.addItem(.separator())
-
+    private func durationMenuItem() -> NSMenuItem {
         // 서브메뉴도 메인 메뉴와 같은 디자인 언어: 전 항목 SF Symbol + "Recent" 섹션 헤더.
         let durMenu = NSMenu()
-        let durationPresets: [(title: String, seconds: TimeInterval)] = [
-            ("15 minutes", 15 * 60),
-            ("1 hour", 60 * 60),
-            ("2 hours", 2 * 60 * 60),
-            ("5 hours", 5 * 60 * 60),
-        ]
-        for preset in durationPresets {
+        for preset in Self.durationPresets {
             durMenu.addItem(durationItem(preset.title, preset.seconds))
         }
         // 최근 커스텀 duration(MRU 최대 3) — 원클릭 재사용. Until은 기록되지 않는다.
         let recentDurations = env.prefs.recentCustomDurations.filter { seconds in
-            !durationPresets.contains { $0.seconds == seconds }
+            !Self.durationPresets.contains { $0.seconds == seconds }
         }
         if !recentDurations.isEmpty {
             durMenu.addItem(.separator())
@@ -177,8 +191,10 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         let durParent = NSMenuItem(title: "Keep awake for…", action: nil, keyEquivalent: "")
         durParent.image = Self.menuSymbol("timer")
         durParent.submenu = durMenu
-        menu.addItem(durParent)
+        return durParent
+    }
 
+    private func addPreferenceItems(to menu: NSMenu) {
         let display = addItem(to: menu, title: "Keep display awake",
                               action: #selector(toggleDisplay), symbol: "display")
         display.state = currentKeepDisplay ? .on : .off
@@ -186,9 +202,9 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         let login = addItem(to: menu, title: "Launch at Login",
                             action: #selector(toggleLaunchAtLogin), symbol: "play.circle")
         login.state = LaunchAtLogin.isEnabled ? .on : .off
+    }
 
-        menu.addItem(.separator())
-
+    private func addFooterItems(to menu: NSMenu) {
         if let (target, action) = checkForUpdates {
             // 타깃이 updaterController여야 Sparkle이 canCheckForUpdates로 활성/비활성을 자동 관리한다.
             let update = NSMenuItem(title: "Check for Updates…", action: action, keyEquivalent: "")
