@@ -125,3 +125,24 @@ struct SettingsStatusRow: View {
         .accessibilityElement(children: .combine)
     }
 }
+
+/// 감시 목록(앱·네트워크)의 삭제 가능한 항목 행 — 모노스페이스 라벨 + 우측 삭제 버튼.
+struct RemovableChipRow: View {
+    let text: String
+    let onRemove: () -> Void
+
+    var body: some View {
+        HStack {
+            Text(text)
+                .font(.system(.caption, design: .monospaced))
+                .foregroundStyle(MaraTheme.textMid)
+            Spacer()
+            Button(action: onRemove) {
+                Image(systemName: "xmark.circle.fill")
+                    .foregroundStyle(MaraTheme.muted)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Remove \(text)")
+        }
+    }
+}

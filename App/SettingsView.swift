@@ -171,19 +171,8 @@ struct SettingsView: View {
             }
 
             ForEach(prefs.triggerConfig.watchedBundleIDs, id: \.self) { id in
-                HStack {
-                    Text(id.rawValue)
-                        .font(.system(.caption, design: .monospaced))
-                        .foregroundStyle(MaraTheme.textMid)
-                    Spacer()
-                    Button {
-                        prefs.triggerConfig.removeWatchedBundleID(id)
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundStyle(MaraTheme.muted)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Remove \(id.rawValue)")
+                RemovableChipRow(text: id.rawValue) {
+                    prefs.triggerConfig.removeWatchedBundleID(id)
                 }
             }
 
@@ -228,19 +217,8 @@ struct SettingsView: View {
             .disabled(currentNetwork() == nil)
 
             ForEach(prefs.triggerConfig.watchedNetworks, id: \.self) { mac in
-                HStack {
-                    Text(mac)
-                        .font(.system(.caption, design: .monospaced))
-                        .foregroundStyle(MaraTheme.textMid)
-                    Spacer()
-                    Button {
-                        prefs.triggerConfig.watchedNetworks.removeAll { $0 == mac }
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundStyle(MaraTheme.muted)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Remove \(mac)")
+                RemovableChipRow(text: mac) {
+                    prefs.triggerConfig.watchedNetworks.removeAll { $0 == mac }
                 }
             }
         }
