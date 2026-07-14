@@ -76,6 +76,7 @@ public struct SessionEvent: Equatable, Sendable {
 }
 
 public enum SessionFailure: Error, Equatable, Sendable {
+    case lowBattery(percent: Int)
     case invalidDuration
     case invalidUntilDate
     case power(SleepEngineFailure)
