@@ -12,5 +12,6 @@ final class MockBattery: BatteryMonitoring {
     func emit(percentage: Int, isOnAC: Bool) {
         subject.send(BatterySnapshot(percentage: percentage, isOnAC: isOnAC))
     }
+    func emitDesktop() { subject.send(.desktop) }
     func emitUnavailable() { subject.send(.unavailable) }
 }

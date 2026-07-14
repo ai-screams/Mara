@@ -133,6 +133,32 @@ extension SessionManagerTests {
         XCTAssertNil(sm.lastFailure)
     }
 
+    func test_startWithUnavailableBattery_succeeds() {
+        let (sm, battery, p, _) = makeSUTWithBattery(threshold: 100)
+        battery.emitUnavailable()
+
+        XCTAssertNoThrow(try sm.start(
+            SessionConfig(scope: .systemOnly, duration: .indefinite, origin: .manual)
+        ).get())
+
+        XCTAssertTrue(sm.state.isActive)
+        XCTAssertEqual(p.live.count, 1)
+        XCTAssertNil(sm.lastFailure)
+    }
+
+    func test_startWithDesktopBattery_succeeds() {
+        let (sm, battery, p, _) = makeSUTWithBattery(threshold: 100)
+        battery.emitDesktop()
+
+        XCTAssertNoThrow(try sm.start(
+            SessionConfig(scope: .systemOnly, duration: .indefinite, origin: .manual)
+        ).get())
+
+        XCTAssertTrue(sm.state.isActive)
+        XCTAssertEqual(p.live.count, 1)
+        XCTAssertNil(sm.lastFailure)
+    }
+
     func test_unavailableBatteryDoesNotPretendLowOrStopSession() {
         let (sm, battery, _, _) = makeSUTWithBattery(threshold: 100, percentage: 10, isOnAC: true)
         sm.start(SessionConfig(scope: .systemOnly, duration: .indefinite, origin: .manual))
