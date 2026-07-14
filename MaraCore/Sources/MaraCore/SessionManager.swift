@@ -55,6 +55,14 @@ public final class SessionManager: ObservableObject {
     /// 실패하면 기존 세션·타이머를 보존하고 lastFailure를 갱신한다.
     @discardableResult
     public func start(_ config: SessionConfig) -> Result<Void, SessionFailure> {
+        if case let .battery(percentage, isOnAC) = battery?.snapshot,
+           !isOnAC,
+           percentage <= lowBatteryThreshold {
+            let failure = SessionFailure.lowBattery(percent: percentage)
+            lastFailure = failure
+            return .failure(failure)
+        }
+
         let expiresAt: Date?
         switch expiry(for: config.duration) {
         case .success(let value): expiresAt = value
@@ -83,7 +91,6 @@ public final class SessionManager: ObservableObject {
                 MainActor.assumeIsolated { _ = self?.stop(reason: .timerExpired) }
             }
         }
-        if let snap = battery?.snapshot { handleBattery(snap) }
         return .success(())
     }
 

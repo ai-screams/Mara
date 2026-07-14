@@ -65,43 +65,102 @@ extension SessionManagerTests {
 
 extension SessionManagerTests {
     private func makeSUTWithBattery(threshold: Int = 20, percentage: Int = 100, isOnAC: Bool = true)
-        -> (SessionManager, MockBattery) {
+        -> (SessionManager, MockBattery, MockPowerAssertionProvider, MockScheduler) {
         let p = MockPowerAssertionProvider()
         let engine = SleepEngine(provider: p)
+        let scheduler = MockScheduler()
         let battery = MockBattery(percentage: percentage, isOnAC: isOnAC)
-        let sm = SessionManager(engine: engine, scheduler: MockScheduler(), clock: MockClock(),
+        let sm = SessionManager(engine: engine, scheduler: scheduler, clock: MockClock(),
                                 battery: battery, lowBatteryThreshold: threshold)
-        return (sm, battery)
+        return (sm, battery, p, scheduler)
     }
 
     func test_lowBatteryOnBattery_stopsActiveSession() {
-        let (sm, battery) = makeSUTWithBattery(threshold: 20)
+        let (sm, battery, _, _) = makeSUTWithBattery(threshold: 20)
         sm.start(SessionConfig(scope: .systemOnly, duration: .indefinite, origin: .manual))
         battery.emit(percentage: 15, isOnAC: false)
         XCTAssertFalse(sm.state.isActive)
     }
 
     func test_lowBatteryButOnAC_doesNotStop() {
-        let (sm, battery) = makeSUTWithBattery(threshold: 20)
+        let (sm, battery, _, _) = makeSUTWithBattery(threshold: 20)
         sm.start(SessionConfig(scope: .systemOnly, duration: .indefinite, origin: .manual))
         battery.emit(percentage: 5, isOnAC: true)
         XCTAssertTrue(sm.state.isActive)
     }
 
-    func test_startWhileBelowThresholdOnBattery_immediatelyStops() {
-        let (sm, _) = makeSUTWithBattery(threshold: 20, percentage: 10, isOnAC: false)
-        sm.start(SessionConfig(scope: .systemOnly, duration: .indefinite, origin: .manual))
-        XCTAssertFalse(sm.state.isActive)
+    func test_startAtThresholdOnBattery_preRejectsWithoutSideEffects() {
+        let (sm, _, p, scheduler) = makeSUTWithBattery(
+            threshold: 20,
+            percentage: 20,
+            isOnAC: false
+        )
+        p.failNextCreate = true
+
+        guard case .failure(.lowBattery(percent: 20)) = sm.start(
+            SessionConfig(scope: .systemOnly, duration: .duration(60), origin: .manual)
+        ) else {
+            return XCTFail("expected low-battery pre-rejection")
+        }
+
+        XCTAssertEqual(sm.state, .inactive)
+        XCTAssertTrue(p.live.isEmpty)
+        XCTAssertTrue(p.failNextCreate)
+        XCTAssertTrue(scheduler.pending.isEmpty)
+        XCTAssertEqual(sm.lastFailure, .lowBattery(percent: 20))
+        XCTAssertTrue(sm.recentEvents.isEmpty)
     }
 
-    func test_startWhileBelowThresholdOnAC_staysActive() {
-        let (sm, _) = makeSUTWithBattery(threshold: 20, percentage: 10, isOnAC: true)
-        sm.start(SessionConfig(scope: .systemOnly, duration: .indefinite, origin: .manual))
+    func test_lowBatteryPreReject_precedesDurationValidation() {
+        let (sm, _, _, _) = makeSUTWithBattery(threshold: 20, percentage: 10, isOnAC: false)
+
+        guard case .failure(.lowBattery(percent: 10)) = sm.start(
+            SessionConfig(scope: .systemOnly, duration: .duration(.infinity), origin: .manual)
+        ) else {
+            return XCTFail("expected low-battery failure before invalid-duration failure")
+        }
+    }
+
+    func test_startAtThresholdOnAC_succeeds() {
+        let (sm, _, p, _) = makeSUTWithBattery(threshold: 20, percentage: 20, isOnAC: true)
+
+        XCTAssertNoThrow(try sm.start(
+            SessionConfig(scope: .systemOnly, duration: .indefinite, origin: .manual)
+        ).get())
+
         XCTAssertTrue(sm.state.isActive)
+        XCTAssertEqual(p.live.count, 1)
+        XCTAssertNil(sm.lastFailure)
+    }
+
+    func test_startWithUnavailableBattery_succeeds() {
+        let (sm, battery, p, _) = makeSUTWithBattery(threshold: 100)
+        battery.emitUnavailable()
+
+        XCTAssertNoThrow(try sm.start(
+            SessionConfig(scope: .systemOnly, duration: .indefinite, origin: .manual)
+        ).get())
+
+        XCTAssertTrue(sm.state.isActive)
+        XCTAssertEqual(p.live.count, 1)
+        XCTAssertNil(sm.lastFailure)
+    }
+
+    func test_startWithDesktopBattery_succeeds() {
+        let (sm, battery, p, _) = makeSUTWithBattery(threshold: 100)
+        battery.emitDesktop()
+
+        XCTAssertNoThrow(try sm.start(
+            SessionConfig(scope: .systemOnly, duration: .indefinite, origin: .manual)
+        ).get())
+
+        XCTAssertTrue(sm.state.isActive)
+        XCTAssertEqual(p.live.count, 1)
+        XCTAssertNil(sm.lastFailure)
     }
 
     func test_unavailableBatteryDoesNotPretendLowOrStopSession() {
-        let (sm, battery) = makeSUTWithBattery(threshold: 100, percentage: 10, isOnAC: true)
+        let (sm, battery, _, _) = makeSUTWithBattery(threshold: 100, percentage: 10, isOnAC: true)
         sm.start(SessionConfig(scope: .systemOnly, duration: .indefinite, origin: .manual))
 
         battery.emitUnavailable()

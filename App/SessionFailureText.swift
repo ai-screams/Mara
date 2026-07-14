@@ -3,6 +3,8 @@ import MaraCore
 enum SessionFailureText {
     static func describe(_ failure: SessionFailure) -> String {
         switch failure {
+        case .lowBattery(let percent):
+            return "can't start — battery at \(percent)% is at or below your limit"
         case .invalidDuration:
             return "invalid duration"
         case .invalidUntilDate:
