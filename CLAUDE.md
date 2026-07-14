@@ -14,6 +14,10 @@
   유니코드 포함 문자열("Custom…" 등)은 strings|grep에 안 잡힘 — ASCII 심볼명으로 검사.
 - xcodebuild·git은 리포 루트에서 실행 — cwd는 셸 호출 간 지속·백그라운드로 상속됨(MaraCore에 남아 무실행 실사고 1회).
   파이프(`| tail`)가 exit code를 삼키므로 컴파일 검증은 "BUILD SUCCEEDED" 문자열 확인으로 판정.
+- Core `swift test`는 App(AppKit/SwiftUI) 컴파일을 검증 안 함 — Core enum에 케이스 추가(예:
+  `SessionFailure`)하거나 App 파일 변경 시 반드시 App strict 빌드로 확인. `switch` 누락·SwiftUI
+  깨짐은 여기서만 잡힌다: `xcodebuild … CODE_SIGNING_ALLOWED=NO SWIFT_STRICT_CONCURRENCY=complete
+  SWIFT_TREAT_WARNINGS_AS_ERRORS=YES build` → "BUILD SUCCEEDED" 확인.
 - 파일별 커버리지 게이트(`scripts/coverage.sh` → `coverage_file_gate.py`)는 **CI 전용**(`make test`는 안 돌림).
   IOKit 등 OS 어댑터 파일은 헤드리스 CI 러너에서 하드웨어 의존 분기가 죽어 로컬보다 낮게 나온다
   — 실사고: `BatteryMonitoring.swift` 로컬 84% / CI 73.2%로 75% 플로어에 걸림. **정공법은 floor를 낮추는
@@ -32,6 +36,9 @@
   (`SessionFailureText`)가 실패를 문구로 매핑 — UI 문자열은 Core에 넣지 않는다(기존 규칙과 동일).
 - SwiftUI 시트에 클릭 시점 데이터를 전달할 땐 `.sheet(item:)` — isPresented+별도 @State는 첫 표시가
   낡은(빈) 상태를 캡처한다(실사고: 빈 피커 — 리뷰 4회 통과 후 실기기에서만 발현, RunningAppPicker 주석 참조).
+- `BatterySnapshot.isOnAC`는 `.unavailable`에서도 `false` — 저배터리 veto 판정은 `!snap.isOnAC`가
+  아니라 `case .battery(...)` 패턴 매칭으로 할 것(안 그러면 데스크톱/IOPS 읽기실패 시 전 세션 시작이
+  오거부됨). `SessionManager.batteryFloorBreach` 참조, 테스트로 고정됨.
 
 ## Release (CI가 정본)
 
