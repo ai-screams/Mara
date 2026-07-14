@@ -44,21 +44,26 @@ public final class SessionManager: ObservableObject {
     }
 
     private func handleBattery(_ snap: BatterySnapshot) {
-        guard state.isActive,
-              case let .battery(percentage, isOnAC) = snap else { return }
-        if !isOnAC && percentage <= lowBatteryThreshold {
-            _ = stop(reason: .lowBattery(percent: percentage))   // 최우선 거부권
+        guard state.isActive else { return }
+        if let percent = batteryFloorBreach(snap) {
+            _ = stop(reason: .lowBattery(percent: percent))   // 최우선 거부권
         }
+    }
+
+    /// The offending battery % if a session must not run on the current power state; nil otherwise.
+    /// nil for .desktop / .unavailable / nil-battery, and for on-AC or above-floor states.
+    private func batteryFloorBreach(_ snapshot: BatterySnapshot?) -> Int? {
+        guard case let .battery(percentage, isOnAC) = snapshot,
+              !isOnAC, percentage <= lowBatteryThreshold else { return nil }
+        return percentage
     }
 
     /// 새 assertion 구성이 완전히 적용된 뒤에만 state를 active로 전환한다.
     /// 실패하면 기존 세션·타이머를 보존하고 lastFailure를 갱신한다.
     @discardableResult
     public func start(_ config: SessionConfig) -> Result<Void, SessionFailure> {
-        if case let .battery(percentage, isOnAC) = battery?.snapshot,
-           !isOnAC,
-           percentage <= lowBatteryThreshold {
-            let failure = SessionFailure.lowBattery(percent: percentage)
+        if let percent = batteryFloorBreach(battery?.snapshot) {
+            let failure = SessionFailure.lowBattery(percent: percent)
             lastFailure = failure
             return .failure(failure)
         }
