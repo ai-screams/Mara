@@ -1,5 +1,14 @@
 import AppIntents
+import Foundation
 import MaraCore
+
+/// Shortcuts가 사용자에게 보여줄 읽을 수 있는 오류. Core의 SessionFailure는 LocalizedError를
+/// 채택하지 않아 raw로 던지면 "The operation couldn't be completed…"만 뜬다 — App 문구로 감싼다.
+/// (UI 문자열은 App 레이어에만, SessionFailureText 재사용 — 기존 규칙.)
+private struct KeepAwakeIntentError: LocalizedError {
+    let errorDescription: String?
+    init(_ failure: SessionFailure) { errorDescription = SessionFailureText.describe(failure) }
+}
 
 // duration은 옵셔널 네이티브 파라미터(nil=무기한). 상한 클램프는 Core(SessionCommander)가 담당.
 struct StartKeepAwakeIntent: AppIntent {
@@ -14,7 +23,12 @@ struct StartKeepAwakeIntent: AppIntent {
     @MainActor
     func perform() async throws -> some IntentResult {
         let seconds = duration?.converted(to: .seconds).value
-        try commander.startKeepAwake(duration: seconds).get()
+        do {
+            try commander.startKeepAwake(duration: seconds).get()
+        } catch {
+            // .get()은 typed throws로 SessionFailure를 던진다 — error가 이미 그 타입.
+            throw KeepAwakeIntentError(error)
+        }
         return .result()
     }
 }
@@ -26,7 +40,12 @@ struct StopKeepAwakeIntent: AppIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult {
-        try commander.stopKeepAwake().get()
+        do {
+            try commander.stopKeepAwake().get()
+        } catch {
+            // .get()은 typed throws로 SessionFailure를 던진다 — error가 이미 그 타입.
+            throw KeepAwakeIntentError(error)
+        }
         return .result()
     }
 }
