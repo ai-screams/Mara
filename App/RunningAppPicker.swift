@@ -15,11 +15,12 @@ enum RunningAppSnapshot {
     /// 보여주면 "추가했는데 트리거가 반응 안 하는" 앱이 생긴다.
     static func fetch(excluding watched: Set<String>) -> [RunningAppItem] {
         var seen = Set<String>()
+        let selfID = Bundle.main.bundleIdentifier   // 루프 불변식 — 체인 밖에서 1회만 읽는다
         return NSWorkspace.shared.runningApplications
             .filter { $0.activationPolicy != .prohibited }
             .compactMap { app -> (item: RunningAppItem, regular: Bool)? in
                 guard let id = app.bundleIdentifier,
-                      id != Bundle.main.bundleIdentifier,   // 자기 자신 제외 — "Mara 실행 중" 트리거는 항상-참이라 무의미
+                      id != selfID,   // 자기 자신 제외 — "Mara 실행 중" 트리거는 항상-참이라 무의미
                       !watched.contains(id),
                       seen.insert(id).inserted else { return nil }
                 return (RunningAppItem(id: id, name: app.localizedName ?? id, icon: app.icon),
