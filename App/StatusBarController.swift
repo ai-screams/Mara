@@ -15,6 +15,10 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     /// 카운트다운 갱신 타이머. sink가 세션 변화마다 재설정하며,
     /// 만료는 SessionManager 타이머가 stop → sink 경유로 invalidate된다.
     private var countdownTimer: Timer?
+    /// Launch-at-Login 상태 캐시. `SMAppService.status`는 launchd 조회라 메뉴 열기마다
+    /// 부르지 않는다 — 앱 내 토글이 갱신하고, 외부(System Settings) 변경은
+    /// didBecomeActive에서 재동기화한다(install 참조).
+    private var launchAtLoginEnabled = LaunchAtLogin.isEnabled
 
     /// Settings 창 열기 — 창 소유자(AppDelegate)가 주입.
     var onOpenSettings: (() -> Void)?
@@ -56,6 +60,14 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         env.session.$state
             .sink { [weak self] state in MainActor.assumeIsolated { self?.refreshStatusButton(state) } }
             .store(in: &cancellables)
+
+        // 외부(System Settings) Launch-at-Login 변경을 다음 활성화 시 캐시에 반영한다.
+        // (액세서리 앱이라 자주 발화하진 않지만, 발화하면 메뉴 체크 표시가 정확해진다.)
+        NotificationCenter.default.addObserver(
+            forName: NSApplication.didBecomeActiveNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.launchAtLoginEnabled = LaunchAtLogin.isEnabled }
+        }
     }
 
     // MARK: - Status button (eye icon + countdown)
@@ -97,7 +109,13 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     /// 오렌지는 비트맵에 직접 굽는다(sourceAtop + non-template). NSStatusBarButton은
     /// contentTintColor를 무시하고, template 이미지·팔레트 심볼 구성도 단색으로 렌더한다
     /// (macOS 26 실기 관측 — 스크린샷으로 확인된 사실).
-    static func statusIcon(active: Bool) -> NSImage {
+    /// active는 Bool뿐이므로 두 이미지를 1회만 만들어 캐시한다(카운트다운 틱마다 재합성 방지).
+    static func statusIcon(active: Bool) -> NSImage { active ? activeIcon : inactiveIcon }
+
+    private static let activeIcon: NSImage = makeStatusIcon(active: true)
+    private static let inactiveIcon: NSImage = makeStatusIcon(active: false)
+
+    private static func makeStatusIcon(active: Bool) -> NSImage {
         let description = active ? "Mara — keep-awake active" : "Mara — inactive"
         let symbol = active ? MaraSymbol.awake : MaraSymbol.resting
         let base = NSImage(systemSymbolName: symbol, accessibilityDescription: description) ?? NSImage()
@@ -201,7 +219,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
 
         let login = addItem(to: menu, title: "Launch at Login",
                             action: #selector(toggleLaunchAtLogin), symbol: "play.circle")
-        login.state = LaunchAtLogin.isEnabled ? .on : .off
+        login.state = launchAtLoginEnabled ? .on : .off
     }
 
     private func addFooterItems(to menu: NSMenu) {
@@ -281,7 +299,8 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     }
 
     @objc private func toggleLaunchAtLogin() {
-        LaunchAtLogin.setEnabled(!LaunchAtLogin.isEnabled)
+        LaunchAtLogin.setEnabled(!launchAtLoginEnabled)
+        launchAtLoginEnabled = LaunchAtLogin.isEnabled   // 실제 결과로 재동기화(토글 실패 시에도 정확)
     }
 
     @objc private func openSettings() {
