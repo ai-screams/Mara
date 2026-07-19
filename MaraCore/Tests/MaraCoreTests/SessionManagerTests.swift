@@ -104,11 +104,36 @@ extension SessionManagerTests {
         }
 
         XCTAssertEqual(sm.state, .inactive)
-        XCTAssertTrue(p.live.isEmpty)
-        XCTAssertTrue(p.failNextCreate)
-        XCTAssertTrue(scheduler.pending.isEmpty)
-        XCTAssertEqual(sm.lastFailure, .lowBattery(percent: 20))
-        XCTAssertTrue(sm.recentEvents.isEmpty)
+        XCTAssertTrue(p.live.isEmpty)          // assertion 미취득
+        XCTAssertTrue(p.failNextCreate)        // provider 미호출(플래그 미소진)
+        XCTAssertTrue(scheduler.pending.isEmpty)  // 타이머 미설정
+        XCTAssertEqual(sm.lastFailure, .lowBattery(percent: 20))  // 수동이라 lastFailure 설정
+        // power/state/타이머 부작용은 없지만, 거부는 이벤트로 기록된다(App이 알림/이력에 사용).
+        let config = SessionConfig(scope: .systemOnly, duration: .duration(60), origin: .manual)
+        XCTAssertEqual(sm.recentEvents.map(\.kind), [.startRejected(config, .lowBattery(percent: 20))])
+    }
+
+    func test_triggerLowBatteryReject_doesNotSetLastFailure_butRecordsEvent() {
+        let (sm, _, _, _) = makeSUTWithBattery(threshold: 20, percentage: 15, isOnAC: false)
+        let config = SessionConfig(scope: .systemOnly, duration: .indefinite, origin: .trigger)
+
+        guard case .failure(.lowBattery(percent: 15)) = sm.start(config) else {
+            return XCTFail("expected low-battery pre-rejection")
+        }
+
+        XCTAssertEqual(sm.state, .inactive)
+        XCTAssertNil(sm.lastFailure)   // 트리거 자동 시도 실패는 메뉴에 "실패"로 안 띄운다
+        XCTAssertEqual(sm.recentEvents.map(\.kind), [.startRejected(config, .lowBattery(percent: 15))])
+    }
+
+    func test_triggerReject_preservesPriorManualFailure() {
+        let (sm, _, _, _) = makeSUTWithBattery(threshold: 20, percentage: 15, isOnAC: false)
+        // 수동 시도 실패 → lastFailure 설정
+        _ = sm.start(SessionConfig(scope: .systemOnly, duration: .indefinite, origin: .manual))
+        XCTAssertEqual(sm.lastFailure, .lowBattery(percent: 15))
+        // 이어진 트리거 거부는 기존 수동 실패 정보를 지우지 않는다
+        _ = sm.start(SessionConfig(scope: .systemOnly, duration: .indefinite, origin: .trigger))
+        XCTAssertEqual(sm.lastFailure, .lowBattery(percent: 15))
     }
 
     func test_lowBatteryPreReject_precedesDurationValidation() {

@@ -37,7 +37,12 @@ final class SessionNotifier {
             return ("Keep-awake ended", "Low battery (\(percent)%) — session ended safely.")
         case .stopped(.triggerCleared):
             return ("Keep-awake ended", "Automation trigger cleared.")
-        case .started, .stopped(.manual), .stopped(.replacedByNewSession), .scopeChanged:
+        // 트리거 자동 시도가 거부됨 — 사용자가 안 한 일이라 배너로만 알린다(메뉴엔 안 띄운다).
+        case .startRejected(let cfg, .lowBattery(let percent)) where cfg.origin == .trigger:
+            return ("Mara didn't activate", "Low battery (\(percent)%) — kept off to protect your charge.")
+        case .startRejected(let cfg, _) where cfg.origin == .trigger:
+            return ("Mara didn't activate", "Keep-awake is unavailable right now.")
+        case .started, .stopped(.manual), .stopped(.replacedByNewSession), .scopeChanged, .startRejected:
             return nil
         }
     }

@@ -66,6 +66,9 @@ public struct SessionEvent: Equatable, Sendable {
         case started(SessionConfig)
         case stopped(SessionStopReason)
         case scopeChanged(KeepAwakeScope)
+        /// 시작이 거부됨(예: 저배터리). config로 origin을 알 수 있어 App이 알림/문구를
+        /// 분기한다(트리거 자동 시도 실패를 배너로, 수동은 조용히).
+        case startRejected(SessionConfig, SessionFailure)
     }
     public let at: Date
     public let kind: Kind

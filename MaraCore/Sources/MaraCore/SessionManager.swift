@@ -63,25 +63,20 @@ public final class SessionManager: ObservableObject {
     @discardableResult
     public func start(_ config: SessionConfig) -> Result<Void, SessionFailure> {
         if let percent = batteryFloorBreach(battery?.snapshot) {
-            let failure = SessionFailure.lowBattery(percent: percent)
-            lastFailure = failure
-            return .failure(failure)
+            return reject(config, .lowBattery(percent: percent))
         }
 
         let expiresAt: Date?
         switch expiry(for: config.duration) {
         case .success(let value): expiresAt = value
         case .failure(let failure):
-            lastFailure = failure
-            return .failure(failure)
+            return reject(config, failure)
         }
         if case .failure(let failure) = engine.apply(
             display: config.scope.keepsDisplayAwake,
             system: true
         ) {
-            let sessionFailure = SessionFailure.power(failure)
-            lastFailure = sessionFailure
-            return .failure(sessionFailure)
+            return reject(config, .power(failure))
         }
 
         timer?.cancel(); timer = nil
@@ -170,6 +165,16 @@ public final class SessionManager: ObservableObject {
     }
 
     // MARK: - Private
+
+    /// 시작 거부 공통 처리: assertion·state·타이머는 건드리지 않고 거부 이벤트만 기록한다.
+    /// lastFailure는 수동(사용자가 직접 시도)일 때만 설정한다 — 트리거 자동 시도 실패를
+    /// "Last operation failed"로 메뉴에 띄우지 않기 위함(알림은 App의 SessionNotifier가 처리).
+    /// 트리거 거부는 기존 lastFailure를 건드리지 않아 앞선 수동 실패 정보를 지우지 않는다.
+    private func reject(_ config: SessionConfig, _ failure: SessionFailure) -> Result<Void, SessionFailure> {
+        if config.origin == .manual { lastFailure = failure }
+        record(.startRejected(config, failure))
+        return .failure(failure)
+    }
 
     private func record(_ kind: SessionEvent.Kind) {
         let event = SessionEvent(at: clock.now, kind: kind)

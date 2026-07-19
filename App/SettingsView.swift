@@ -290,6 +290,8 @@ struct SettingsView: View {
         case .stopped(.triggerCleared):       return "ended — trigger cleared · \(time)"
         case .stopped(.replacedByNewSession): return "restarted · \(time)"
         case .scopeChanged:                   return "scope changed · \(time)"
+        case .startRejected(_, .lowBattery(let p)): return "didn't start — low battery \(p)% · \(time)"
+        case .startRejected:                  return "didn't start · \(time)"
         }
     }
 }
