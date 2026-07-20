@@ -25,16 +25,22 @@ enum MaraSymbol {
 /// 알고(OS-free), 색(AppKit)과 UI 문자열은 여기서만 정의한다. switch는 exhaustive라 Core에
 /// case를 더하면 App이 컴파일 실패로 잡아준다(팔레트 = 사용자 확정 5색).
 extension MenuBarTint {
-    /// 활성 아이콘에 굽는 색("The colors of the mara" 팔레트, sRGB).
-    var color: NSColor {
+    /// 팔레트 단일 출처(0–255 sRGB, "The colors of the mara"). color·accentColor가 여기서 파생된다.
+    private var rgb: (r: Double, g: Double, b: Double) {
         switch self {
-        case .ember:      return NSColor(red: 0xF2 / 255, green: 0x64 / 255, blue: 0x19 / 255, alpha: 1)
-        case .blood:      return NSColor(red: 0xD7 / 255, green: 0x26 / 255, blue: 0x3D / 255, alpha: 1)
-        case .venom:      return NSColor(red: 0x6D / 255, green: 0xD4 / 255, blue: 0x00 / 255, alpha: 1)
-        case .wraith:     return NSColor(red: 0x35 / 255, green: 0xC9 / 255, blue: 0xC2 / 255, alpha: 1)
-        case .nightshade: return NSColor(red: 0xA2 / 255, green: 0x4B / 255, blue: 0xE0 / 255, alpha: 1)
+        case .ember:      return (0xF2, 0x64, 0x19)
+        case .blood:      return (0xD7, 0x26, 0x3D)
+        case .venom:      return (0x6D, 0xD4, 0x00)
+        case .wraith:     return (0x35, 0xC9, 0xC2)
+        case .nightshade: return (0xA2, 0x4B, 0xE0)
         }
     }
+
+    /// 메뉴바 활성 아이콘에 굽는 색(AppKit).
+    var color: NSColor { NSColor(red: rgb.r / 255, green: rgb.g / 255, blue: rgb.b / 255, alpha: 1) }
+
+    /// 앱 UI(Settings 등)의 accent — 선택한 tint를 따라간다(SwiftUI).
+    var accentColor: Color { Color(red: rgb.r / 255, green: rgb.g / 255, blue: rgb.b / 255) }
 
     /// 메뉴에 보일 이름 (UI 문자열 — App 전용).
     var displayName: String {
@@ -45,5 +51,30 @@ extension MenuBarTint {
         case .wraith:     return "Wraith"
         case .nightshade: return "Nightshade"
         }
+    }
+}
+
+/// 앱 UI accent — 선택된 `MenuBarTint`를 따라간다. 각 창 루트가 `.maraAccent(_:)`로 주입하고,
+/// 자식 뷰는 `@Environment(\.accentTint)`로 읽는다. 배경(bg/card)은 다크 "Night Watch" 유지 —
+/// 바뀌는 건 강조색뿐(컨트롤·아이콘·glow). 기본값은 브랜드 오렌지(주입 안 된 곳 폴백).
+///
+/// 주의: `.maraAccent`를 뷰 body 안에서 걸면 **자식**에만 적용된다 — 그 뷰 자신의 `@Environment`는
+/// 부모값을 읽으므로, prefs를 가진 루트(SettingsView·CustomKeepAwakeView)는 자기 참조엔
+/// `prefs.menuBarTint.accentColor`를 직접 쓰고 자식 구조체만 `\.accentTint`로 읽는다.
+private struct AccentTintKey: EnvironmentKey {
+    static let defaultValue: Color = MaraTheme.accent
+}
+
+extension EnvironmentValues {
+    var accentTint: Color {
+        get { self[AccentTintKey.self] }
+        set { self[AccentTintKey.self] = newValue }
+    }
+}
+
+extension View {
+    /// 선택 tint를 앱 accent로 흘려보낸다 — 네이티브 컨트롤 `.tint` + 자식이 읽을 `\.accentTint`.
+    func maraAccent(_ tint: MenuBarTint) -> some View {
+        self.tint(tint.accentColor).environment(\.accentTint, tint.accentColor)
     }
 }

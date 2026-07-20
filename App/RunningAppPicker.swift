@@ -41,6 +41,7 @@ struct RunningAppPickerView: View {
     /// (검증 실패가 체크로 표시되는 거짓 성공 방지, Codex 감사 High 반영).
     let onAdd: (String) -> Bool
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accentTint) private var accent   // 부모(SettingsView)가 시트로 흘려보낸 tint
     @State private var added: Set<String> = []
 
     var body: some View {
@@ -71,7 +72,7 @@ struct RunningAppPickerView: View {
         .frame(width: 340)
         .background(MaraTheme.bg)
         .preferredColorScheme(.dark)
-        .tint(MaraTheme.accent)
+        .tint(accent)
     }
 
     @ViewBuilder
@@ -98,7 +99,7 @@ struct RunningAppPickerView: View {
                 }
                 Spacer(minLength: 8)
                 Image(systemName: isAdded ? "checkmark.circle.fill" : "plus.circle")
-                    .foregroundStyle(isAdded ? MaraTheme.muted : MaraTheme.accent)
+                    .foregroundStyle(isAdded ? MaraTheme.muted : accent)
             }
             .padding(.vertical, 4)
             .padding(.horizontal, 6)

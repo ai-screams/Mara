@@ -20,6 +20,10 @@ struct SettingsView: View {
         let apps: [RunningAppItem]
     }
 
+    /// 앱 accent = 선택된 메뉴바 tint. SettingsView 자기 참조엔 직접 사용한다 —
+    /// `.maraAccent`가 자식엔 `\.accentTint`를 주입하지만 자기 뷰의 @Environment는 부모값을 읽으므로.
+    private var accent: Color { prefs.menuBarTint.accentColor }
+
     var body: some View {
         VStack(spacing: 18) {
             header
@@ -33,7 +37,7 @@ struct SettingsView: View {
         .frame(width: 400)
         .background(MaraTheme.bg)
         .preferredColorScheme(.dark)
-        .tint(MaraTheme.accent)
+        .maraAccent(prefs.menuBarTint)
     }
 
     // MARK: - Cards
@@ -112,8 +116,8 @@ struct SettingsView: View {
         return VStack(spacing: 5) {
             Image(systemName: active ? MaraSymbol.awake : MaraSymbol.resting)
                 .font(.system(size: 32))
-                .foregroundStyle(active ? MaraTheme.accent : MaraTheme.muted)
-                .shadow(color: active ? MaraTheme.accent.opacity(0.55) : .clear, radius: 14)
+                .foregroundStyle(active ? accent : MaraTheme.muted)
+                .shadow(color: active ? accent.opacity(0.55) : .clear, radius: 14)
                 .accessibilityHidden(true)
             Text("Mara")
                 .font(.system(size: 21, weight: .semibold, design: .rounded))
@@ -121,7 +125,7 @@ struct SettingsView: View {
                 .foregroundStyle(.white)
             Text(active ? "Keeping your Mac awake" : "The eye is resting — your Mac may sleep")
                 .font(.caption)
-                .foregroundStyle(active ? MaraTheme.accent : MaraTheme.muted)
+                .foregroundStyle(active ? accent : MaraTheme.muted)
         }
         .frame(maxWidth: .infinity)
         .animation(.easeInOut(duration: 0.25), value: active)
@@ -136,7 +140,7 @@ struct SettingsView: View {
             Button("Check for Updates…", action: checkForUpdates)
                 .buttonStyle(.plain)
                 .font(.caption)
-                .foregroundStyle(MaraTheme.accent)
+                .foregroundStyle(accent)
         }
         .frame(maxWidth: .infinity)
     }
@@ -162,7 +166,7 @@ struct SettingsView: View {
                     .font(.callout)
             }
             .buttonStyle(.borderless)
-            .foregroundStyle(MaraTheme.accent)
+            .foregroundStyle(accent)
             .sheet(item: $appPicker) { payload in
                 RunningAppPickerView(
                     apps: payload.apps,
@@ -186,7 +190,7 @@ struct SettingsView: View {
                 Button("Add", action: submitManualBundleID)
                     .buttonStyle(.borderless)
                     .font(.caption)
-                    .foregroundStyle(MaraTheme.accent)
+                    .foregroundStyle(accent)
                     .disabled(manualBundleID.trimmingCharacters(in: .whitespaces).isEmpty)
             }
             .padding(6)
@@ -213,7 +217,7 @@ struct SettingsView: View {
                     .font(.callout)
             }
             .buttonStyle(.borderless)
-            .foregroundStyle(MaraTheme.accent)
+            .foregroundStyle(accent)
             .disabled(currentNetwork() == nil)
 
             ForEach(prefs.triggerConfig.watchedNetworks, id: \.self) { mac in
