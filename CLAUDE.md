@@ -8,10 +8,20 @@
 - 로컬 스모크: Release 빌드 후 반드시 Apple Development 정체성으로 재서명(ad-hoc 금지, 글로벌 규칙).
   정체성 조회: `security find-identity -v -p codesigning` (Apple Development 항목 사용).
   Sparkle 중첩 코드를 inside-out으로 먼저: Frameworks의 `*.xpc`/`Autoupdate` → `Sparkle.framework` → 앱 순.
-- 실행 교체 전 `pgrep -x Mara` 확인 → `osascript -e 'tell application "Mara" to quit'` → 교체 → `open`.
+- 로컬 실행 서명은 **처음부터 서명해 빌드**가 정공법: `xcodebuild … CODE_SIGN_STYLE=Manual
+  "CODE_SIGN_IDENTITY=Developer ID Application" DEVELOPMENT_TEAM=7K6MK3KP9K build` — 중첩 Sparkle까지 xcodebuild가
+  올바로 서명한다(위 inside-out 수동 재서명은 '이미 빌드된 산출물 사후 재서명'일 때만). Apple Development '자동'
+  서명은 이 맥에서 실패(그 팀 Xcode 계정 없음) — 실행 앱·release.sh와 같은 Developer ID(7K6MK3KP9K)를 쓴다.
+- 실행 교체 전 `pgrep -x Mara` 확인 → `osascript -e 'tell application "Mara" to quit'` → **quit 후 pgrep 재확인**
+  (quit이 종료 완료 전 반환할 수 있음 — 중복 인스턴스가 라이브 Mara를 죽인 실사고 있음) → 교체 → `open`.
+- 로컬 Release 리빌드가 **기존 서명 번들** 위에서 `"Operation not permitted"`(AppIcon.icns 복사 등)로 실패하면,
+  App Management TCC가 서명된 `.app`의 **in-place 수정**을 막는 것이다(uchg 플래그 아님). 정공법 = stale 번들을
+  `rm -rf`(삭제는 허용 — 우회 아님)한 뒤 **클린 리빌드**(실행 중이면 먼저 quit). 실사고 1회(B→C 배포 중).
 - QA 빌드 설치 전 **산출물 심볼 검증** 필수: `grep -c -a '<새 셀렉터/타입명>' <APP>/Contents/MacOS/Mara` ≥1 확인 후 설치.
   서브에이전트는 각자 derivedDataPath에 빌드하므로 컨트롤러 경로의 산출물은 낡았을 수 있다(실사고 1회).
   유니코드 포함 문자열("Custom…" 등)은 strings|grep에 안 잡힘 — ASCII 심볼명으로 검사.
+  최적화(-O) Release에선 짧은 문자열(≤15B, 예 "Icon Color")도 Swift SmallString로 인라인돼 grep에 안 잡힌다
+  — Debug(`.debug.dylib`)엔 남지만 Release는 셀렉터/타입명(`setMenuBarTint`·`MenuBarTint`)으로 검증(실사고 1회).
 - xcodebuild·git은 리포 루트에서 실행 — cwd는 셸 호출 간 지속·백그라운드로 상속됨(MaraCore에 남아 무실행 실사고 1회).
   파이프(`| tail`)가 exit code를 삼키므로 컴파일 검증은 "BUILD SUCCEEDED" 문자열 확인으로 판정.
 - Core `swift test`는 App(AppKit/SwiftUI) 컴파일을 검증 안 함 — Core enum에 케이스 추가(예:
@@ -49,6 +59,8 @@
 - 버전 정본은 git 태그: release.sh가 MARKETING_VERSION을 태그로 덮어씀(project.yml 값은 dev 전용).
   CFBundleVersion = git 커밋 수(단조 증가) — 커밋 없이 연속 태그 금지.
 - v* 태그는 룰셋으로 불변 — 실패한 릴리스는 태그 재사용 불가, 패치 범프로 복구(RELEASING.md).
+- 태그 푸시(불변) 전 파이프라인 사전점검: `git diff --stat v<직전>..HEAD -- .github/workflows/release.yml
+  scripts/release.sh App/Info.plist project.yml` — 비어있으면 릴리스 경로가 직전 성공본과 byte-identical(실패 리스크 최소).
 - **검증은 게시된 산출물로**: `gh release download` → spctl/stapler/appcast/`.background` 확인.
   로컬 재현 검증은 이 리포에서 두 번 틀렸다(메뉴바 오렌지, DMG 배경).
 - `scripts/release.sh`는 **zsh**: `${VAR:+--flag "$VAR"}`는 단어 분리 안 됨 — 인자는 배열로 구성.

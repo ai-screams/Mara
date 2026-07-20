@@ -1,10 +1,12 @@
 import SwiftUI
 import AppKit
+import MaraCore
 
 /// 첫 실행 안내 팝오버 콘텐츠 — Night Watch 톤. 권한 프롬프트처럼 보이지 않게
 /// 시스템 다이얼로그 관용(앱 아이콘+허용/거부 배치)을 피하고 브랜드 헤더+행 안내로 구성한다.
 struct FirstRunGuideView: View {
     let onDone: () -> Void
+    @Environment(\.accentTint) private var accent   // presenter가 현재 tint를 주입
     @State private var launchAtLogin = LaunchAtLogin.isEnabled
 
     var body: some View {
@@ -13,8 +15,8 @@ struct FirstRunGuideView: View {
             VStack(spacing: 4) {
                 Image(systemName: MaraSymbol.awake)
                     .font(.system(size: 26))
-                    .foregroundStyle(MaraTheme.accent)
-                    .shadow(color: MaraTheme.accent.opacity(0.55), radius: 12)
+                    .foregroundStyle(accent)
+                    .shadow(color: accent.opacity(0.55), radius: 12)
                     .accessibilityHidden(true)
                 Text("Mara lives in your menu bar")
                     .font(.system(size: 14, weight: .semibold, design: .rounded))
@@ -25,7 +27,7 @@ struct FirstRunGuideView: View {
             VStack(alignment: .leading, spacing: 9) {
                 guideRow(symbol: MaraSymbol.resting, tint: MaraTheme.muted,
                          text: "Closed eye — resting, your Mac may sleep")
-                guideRow(symbol: MaraSymbol.awake, tint: MaraTheme.accent,
+                guideRow(symbol: MaraSymbol.awake, tint: accent,
                          text: "Open orange eye — keeping your Mac awake")
                 guideRow(symbol: "gearshape", tint: MaraTheme.muted,
                          text: "Automation & trigger status live in Settings")
@@ -37,7 +39,7 @@ struct FirstRunGuideView: View {
                 .controlSize(.small)
                 .font(.callout)
                 .foregroundStyle(.white)
-                .tint(MaraTheme.accent)
+                .tint(accent)
                 .onChange(of: launchAtLogin) { _, enabled in
                     LaunchAtLogin.setEnabled(enabled)
                 }
@@ -48,7 +50,7 @@ struct FirstRunGuideView: View {
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.borderedProminent)
-            .tint(MaraTheme.accent)
+            .tint(accent)
             .keyboardShortcut(.defaultAction)
         }
         .padding(16)
@@ -80,13 +82,13 @@ struct FirstRunGuideView: View {
 final class FirstRunGuidePresenter: NSObject, NSPopoverDelegate {
     private var popover: NSPopover?
 
-    func show(relativeTo button: NSStatusBarButton) {
+    func show(relativeTo button: NSStatusBarButton, tint: MenuBarTint) {
         let pop = NSPopover()
         pop.behavior = .transient
         pop.appearance = NSAppearance(named: .darkAqua)
         pop.delegate = self
         pop.contentViewController = NSHostingController(
-            rootView: FirstRunGuideView(onDone: { [weak self] in self?.dismiss() })
+            rootView: FirstRunGuideView(onDone: { [weak self] in self?.dismiss() }).maraAccent(tint)
         )
         popover = pop
         NSApp.activate()

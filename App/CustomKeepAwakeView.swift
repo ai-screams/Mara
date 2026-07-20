@@ -10,6 +10,7 @@ struct CustomKeepAwakeView: View {
         var id: String { rawValue }
     }
 
+    @ObservedObject var prefs: PrefsStore   // 캐시 창이라도 tint 변경에 반응하도록 관측
     let onStart: (SessionDuration) -> Void
     let dismiss: () -> Void
 
@@ -19,13 +20,15 @@ struct CustomKeepAwakeView: View {
     @State private var untilTime = Date().addingTimeInterval(3600)
 
     private var durationSeconds: TimeInterval { TimeInterval(hours * 3600 + minutes * 60) }
+    /// 앱 accent = 선택된 메뉴바 tint (자기 참조엔 직접 사용 — SettingsView와 동일 패턴).
+    private var accent: Color { prefs.menuBarTint.accentColor }
 
     var body: some View {
         VStack(spacing: 16) {
             VStack(spacing: 5) {
                 Image(systemName: MaraSymbol.awake)
                     .font(.system(size: 24))
-                    .foregroundStyle(MaraTheme.accent)
+                    .foregroundStyle(accent)
                     .accessibilityHidden(true)
                 Text("Keep awake…")
                     .font(.system(size: 15, weight: .semibold, design: .rounded))
@@ -70,7 +73,7 @@ struct CustomKeepAwakeView: View {
         .frame(width: 260)
         .background(MaraTheme.bg)
         .preferredColorScheme(.dark)
-        .tint(MaraTheme.accent)
+        .maraAccent(prefs.menuBarTint)
         // 캐시된 창이라 @State가 살아남는다 — 열 때마다 기본 시각을 현재+1h로 리셋 (duration 입력은 관례상 유지)
         .onAppear { untilTime = Date().addingTimeInterval(3600) }
     }

@@ -39,7 +39,7 @@ No permission bypasses, no undocumented tricks. Mara uses only **official IOKit 
 
 ## Features
 
-- **One-click keep-awake** from the menu bar — the eye opens and turns orange while your Mac is kept awake
+- **One-click keep-awake** from the menu bar — the eye opens and lights up in your chosen color while your Mac is kept awake
 - **Indefinite or timed**: presets (`15m` / `1h` / `2h` / `5h`), any custom duration, or until a time of day — recent custom durations are one click away
 - **Live countdown** next to the icon: 5-minute ticks, switching to 1-minute steps for the last five minutes
 - **System-only or display too** — choose whether the screen is allowed to sleep
@@ -51,6 +51,7 @@ No permission bypasses, no undocumented tricks. Mara uses only **official IOKit 
   - you're on a specific network
 - **Trigger diagnostics** in Settings show live status for each enabled trigger
 - **Optional notifications** on automatic session start and end — trigger-started sessions, and stops from a timer, low battery, or a cleared trigger; manual actions stay silent (off by default)
+- **Choose the eye's color** — a curated palette (Ember, Blood, Venom, Wraith, Nightshade) for the menu-bar icon; your pick also tints the settings window's accents (background stays dark)
 - **Night Watch settings** — an always-dark, brand-styled settings window whose eye mirrors the live session state
 - **Shortcuts support** — start (optionally with a duration), stop, and check status from Apple's Shortcuts app
 - **Automatic updates** via [Sparkle](https://sparkle-project.org): every release ships an EdDSA-signed update feed
@@ -82,6 +83,7 @@ Click the menu-bar eye for:
 - `Keep Awake` / `Turn Off`
 - `Keep awake for…`: `15 minutes`, `1 hour`, `2 hours`, `5 hours` — recently used custom durations reappear under `Recent` (with a `Clear Recent` action), and `Custom…` opens a dialog for any duration or a specific time of day
 - `Keep display awake`
+- `Icon Color`: pick the menu-bar eye's color from a curated palette — it also tints the settings window
 - `Launch at Login`
 - `Check for Updates…`
 - `Settings…`

@@ -49,6 +49,7 @@ struct SettingsStepperRow: View {
     @Binding var value: Int
     let range: ClosedRange<Int>
     let step: Int
+    @Environment(\.accentTint) private var accent
 
     // 텍스트 입력·스테퍼 모두 이 바인딩을 통해서만 값을 쓴다 → 범위 밖 입력(예: 250)이
     // prefs/Core로 새지 않는다(과도값이 배터리 자동종료 베토를 오작동시키는 것을 원천 차단).
@@ -69,9 +70,9 @@ struct SettingsStepperRow: View {
                     .textFieldStyle(.plain)
                     .multilineTextAlignment(.trailing)
                     .font(.callout.monospacedDigit())
-                    .foregroundStyle(MaraTheme.accent)
+                    .foregroundStyle(accent)
                     .frame(width: 30)
-                Text("%").font(.callout).foregroundStyle(MaraTheme.accent)
+                Text("%").font(.callout).foregroundStyle(accent)
             }
             .padding(.horizontal, 6)
             .padding(.vertical, 2)
@@ -95,11 +96,12 @@ struct SettingsCaption: View {
 /// 행 선두의 고정폭 어센트 심볼.
 struct SettingsIcon: View {
     private let symbol: String
+    @Environment(\.accentTint) private var accent
     init(_ symbol: String) { self.symbol = symbol }
     var body: some View {
         Image(systemName: symbol)
             .font(.system(size: 13))
-            .foregroundStyle(MaraTheme.accent)
+            .foregroundStyle(accent)
             .frame(width: 18)
             .accessibilityHidden(true)
     }
@@ -111,15 +113,16 @@ struct SettingsStatusRow: View {
     let active: Bool
     let text: String
     var indent: Bool = true
+    @Environment(\.accentTint) private var accent
 
     var body: some View {
         HStack(spacing: 6) {
             Circle()
-                .fill(active ? MaraTheme.accent : MaraTheme.muted.opacity(0.6))
+                .fill(active ? accent : MaraTheme.muted.opacity(0.6))
                 .frame(width: 6, height: 6)
             Text(text)
                 .font(.caption)
-                .foregroundStyle(active ? MaraTheme.accent : MaraTheme.muted)
+                .foregroundStyle(active ? accent : MaraTheme.muted)
         }
         .padding(.leading, indent ? 27 : 0)
         .accessibilityElement(children: .combine)

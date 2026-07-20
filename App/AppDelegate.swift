@@ -20,7 +20,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // init은 UNUserNotificationCenter.current() 획득/delegate 설정만 — 권한 프롬프트는 Settings 토글에서만 발생.
     private let notificationService = NotificationService()
     private let firstRunGuidePresenter = FirstRunGuidePresenter()
-    private lazy var customKeepAwakePresenter = CustomKeepAwakePresenter { [env] duration in
+    private lazy var customKeepAwakePresenter = CustomKeepAwakePresenter(prefs: env.prefs) { [env] duration in
         let result = env.session.start(
             SessionConfig(scope: env.prefs.defaultScope, duration: duration, origin: .manual)
         )
@@ -64,7 +64,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // 메뉴바 아이템 배치가 끝난 뒤 앵커하도록 잠깐 지연.
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
                 guard let self, let button = self.statusBar.statusButton else { return }
-                self.firstRunGuidePresenter.show(relativeTo: button)
+                self.firstRunGuidePresenter.show(relativeTo: button, tint: self.env.prefs.menuBarTint)
             }
         }
         sessionNotifier = SessionNotifier(
