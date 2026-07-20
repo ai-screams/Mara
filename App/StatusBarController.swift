@@ -52,13 +52,30 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         // 숫자 폭 흔들림 방지: 모노스페이스 숫자 폰트로 라벨 너비를 안정화한다.
         item.button?.font = NSFont.monospacedDigitSystemFont(
             ofSize: NSFont.systemFontSize(for: .small), weight: .regular)
-        refreshStatusButton(env.session.state)
+        refreshStatusButton(env.session.state, tint: env.prefs.menuBarTint)
         item.isVisible = true         // 콘텐츠를 채운 뒤 마지막에 표시(기본값이 항상 true가 아님)
 
         // 세션 상태(@Published, main에서만 변이)를 구독해 아이콘/지속시간 라벨을 갱신.
         // @Published는 willSet에서 발화하므로 방출된 state를 그대로 넘겨야 한다(재-read 시 이전 값).
         env.session.$state
-            .sink { [weak self] state in MainActor.assumeIsolated { self?.refreshStatusButton(state) } }
+            .sink { [weak self] state in
+                MainActor.assumeIsolated {
+                    guard let self else { return }
+                    self.refreshStatusButton(state, tint: self.env.prefs.menuBarTint)
+                }
+            }
+            .store(in: &cancellables)
+
+        // 메뉴바 tint 변경 시 활성 아이콘을 즉시 다시 굽는다. @Published는 willSet 발화라
+        // 방출된 tint를 그대로 써야 한다(sink에서 prefs.menuBarTint 재-read 시 이전 값).
+        env.prefs.$menuBarTint
+            .dropFirst()   // 초기값 재방출 무시 (위 초기 refresh에서 이미 반영)
+            .sink { [weak self] tint in
+                MainActor.assumeIsolated {
+                    guard let self else { return }
+                    self.refreshStatusButton(self.env.session.state, tint: tint)
+                }
+            }
             .store(in: &cancellables)
 
         // 외부(System Settings) Launch-at-Login 변경을 다음 활성화 시 캐시에 반영한다.
@@ -72,14 +89,14 @@ final class StatusBarController: NSObject, NSMenuDelegate {
 
     // MARK: - Status button (eye icon + countdown)
 
-    private func refreshStatusButton(_ state: SessionState) {
+    private func refreshStatusButton(_ state: SessionState, tint: MenuBarTint) {
         // 항상 기존 카운트다운 타이머를 먼저 취소한다.
         // sink가 세션 변화마다 재설정하며, 만료는 SessionManager 타이머가 stop → sink 경유로 invalidate된다.
         countdownTimer?.invalidate()
         countdownTimer = nil
 
         guard let button = statusItem?.button else { return }
-        button.image = Self.statusIcon(active: state.isActive)
+        button.image = statusIcon(active: state.isActive, tint: tint)
         button.imagePosition = .imageLeading
         button.title = durationLabel(for: state).map { " " + $0 } ?? ""
 
@@ -89,8 +106,10 @@ final class StatusBarController: NSObject, NSMenuDelegate {
             let interval = CountdownFormat.nextTick(remaining: remaining)
             let timer = Timer(timeInterval: interval, repeats: false) { [weak self] _ in
                 guard let self else { return }
-                // 발화 시 현재 state를 다시 읽어 최신 상태로 재귀 예약한다.
-                MainActor.assumeIsolated { self.refreshStatusButton(self.env.session.state) }
+                // 발화 시 현재 state·tint를 다시 읽어 최신 상태로 재귀 예약한다(라벨 틱만이라 tint는 안 바뀜).
+                MainActor.assumeIsolated {
+                    self.refreshStatusButton(self.env.session.state, tint: self.env.prefs.menuBarTint)
+                }
             }
             timer.tolerance = 1.0   // 에너지 배려: 1초 오차 허용
             RunLoop.main.add(timer, forMode: .common)
@@ -105,27 +124,38 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         return CountdownFormat.label(remaining: expiry.timeIntervalSinceNow)
     }
 
-    /// 활성: 뜬 눈(오렌지) / 비활성: 감은 눈(template — 메뉴바 톤 자동 적응).
-    /// 오렌지는 비트맵에 직접 굽는다(sourceAtop + non-template). NSStatusBarButton은
+    /// 활성: 뜬 눈(사용자 선택 tint) / 비활성: 감은 눈(template — 메뉴바 톤 자동 적응).
+    /// tint는 비트맵에 직접 굽는다(sourceAtop + non-template). NSStatusBarButton은
     /// contentTintColor를 무시하고, template 이미지·팔레트 심볼 구성도 단색으로 렌더한다
-    /// (macOS 26 실기 관측 — 스크린샷으로 확인된 사실).
-    /// active는 Bool뿐이므로 두 이미지를 1회만 만들어 캐시한다(카운트다운 틱마다 재합성 방지).
-    static func statusIcon(active: Bool) -> NSImage { active ? activeIcon : inactiveIcon }
+    /// (macOS 26 실기 관측 — 스크린샷으로 확인된 사실). 그래서 색은 미리 구워 넣는다.
+    /// 색은 오직 "활성"만 의미하므로 비활성은 tint와 무관한 단일 template 이미지.
+    /// tint별 활성 이미지는 1회만 합성해 캐시한다(카운트다운 틱마다 재합성 방지, tint당 1개).
+    private func statusIcon(active: Bool, tint: MenuBarTint) -> NSImage {
+        guard active else { return Self.inactiveIcon }
+        if let cached = activeIconCache[tint] { return cached }
+        let icon = Self.makeActiveIcon(color: tint.color)
+        activeIconCache[tint] = icon
+        return icon
+    }
 
-    private static let activeIcon: NSImage = makeStatusIcon(active: true)
-    private static let inactiveIcon: NSImage = makeStatusIcon(active: false)
+    /// tint별 활성 아이콘 캐시. 인스턴스 프로퍼티(@MainActor 격리)라 동시성 안전.
+    private var activeIconCache: [MenuBarTint: NSImage] = [:]
+    private static let inactiveIcon: NSImage = makeInactiveIcon()
 
-    private static func makeStatusIcon(active: Bool) -> NSImage {
-        let description = active ? "Mara — keep-awake active" : "Mara — inactive"
-        let symbol = active ? MaraSymbol.awake : MaraSymbol.resting
-        let base = NSImage(systemSymbolName: symbol, accessibilityDescription: description) ?? NSImage()
-        guard active else {
-            base.isTemplate = true
-            return base
-        }
+    private static func makeInactiveIcon() -> NSImage {
+        let base = NSImage(systemSymbolName: MaraSymbol.resting,
+                           accessibilityDescription: "Mara — inactive") ?? NSImage()
+        base.isTemplate = true              // 메뉴바 톤에 자동 적응(흑백)
+        return base
+    }
+
+    private static func makeActiveIcon(color: NSColor) -> NSImage {
+        let description = "Mara — keep-awake active"
+        let base = NSImage(systemSymbolName: MaraSymbol.awake,
+                           accessibilityDescription: description) ?? NSImage()
         let tinted = NSImage(size: base.size, flipped: false) { rect in
             base.draw(in: rect)
-            NSColor.systemOrange.set()
+            color.set()
             rect.fill(using: .sourceAtop)   // 글리프 알파 위에만 색을 얹는다
             return true
         }
@@ -220,6 +250,38 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         let login = addItem(to: menu, title: "Launch at Login",
                             action: #selector(toggleLaunchAtLogin), symbol: "play.circle")
         login.state = launchAtLoginEnabled ? .on : .off
+
+        menu.addItem(iconColorMenuItem())
+    }
+
+    /// "Icon Color" 서브메뉴 — 활성 아이콘 tint 선택(라디오식 체크 + 색 스와치).
+    private func iconColorMenuItem() -> NSMenuItem {
+        let sub = NSMenu()
+        let current = env.prefs.menuBarTint
+        for tint in MenuBarTint.allCases {
+            let item = NSMenuItem(title: tint.displayName,
+                                  action: #selector(setMenuBarTint(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = tint
+            item.state = (tint == current) ? .on : .off
+            item.image = Self.swatch(tint.color)
+            sub.addItem(item)
+        }
+        let parent = NSMenuItem(title: "Icon Color", action: nil, keyEquivalent: "")
+        parent.image = Self.menuSymbol("paintpalette")
+        parent.submenu = sub
+        return parent
+    }
+
+    /// 메뉴 항목용 색 스와치 — 작은 원형 채움. non-template이라 색 그대로 렌더된다.
+    private static func swatch(_ color: NSColor, diameter: CGFloat = 12) -> NSImage {
+        let image = NSImage(size: NSSize(width: diameter, height: diameter), flipped: false) { rect in
+            color.setFill()
+            NSBezierPath(ovalIn: rect.insetBy(dx: 1, dy: 1)).fill()
+            return true
+        }
+        image.isTemplate = false
+        return image
     }
 
     private func addFooterItems(to menu: NSMenu) {
@@ -301,6 +363,11 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     @objc private func toggleLaunchAtLogin() {
         LaunchAtLogin.setEnabled(!launchAtLoginEnabled)
         launchAtLoginEnabled = LaunchAtLogin.isEnabled   // 실제 결과로 재동기화(토글 실패 시에도 정확)
+    }
+
+    @objc private func setMenuBarTint(_ sender: NSMenuItem) {
+        guard let tint = sender.representedObject as? MenuBarTint else { return }
+        env.prefs.menuBarTint = tint   // didSet 저장 + @Published → tint sink가 아이콘을 다시 굽는다
     }
 
     @objc private func openSettings() {

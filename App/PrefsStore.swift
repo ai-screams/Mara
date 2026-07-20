@@ -34,6 +34,10 @@ final class PrefsStore: ObservableObject {
     @Published var hasShownFirstRunGuide: Bool {
         didSet { UserDefaults.standard.set(hasShownFirstRunGuide, forKey: Keys.hasShownFirstRunGuide) }
     }
+    /// 메뉴바 활성 아이콘 색. rawValue(문자열)로 저장한다. 색↔이름 매핑은 App(MaraTheme).
+    @Published var menuBarTint: MenuBarTint {
+        didSet { UserDefaults.standard.set(menuBarTint.rawValue, forKey: Keys.menuBarTint) }
+    }
     var defaultScope: KeepAwakeScope { KeepAwakeScope(keepDisplay: defaultKeepDisplayAwake) }
     private enum Keys {
         static let defaultKeepDisplayAwake = "defaultKeepDisplayAwake"
@@ -42,6 +46,7 @@ final class PrefsStore: ObservableObject {
         static let notifyAutoSessionChanges = "notifyAutoSessionChanges"
         static let recentCustomDurations = "recentCustomDurations"
         static let hasShownFirstRunGuide = "hasShownFirstRunGuide"
+        static let menuBarTint = "menuBarTint"
     }
     init() {
         let d = UserDefaults.standard
@@ -51,11 +56,14 @@ final class PrefsStore: ObservableObject {
             Keys.notifyAutoSessionChanges: false,
             Keys.recentCustomDurations: [TimeInterval](),
             Keys.hasShownFirstRunGuide: false,
+            Keys.menuBarTint: MenuBarTint.default.rawValue,
         ])
         defaultKeepDisplayAwake = d.bool(forKey: Keys.defaultKeepDisplayAwake)
         lowBatteryThreshold = Self.sanitizeBatteryThreshold(d.integer(forKey: Keys.lowBatteryThreshold))
         notifyAutoSessionChanges = d.bool(forKey: Keys.notifyAutoSessionChanges)
         hasShownFirstRunGuide = d.bool(forKey: Keys.hasShownFirstRunGuide)
+        // 신뢰 경계: 저장 문자열이 nil/미지 값이면 Core가 기본값(ember)으로 폴백한다.
+        menuBarTint = MenuBarTint(storage: d.string(forKey: Keys.menuBarTint))
         // 신뢰 경계: plist는 외부에서 조작될 수 있다 — 비유한·비양수 값과 초과 길이를 로드 시 걸러낸다(Core).
         let loaded = (d.array(forKey: Keys.recentCustomDurations) as? [TimeInterval]) ?? []
         recentCustomDurations = CustomDurationMRU.sanitizing(loaded)
