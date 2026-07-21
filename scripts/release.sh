@@ -71,6 +71,12 @@ DMG="$DIST_DIR/$APP_NAME-$VERSION.dmg"
 # 표시용 MARKETING_VERSION은 태그의 SemVer 유지. CI 체크아웃은 fetch-depth: 0이어야 정확.
 BUILD_NUMBER="$(git rev-list --count HEAD 2>/dev/null || echo 1)"
 
+# 커밋 없이 연속 태그를 막는다: HEAD에 (지금 빌드하는 v$VERSION 외의) 다른 v* 태그가 이미 있으면
+# git 커밋 수가 동일 → CFBundleVersion($BUILD_NUMBER)이 직전 릴리스와 충돌해 Sparkle이 새 버전으로
+# 인식하지 못한다. 정공법은 패치 커밋 후 재태그(빌드번호 단조 증가 보장).
+existing_tag="$(git tag --points-at HEAD 'v*' 2>/dev/null | grep -vx "v$VERSION" || true)"
+[[ -z "$existing_tag" ]] || die "커밋 없이 연속 태그 감지: HEAD에 이미 태그 존재($existing_tag) → CFBundleVersion($BUILD_NUMBER)이 직전 릴리스와 충돌. 패치 커밋 후 재태그하라."
+
 print "▸ $APP_NAME $VERSION (build $BUILD_NUMBER) 배포본 빌드 (team=$DEVELOPMENT_TEAM, id='$DEVELOPER_ID_IDENTITY')"
 
 rm -rf "$BUILD_DIR" "$DIST_DIR"

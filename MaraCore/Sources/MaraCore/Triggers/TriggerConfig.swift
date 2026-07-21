@@ -7,7 +7,7 @@ public struct TriggerConfig: Codable, Equatable, Sendable {
     public var appRunningEnabled: Bool
     public var watchedBundleIDs: [BundleIdentifier]
     public var networkEnabled: Bool
-    public var watchedNetworks: [String]  // normalized gateway MAC strings
+    public var watchedNetworks: [String]  // 정규화된 게이트웨이 MAC 문자열
 
     public static let defaults = TriggerConfig(
         chargingEnabled: false,
@@ -47,8 +47,8 @@ public struct TriggerConfig: Codable, Equatable, Sendable {
         case watchedNetworks
     }
 
-    /// Backward-compatible decode: existing persisted JSON may be missing newer keys.
-    /// Using decodeIfPresent + fallback defaults prevents a throw (and data wipe) on upgrade.
+    /// 하위호환 디코드: 기존에 영속된 JSON엔 새로 추가된 키가 없을 수 있다.
+    /// decodeIfPresent + 폴백 기본값으로 업그레이드 시 throw(및 데이터 wipe)를 막는다.
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         chargingEnabled         = try c.decodeIfPresent(Bool.self,     forKey: .chargingEnabled)         ?? false
