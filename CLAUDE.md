@@ -64,6 +64,12 @@
 - **검증은 게시된 산출물로**: `gh release download` → spctl/stapler/appcast/`.background` 확인.
   로컬 재현 검증은 이 리포에서 두 번 틀렸다(메뉴바 오렌지, DMG 배경).
 - `scripts/release.sh`는 **zsh**: `${VAR:+--flag "$VAR"}`는 단어 분리 안 됨 — 인자는 배열로 구성.
+- codesign 서명 검증: Hardened Runtime 신호는 `flags=…(runtime)`(CodeDirectory 플래그)이지 `Runtime Version=`
+  (SDK 버전)이 아니다. leaf 인증서는 `Authority=Developer ID Application`, `…Certification Authority`는 중간 CA.
+- PR CI 상태 폴링: `gh pr checks`의 탭 출력을 `awk '{print $2}'`로 파싱 금지 — 체크명 "Build & Test"의
+  공백이 필드를 밀어 상태가 "&"로 잡혀 **조기 종료**한다(실사고 2회). `gh pr view <n> --json statusCheckRollup`을
+  쓰되, 실행 중 `.conclusion`은 null이 아니라 **빈 문자열**이라 jq `// "RUNNING"` 폴백이 안 먹는다 —
+  완료 판정은 `.status=="COMPLETED"`로 할 것.
 - 로컬 공증: 암호를 argv에 넣지 말 것 — `NOTARY_PROFILE=mara-notary`(Keychain 프로필) 사용.
 
 ## macOS 26 menu-bar quirks (상세는 auto-memory·코드 주석)
