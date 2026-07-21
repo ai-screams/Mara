@@ -128,8 +128,17 @@ xcodebuild -exportArchive \
 # 검증해 서명 누락을 공증 전에 잡는다 — 미서명/타 주체 중첩 코드는 여기서 하드 실패.
 print "▸ [3/6] 서명 검증 (deep)…"
 codesign --verify --deep --strict --verbose=2 "$APP"
-codesign -dvvv "$APP" 2>&1 | grep -iE "^Authority=Developer ID|runtime" >/dev/null \
-    || die "Developer ID/Hardened Runtime 확인 실패 — 인증서를 점검하라"
+# codesign -dvvv 출력을 한 번 캡처해 세 조건을 각각 독립적으로 검사한다.
+# 과거: grep -iE "…|runtime"는 ERE OR라 Authority 또는 runtime 중 하나만 나와도 통과했다
+# (에러 문구는 둘 다 확인한다고 주장 → 계약·구현 불일치). 각각 fail-closed로 분리하고
+# 최상위 앱의 TeamIdentifier까지 확인한다(기존 검사는 중첩 프레임워크 주체만 봤다).
+sign_details="$(codesign -dvvv "$APP" 2>&1)"
+grep -qiE "^Authority=Developer ID Application" <<<"$sign_details" \
+    || die "Developer ID Application 서명 확인 실패 — 인증서를 점검하라"
+grep -qi "flags=.*runtime" <<<"$sign_details" \
+    || die "Hardened Runtime 확인 실패 — CodeDirectory에 runtime 플래그 없음"
+grep -q "TeamIdentifier=$DEVELOPMENT_TEAM" <<<"$sign_details" \
+    || die "최상위 앱 TeamIdentifier 불일치 — 기대 $DEVELOPMENT_TEAM"
 if [[ -d "$APP/Contents/Frameworks" ]]; then
     while IFS= read -r -d '' nested; do
         codesign -dv "$nested" 2>&1 | grep -q "TeamIdentifier=$DEVELOPMENT_TEAM" \
