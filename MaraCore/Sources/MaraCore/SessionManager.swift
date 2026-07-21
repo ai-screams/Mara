@@ -6,6 +6,11 @@ public final class SessionManager: ObservableObject {
     @Published public private(set) var state: SessionState = .inactive
     @Published public private(set) var lastFailure: SessionFailure?
 
+    /// 배터리 사전조건 기반의 시작 가능성. TriggerEngine이 구독해 blocked→allowed 에지에서만
+    /// 재평가한다 — 저배터리로 거부/종료된 트리거 세션이 AC 연결·충전 회복 후 재개되도록.
+    /// 내부 조율용이라 public 아님(App은 state/lastFailure로 충분).
+    @Published private(set) var startEligibility: SessionStartEligibility = .allowed
+
     /// 최근 세션 이벤트(관측용, 최대 20개). 문구 생성은 App 레이어가 한다.
     @Published public private(set) var recentEvents: [SessionEvent] = []
     /// 이벤트 스트림 — 알림 어댑터 등 실시간 구독자용.
@@ -28,6 +33,7 @@ public final class SessionManager: ObservableObject {
             if state.isActive, let percent = batteryFloorBreach(battery?.snapshot) {
                 _ = stop(reason: .lowBattery(percent: percent))
             }
+            updateStartEligibility(battery?.snapshot)   // 임계값 변경도 eligibility에 반영
         }
     }
     private var timer: SchedulerToken?
@@ -43,6 +49,11 @@ public final class SessionManager: ObservableObject {
         self.clock = clock
         self.battery = battery
         self.batteryThreshold = Self.clampBatteryThreshold(lowBatteryThreshold)
+        // 아래 sink는 dropFirst로 첫 스냅샷을 흘리므로, 초기 eligibility는 현재 스냅샷으로 seed한다
+        // (저배터리로 시작하면 blocked로 출발 → 회복 스냅샷이 blocked→allowed 에지를 만들어 재평가).
+        if let percent = batteryFloorBreach(battery?.snapshot) {
+            self.startEligibility = .blocked(.lowBattery(percent: percent))
+        }
         battery?.snapshots
             .dropFirst()  // 초기 현재값 재방출은 무시 (세션 시작 시점엔 start()가 직접 검사)
             // 배터리 알림은 CFRunLoopGetMain에서 delivery된다. assumeIsolated로 동기 타이밍을
@@ -52,10 +63,19 @@ public final class SessionManager: ObservableObject {
     }
 
     private func handleBattery(_ snap: BatterySnapshot) {
+        updateStartEligibility(snap)   // 활성 여부와 무관하게 갱신 — inactive 회복도 신호로 남긴다
         guard state.isActive else { return }
         if let percent = batteryFloorBreach(snap) {
             _ = stop(reason: .lowBattery(percent: percent))   // 최우선 거부권
         }
+    }
+
+    /// 배터리 스냅샷으로 시작 가능성을 갱신한다. 값이 바뀔 때만 발행(중복 발행 억제 →
+    /// 구독측의 busy-retry 원천 차단: 같은 상태 반복 스냅샷은 에지를 만들지 않는다).
+    private func updateStartEligibility(_ snapshot: BatterySnapshot?) {
+        let next: SessionStartEligibility = batteryFloorBreach(snapshot)
+            .map { .blocked(.lowBattery(percent: $0)) } ?? .allowed
+        if next != startEligibility { startEligibility = next }
     }
 
     /// The offending battery % if a session must not run on the current power state; nil otherwise.

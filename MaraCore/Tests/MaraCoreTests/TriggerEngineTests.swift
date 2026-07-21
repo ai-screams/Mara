@@ -222,3 +222,89 @@ extension TriggerEngineTests {
         if case let .active(cfg, _) = sm.state { XCTAssertEqual(cfg.origin, .manual) } else { XCTFail() }
     }
 }
+
+// MARK: - F-02: 저배터리 해제 후 트리거 재개 + suppression 오분류 방지
+extension TriggerEngineTests {
+    private func makeSessionWithBattery(threshold: Int = 20, percentage: Int, isOnAC: Bool)
+        -> (SessionManager, MockBattery) {
+        let p = MockPowerAssertionProvider()
+        let battery = MockBattery(percentage: percentage, isOnAC: isOnAC)
+        let sm = SessionManager(engine: SleepEngine(provider: p),
+                                scheduler: MockScheduler(), clock: MockClock(),
+                                battery: battery, lowBatteryThreshold: threshold)
+        return (sm, battery)
+    }
+
+    private func startRejectionCount(_ sm: SessionManager) -> Int {
+        sm.recentEvents.filter { if case .startRejected = $0.kind { return true }; return false }.count
+    }
+
+    // 트리거가 저배터리로 거부된 뒤 AC를 연결하면 재개되어야 한다.
+    func test_triggerRejectedByLowBattery_startsWhenACReturns() {
+        let (sm, battery) = makeSessionWithBattery(percentage: 15, isOnAC: false)
+        let t = MockTrigger(satisfied: true)
+        let engine = TriggerEngine(session: sm, scope: { .systemOnly })
+        engine.updateEvaluators([t])                 // 충족이지만 저배터리로 시작 거부
+        XCTAssertFalse(sm.state.isActive)
+        battery.emit(percentage: 15, isOnAC: true)   // AC 연결 → eligibility blocked→allowed
+        XCTAssertTrue(sm.state.isActive, "trigger must start once the battery precondition clears")
+        if case let .active(cfg, _) = sm.state { XCTAssertEqual(cfg.origin, .trigger) } else { XCTFail() }
+    }
+
+    // 충전으로 임계값 위로 올라가면(여전히 배터리 사용) 재개되어야 한다.
+    func test_triggerRejectedByLowBattery_startsWhenChargeRisesAboveThreshold() {
+        let (sm, battery) = makeSessionWithBattery(threshold: 20, percentage: 15, isOnAC: false)
+        let t = MockTrigger(satisfied: true)
+        let engine = TriggerEngine(session: sm, scope: { .systemOnly })
+        engine.updateEvaluators([t])
+        XCTAssertFalse(sm.state.isActive)
+        battery.emit(percentage: 25, isOnAC: false)  // 임계값(20) 위로 회복
+        XCTAssertTrue(sm.state.isActive)
+    }
+
+    // 저배터리 자동 종료는 수동 suppression으로 분류되지 않아야 한다.
+    func test_lowBatteryStop_doesNotBecomeManualSuppression() {
+        let (sm, battery) = makeSessionWithBattery(threshold: 20, percentage: 100, isOnAC: false)
+        let t = MockTrigger(satisfied: true)
+        let engine = TriggerEngine(session: sm, scope: { .systemOnly })
+        engine.updateEvaluators([t])
+        XCTAssertTrue(sm.state.isActive)             // 트리거로 시작
+        battery.emit(percentage: 15, isOnAC: false)  // 저배터리 자동 종료
+        XCTAssertFalse(sm.state.isActive)
+        XCTAssertEqual(sm.recentEvents.last?.kind, .stopped(.lowBattery(percent: 15)))
+        XCTAssertFalse(engine.snapshot.isSuppressed, "low-battery stop must not be treated as manual suppression")
+        battery.emit(percentage: 15, isOnAC: true)   // 회복 → 재개(수동 억제였다면 막혔을 것)
+        XCTAssertTrue(sm.state.isActive, "must resume after recovery; low-battery stop is not manual suppression")
+    }
+
+    // 수동 종료(억제)는 배터리 회복 에지에도 살아남아야 한다.
+    func test_manualStop_remainsSuppressedThroughBatteryRecovery() {
+        let (sm, battery) = makeSessionWithBattery(threshold: 20, percentage: 100, isOnAC: true)
+        let t = MockTrigger(satisfied: true)
+        let engine = TriggerEngine(session: sm, scope: { .systemOnly })
+        engine.updateEvaluators([t])
+        XCTAssertTrue(sm.state.isActive)
+        sm.stop()                                    // 수동 종료(트리거 여전히 true) → 억제
+        XCTAssertFalse(sm.state.isActive)
+        XCTAssertTrue(engine.snapshot.isSuppressed)
+        battery.emit(percentage: 15, isOnAC: false)  // blocked
+        battery.emit(percentage: 15, isOnAC: true)   // blocked→allowed 에지
+        XCTAssertFalse(sm.state.isActive, "manual suppression must survive battery recovery")
+        t.set(false); t.set(true)                    // 모든 트리거 해제 후 재충족 → 재무장
+        XCTAssertTrue(sm.state.isActive)
+    }
+
+    // 저배터리가 지속되면(값만 변화) 재평가는 .allowed 에지에서만 일어나므로 재시도 루프가 없어야 한다.
+    func test_persistentLowBattery_doesNotBusyRetryStart() {
+        let (sm, battery) = makeSessionWithBattery(threshold: 20, percentage: 15, isOnAC: false)
+        let t = MockTrigger(satisfied: true)
+        let engine = TriggerEngine(session: sm, scope: { .systemOnly })
+        engine.updateEvaluators([t])                 // 1회 거부
+        XCTAssertEqual(startRejectionCount(sm), 1)
+        battery.emit(percentage: 12, isOnAC: false)  // 여전히 blocked(값만 변화)
+        battery.emit(percentage: 8, isOnAC: false)
+        battery.emit(percentage: 5, isOnAC: false)
+        XCTAssertEqual(startRejectionCount(sm), 1, "persistent low battery must not busy-retry the trigger start")
+        XCTAssertFalse(sm.state.isActive)
+    }
+}

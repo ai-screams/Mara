@@ -84,3 +84,12 @@ public enum SessionFailure: Error, Equatable, Sendable {
     case invalidUntilDate
     case power(SleepEngineFailure)
 }
+
+/// 지금 세션을 시작할 수 있는가 — 주변 상태(배터리)에서 파생되는 사전조건 신호.
+/// 요청 config에 종속적인 검증(duration 유효성)이나 시작 시점의 일시적 실패(assertion 생성
+/// 실패)는 담지 않는다. `.blocked`는 오직 배터리 플로어 위반만 나타낸다.
+/// TriggerEngine이 blocked→allowed 에지에서만 재평가하기 위한 내부 조율 신호다(공개 API 아님).
+enum SessionStartEligibility: Equatable, Sendable {
+    case allowed
+    case blocked(SessionFailure)
+}

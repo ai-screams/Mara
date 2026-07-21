@@ -10,10 +10,10 @@ public final class TriggerEngine: ObservableObject {
                                        cancellable: AnyCancellable,
                                        diagnostics: AnyCancellable?)] = [:]
     private var sessionCancellable: AnyCancellable?
+    private var eligibilityCancellable: AnyCancellable?
     private var suppressed = false {
         didSet { if suppressed != oldValue { refreshSnapshot() } }
     }
-    private var lastActive = false
     // 재조정 중 중간 reevaluate()/refreshSnapshot() 호출을 막는 플래그
     private var reconciling = false
 
@@ -23,12 +23,25 @@ public final class TriggerEngine: ObservableObject {
     public init(session: SessionManager, scope: @escaping () -> KeepAwakeScope) {
         self.session = session
         self.scope = scope
-        self.lastActive = session.state.isActive
-        // 세션 상태 구독은 수명 내내 유지 (수동 종료 감지 → suppression)
-        // @Published state는 main-actor SessionManager에서만 변이되므로 delivery도 main.
-        sessionCancellable = session.$state.sink { [weak self] state in
-            MainActor.assumeIsolated { self?.handleSessionChange(state) }
+        // 수동 종료만 suppression으로 이어진다(README 계약: "수동으로 껐을 때만 재무장까지 억제").
+        // 그래서 SessionState(active/inactive)가 아니라 종료 이유를 담은 이벤트를 구독한다 —
+        // 저배터리/타이머/트리거해제 종료를 수동 억제로 오분류하지 않기 위함. delivery는 main.
+        sessionCancellable = session.events.sink { [weak self] event in
+            MainActor.assumeIsolated { self?.handleSessionEvent(event) }
         }
+        // 저배터리로 거부/종료된 트리거 세션이 전원 회복 후 재개되도록: eligibility가
+        // blocked→allowed로 바뀌는 에지에서만 재평가한다. dropFirst로 구독 시 현재값 replay를
+        // 흘리고, removeDuplicates로 동일 상태 반복 발행에 대한 busy-retry를 차단한다(전원
+        // assertion 실패 같은 일시적 실패는 eligibility를 바꾸지 않으므로 여기서 루프를 만들지 않는다).
+        eligibilityCancellable = session.$startEligibility
+            .dropFirst()
+            .removeDuplicates()
+            .sink { [weak self] eligibility in
+                MainActor.assumeIsolated {
+                    guard eligibility == .allowed else { return }
+                    self?.reevaluate()
+                }
+            }
     }
 
     public var isAnySatisfied: Bool { active.values.contains { $0.evaluator.isSatisfied } }
@@ -64,6 +77,7 @@ public final class TriggerEngine: ObservableObject {
     public func stop() {
         active.removeAll()
         sessionCancellable = nil
+        eligibilityCancellable = nil
         // 트리거가 전부 사라졌으므로 suppression도 해제 — "모든 트리거 해제 시 재무장" 정의와 일관,
         // 스냅샷이 (triggers: [], isSuppressed: true)로 남는 어정쩡한 상태를 막는다.
         suppressed = false
@@ -74,13 +88,13 @@ public final class TriggerEngine: ObservableObject {
         refreshSnapshot()
     }
 
-    private func handleSessionChange(_ state: SessionState) {
-        let isActive = state.isActive
-        // active → inactive 인데 트리거가 여전히 충족이면, 사용자/타이머/배터리 종료이므로 재무장 전까지 억제.
-        if lastActive && !isActive && isAnySatisfied {
+    private func handleSessionEvent(_ event: SessionEvent) {
+        // 수동 종료(.manual)만 suppression으로 이어진다. 트리거가 여전히 충족 중이면 재무장 전까지 억제.
+        // 저배터리·타이머·트리거해제 종료는 억제하지 않는다 — 저배터리 종료는 전원 회복 후
+        // eligibility 에지로 재개되고, 그 사이 UI에도 "manually"로 오표기되지 않는다.
+        if case .stopped(.manual) = event.kind, isAnySatisfied {
             suppressed = true
         }
-        lastActive = isActive
     }
 
     private func reevaluate() {
