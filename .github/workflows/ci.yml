@@ -10,6 +10,43 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # 셸·워크플로 린트는 macOS가 필요 없다. ubuntu는 분당 과금이 macOS의 1/10이고 shellcheck가 러너
+  # 이미지에 기본 탑재라 설치가 없다. test 잡과 병렬로 돌아 Xcode 빌드를 기다리지 않고 빨리 실패한다.
+  lint:
+    name: Lint (shell & workflows)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+
+      - name: ShellCheck (bash scripts)
+        run: |
+          # 대상은 셔뱅으로 **자동 탐색**한다 — 목록을 하드코딩하면 새로 추가된 스크립트가 조용히
+          # 빠져 "가드가 아무것도 검사 안 하면서 초록"이 된다. zsh 스크립트(release.sh·
+          # generate-project.sh)는 shellcheck가 지원하지 않아 자연히 제외되고, 문법 검사는 test 잡의
+          # `zsh -n`이 담당한다.
+          command -v shellcheck >/dev/null \
+            || { echo "::error::shellcheck not found on runner image"; exit 1; }
+          shellcheck --version | sed -n '2p'
+          files="$(grep -rl '^#!.*bash' scripts .github || true)"
+          [ -n "$files" ] || { echo "::error::bash script discovery found nothing — the guard would check nothing"; exit 1; }
+          echo "$files"
+          echo "$files" | xargs shellcheck
+
+      - name: actionlint (pinned, checksum-verified)
+        env:
+          # install-xcodegen.sh와 같은 이유로 핀+체크섬: 버전 드리프트로 무관한 PR에서 CI가 깨지거나
+          # 배포 아티팩트가 바뀌는 것을 막는다. 버전 올릴 때 두 값을 함께 교체
+          # (체크섬 출처: 릴리스의 actionlint_<ver>_checksums.txt).
+          ACTIONLINT_VERSION: "1.7.12"
+          ACTIONLINT_SHA256: "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8"
+        run: |
+          url="https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          curl -fsSL -o "$RUNNER_TEMP/actionlint.tar.gz" "$url"
+          echo "${ACTIONLINT_SHA256}  $RUNNER_TEMP/actionlint.tar.gz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/actionlint.tar.gz" -C "$RUNNER_TEMP" actionlint
+          "$RUNNER_TEMP/actionlint" -version
+          "$RUNNER_TEMP/actionlint" .github/workflows/*.yml
+
   test:
     name: Build & Test
     runs-on: macos-latest
@@ -42,6 +79,16 @@ jobs:
             || { echo "::error::release.sh no longer calls check-release-version.sh"; exit 1; }
           grep -q 'check-release-version\.sh' .github/workflows/release.yml \
             || { echo "::error::release.yml appcast step no longer calls check-release-version.sh"; exit 1; }
+
+      - name: Zsh script syntax
+        # shellcheck는 zsh를 지원하지 않아 lint 잡이 release.sh·generate-project.sh를 건드리지 못한다.
+        # zsh가 기본 셸인 이 macOS 잡에서 최소한 문법만이라도 잡는다(설치 0). bash 잡과 같은 이유로
+        # 대상은 셔뱅으로 자동 탐색 — 하드코딩하면 새 zsh 스크립트가 조용히 빠진다.
+        run: |
+          files="$(grep -rl '^#!.*zsh' scripts || true)"
+          [ -n "$files" ] || { echo "::error::zsh script discovery found nothing — the guard would check nothing"; exit 1; }
+          echo "$files"
+          echo "$files" | xargs -n1 zsh -n
 
       - name: Run MaraCore unit tests (with coverage)
         run: |
