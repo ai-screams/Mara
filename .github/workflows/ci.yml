@@ -21,6 +21,10 @@ jobs:
           swift --version
           xcodebuild -version
 
+      - name: Sponsor link parity
+        # 후원 URL이 App·README·랜딩·FUNDING 네 곳에서 갈라지지 않게 고정(핸들만 바꾸고 표면 놓치면 404). 빠른 fail.
+        run: scripts/check-sponsor-links.sh
+
       - name: Run MaraCore unit tests (with coverage)
         run: |
           cd MaraCore
