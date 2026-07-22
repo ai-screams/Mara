@@ -132,17 +132,42 @@ struct SettingsView: View {
     }
 
     private var footer: some View {
-        HStack(spacing: 6) {
-            Text("v\(Self.version)")
-                .font(.caption)
-                .foregroundStyle(MaraTheme.muted)
-            Text("·").font(.caption).foregroundStyle(MaraTheme.muted)
-            Button("Check for Updates…", action: checkForUpdates)
-                .buttonStyle(.plain)
-                .font(.caption)
-                .foregroundStyle(accent)
+        // 2줄 구성: 후원(중앙) 위 / 버전·업데이트 아래. VStack 기본 정렬(.center)이 곧 중앙정렬이다.
+        VStack(spacing: 8) {
+            supportMenu
+            HStack(spacing: 6) {
+                Text("v\(Self.version)")
+                    .font(.caption)
+                    .foregroundStyle(MaraTheme.muted)
+                Text("·").font(.caption).foregroundStyle(MaraTheme.muted)
+                Button("Check for Updates…", action: checkForUpdates)
+                    .buttonStyle(.plain)
+                    .font(.caption)
+                    .foregroundStyle(accent)
+            }
         }
         .frame(maxWidth: .infinity)
+    }
+
+    /// 후원 링크 — 메뉴바 "Support Mara" 서브메뉴와 같은 목록(`SponsorLink.allCases`)을 쓴다.
+    /// 후원처를 나열하지 않고 드롭다운 하나로 접어, footer가 기능 항목보다 튀지 않게 한다.
+    private var supportMenu: some View {
+        Menu {
+            ForEach(SponsorLink.allCases, id: \.self) { link in
+                Button {
+                    link.open()
+                } label: {
+                    Label(link.title, systemImage: link.symbol)
+                }
+            }
+        } label: {
+            Label("Support", systemImage: SponsorLink.containerSymbol)
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .font(.caption)
+        .foregroundStyle(accent)
     }
 
     static var version: String {

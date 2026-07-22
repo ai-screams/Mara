@@ -285,6 +285,8 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     }
 
     private func addFooterItems(to menu: NSMenu) {
+        menu.addItem(supportMenuItem())
+
         if let (target, action) = checkForUpdates {
             // 타깃이 updaterController여야 Sparkle이 canCheckForUpdates로 활성/비활성을 자동 관리한다.
             let update = NSMenuItem(title: "Check for Updates…", action: action, keyEquivalent: "")
@@ -296,6 +298,24 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         addItem(to: menu, title: "Settings…", action: #selector(openSettings), key: ",",
                 symbol: "gearshape")
         addItem(to: menu, title: "Quit Mara", action: #selector(quit), key: "q", symbol: "power")
+    }
+
+    /// "Support Mara" 서브메뉴 — 후원처를 `SponsorLink.allCases` 그대로 렌더한다.
+    /// 최상위를 어지럽히지 않도록 Icon Color와 같은 서브메뉴 형태를 쓴다.
+    private func supportMenuItem() -> NSMenuItem {
+        let sub = NSMenu()
+        for link in SponsorLink.allCases {
+            let item = NSMenuItem(title: link.title,
+                                  action: #selector(openSponsorLink(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = link
+            item.image = Self.menuSymbol(link.symbol)
+            sub.addItem(item)
+        }
+        let parent = NSMenuItem(title: "Support Mara", action: nil, keyEquivalent: "")
+        parent.image = Self.menuSymbol(SponsorLink.containerSymbol)
+        parent.submenu = sub
+        return parent
     }
 
     @discardableResult
@@ -368,6 +388,11 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     @objc private func setMenuBarTint(_ sender: NSMenuItem) {
         guard let tint = sender.representedObject as? MenuBarTint else { return }
         env.prefs.menuBarTint = tint   // didSet 저장 + @Published → tint sink가 아이콘을 다시 굽는다
+    }
+
+    @objc private func openSponsorLink(_ sender: NSMenuItem) {
+        guard let link = sender.representedObject as? SponsorLink else { return }
+        link.open()
     }
 
     @objc private func openSettings() {
