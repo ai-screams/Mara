@@ -81,7 +81,7 @@ repo-wide secrets, so only the approved release job can read them):
 
 The release job signs each DMG with an EdDSA key and publishes `appcast.xml` as a release
 asset; installed apps discover updates via
-`https://github.com/ai-screams/mara/releases/latest/download/appcast.xml`. The private key
+`https://github.com/ai-screams/Mara/releases/latest/download/appcast.xml`. The private key
 exists only in the maintainer's Keychain (account `Mara` — the default account holds
 Azimuth's key, do not reuse it) and in the `SPARKLE_ED_PRIVATE_KEY` environment secret;
 only the public key ships in `App/Info.plist` (`SUPublicEDKey`).
@@ -91,7 +91,7 @@ only the public key ships in `App/Info.plist` (`SUPublicEDKey`).
 GEN_KEYS="$(find <DerivedData>/SourcePackages/artifacts -type f -name generate_keys | head -1)"
 "$GEN_KEYS" --account Mara            # create key in Keychain, prints the public key
 "$GEN_KEYS" --account Mara -x /tmp/k  # export private key…
-gh secret set SPARKLE_ED_PRIVATE_KEY --env release --repo ai-screams/mara < /tmp/k
+gh secret set SPARKLE_ED_PRIVATE_KEY --env release --repo ai-screams/Mara < /tmp/k
 rm -Pf /tmp/k                         # …and destroy the file immediately
 ```
 

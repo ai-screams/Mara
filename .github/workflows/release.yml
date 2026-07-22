@@ -24,6 +24,9 @@ concurrency:
 jobs:
   release:
     runs-on: macos-15
+    # 대표 실행의 러너 구간은 약 161초. 공증 변동은 허용하되 6시간 기본값은 제거한다.
+    # (환경 승인 대기는 이 상한에 포함되지 않는다 — job 시작 전이다.)
+    timeout-minutes: 45
     environment: release # 배포 승인 게이트(필수 리뷰어는 저장소 Environments 설정에서 지정).
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7

@@ -5,6 +5,11 @@ on:
     branches: [main]
   pull_request:
 
+# 저장소 기본 workflow 권한이 read라 지금은 충분하지만, 기본값이 나중에 바뀌어도 이 워크플로의
+# 권한이 조용히 커지지 않도록 명시한다(최소권한을 파일에 고정).
+permissions:
+  contents: read
+
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
@@ -15,8 +20,16 @@ jobs:
   lint:
     name: Lint (shell & workflows)
     runs-on: ubuntu-latest
+    timeout-minutes: 10   # 실측 1분 미만. 기본 360분은 멈춘 스텝을 방치한다.
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+
+      - name: Public URL parity
+        # GitHub Pages 프로젝트 사이트 경로는 리포 이름 대소문자를 구분한다 — /Mara/는 200, /mara/는 404.
+        # 리포 전체가 소문자를 쓰고 있었다(README Website 링크·canonical·og:image·SUFeedURL 등 25곳).
+        run: |
+          scripts/check-site-links.sh --selftest
+          scripts/check-site-links.sh
 
       - name: ShellCheck (bash scripts)
         run: |
@@ -50,6 +63,7 @@ jobs:
   test:
     name: Build & Test
     runs-on: macos-latest
+    timeout-minutes: 25   # 최근 실측 최대 161초 대비 충분한 여유.
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
 

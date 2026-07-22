@@ -1,5 +1,5 @@
 <p align="center">
-  <a href="https://ai-scream.ai/mara/">
+  <a href="https://ai-scream.ai/Mara/">
     <img src="docs/assets/og-image.png" alt="Mara — Keep your Mac awake" width="720">
   </a>
 </p>
@@ -10,16 +10,16 @@
 </p>
 
 <p align="center">
-  <a href="https://ai-scream.ai/mara/">Website</a> ·
-  <a href="https://github.com/ai-screams/mara/releases/latest">Download</a> ·
+  <a href="https://ai-scream.ai/Mara/">Website</a> ·
+  <a href="https://github.com/ai-screams/Mara/releases/latest">Download</a> ·
   <a href="RELEASING.md">Release process</a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/ai-screams/mara/actions/workflows/ci.yml"><img src="https://github.com/ai-screams/mara/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-  <a href="https://github.com/ai-screams/mara/actions/workflows/secret-scan.yml"><img src="https://github.com/ai-screams/mara/actions/workflows/secret-scan.yml/badge.svg" alt="Secret Scan"></a>
-  <a href="https://github.com/ai-screams/mara/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/coverage-%E2%89%A580%25-green" alt="MaraCore coverage (CI-gated ≥80%)"></a>
-  <a href="https://github.com/ai-screams/mara/releases/latest"><img src="https://img.shields.io/github/v/release/ai-screams/mara?label=release&color=ff9500" alt="Latest release"></a>
+  <a href="https://github.com/ai-screams/Mara/actions/workflows/ci.yml"><img src="https://github.com/ai-screams/Mara/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/ai-screams/Mara/actions/workflows/secret-scan.yml"><img src="https://github.com/ai-screams/Mara/actions/workflows/secret-scan.yml/badge.svg" alt="Secret Scan"></a>
+  <a href="https://github.com/ai-screams/Mara/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/coverage-%E2%89%A580%25-green" alt="MaraCore coverage (CI-gated ≥80%)"></a>
+  <a href="https://github.com/ai-screams/Mara/releases/latest"><img src="https://img.shields.io/github/v/release/ai-screams/Mara?label=release&color=ff9500" alt="Latest release"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Proprietary-lightgrey" alt="License"></a>
 </p>
 
@@ -61,7 +61,7 @@ The network trigger uses no location permission. It normalizes and matches the d
 
 ## Install
 
-1. Download `Mara-<version>.dmg` from the [latest release](https://github.com/ai-screams/mara/releases/latest).
+1. Download `Mara-<version>.dmg` from the [latest release](https://github.com/ai-screams/Mara/releases/latest).
 2. Open the DMG and drag **Mara** onto the Applications link in the installer window.
 3. Launch Mara — a closed-eye icon appears in the menu bar. Click it and choose `Keep Awake`.
 
