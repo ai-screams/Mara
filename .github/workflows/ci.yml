@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10   # 실측 1분 미만. 기본 360분은 멈춘 스텝을 방치한다.
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Public URL parity
         # GitHub Pages 프로젝트 사이트 경로는 리포 이름 대소문자를 구분한다 — /Mara/는 200, /mara/는 404.
@@ -77,7 +77,7 @@ jobs:
     runs-on: macos-15
     timeout-minutes: 25   # 최근 실측 최대 161초 대비 충분한 여유.
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Select release-parity Xcode
         uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1
