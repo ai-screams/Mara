@@ -173,12 +173,16 @@ The release workflow runs in a protected `release` environment (the current one-
 
 - CI: `swift test`, coverage gate (≥80% overall plus per-file critical floors — SleepEngine 95%, SessionManager 90%, PowerAssertion 90%, BatteryMonitoring 75%, RoutingTableNetworkProvider 45%), revision-locked SwiftPM resolution, and an unsigned Debug build
 - Concurrency: complete strict-concurrency checking with warnings treated as errors for the full app build
+- Shell & workflow lint: ShellCheck and actionlint, each pinned to a version and verified against the official release checksum
+- Drift guards, each shipping a self-test that proves the guard actually catches a regression: public site-URL casing (`scripts/check-site-links.sh`), sponsor-URL parity across App/README/docs/FUNDING (`scripts/check-sponsor-links.sh`), and the release-version grammar shared by `release.sh` and the appcast step (`scripts/check-release-version.sh`)
 - Secret Scan: TruffleHog verified/unknown results
 - GitHub Actions supply-chain hardening:
   - all third-party actions pinned to commit SHAs, kept current by Dependabot
   - **XcodeGen** installed from a checksum-pinned release (`scripts/install-xcodegen.sh`) — the same script runs in CI and in the release job, so every PR exercises the exact release install path
   - the **update-signing-key check derives the Ed25519 public key with the Python standard library only** (`scripts/ed25519_pub.py`, RFC 8032, self-tested against the spec's vectors on every run) — no third-party package is downloaded or executed in the job that holds the Sparkle signing key
   - protected `v*` tags with an approved-commit checkout guard
+  - CI and the release job build with the **same pinned Xcode**, so a compile or packaging regression can't stay hidden until an immutable `v*` tag is pushed
+  - a scheduled **Sparkle upstream-version watch** (`scripts/check-sparkle-version.sh`, run weekly by `dependency-watch.yml`) — Dependabot can't see the SwiftPM dependency declared in `project.yml`, so this flags a newer stable Sparkle release
 - Release verification: `spctl -t open`, `xcrun stapler validate`, Sparkle key-match gate
 
 ## Support
