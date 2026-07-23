@@ -74,10 +74,16 @@ jobs:
 
   test:
     name: Build & Test
-    runs-on: macos-latest
+    runs-on: macos-15
     timeout-minutes: 25   # 최근 실측 최대 161초 대비 충분한 여유.
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+
+      - name: Select release-parity Xcode
+        uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1
+        with:
+          # Release와 정확히 같은 compiler. 새 Xcode 검증은 별도 non-blocking job에서 할 것.
+          xcode-version: "26.3.0"
 
       - name: Show toolchain
         run: |

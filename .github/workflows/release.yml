@@ -58,7 +58,8 @@ jobs:
       - name: Select Xcode
         uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1
         with:
-          xcode-version: latest-stable
+          # CI와 정확히 같은 compiler. 두 workflow의 값을 한 PR에서 함께 올린다.
+          xcode-version: "26.3.0"
 
       - name: Import Developer ID certificate
         uses: apple-actions/import-codesign-certs@5142e029c445c10ffc7149d172e540235a065466 # v7
