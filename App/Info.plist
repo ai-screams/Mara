@@ -10,7 +10,7 @@
     <key>LSUIElement</key><true/>
     <!-- Sparkle 자동 업데이트. 개인키는 유지보수자 Keychain(account "Mara")과 release 환경
          CI secret에만 있고 공개키만 여기 내장. 피드는 최신 GitHub Release 자산(고정 리다이렉트 URL). -->
-    <key>SUFeedURL</key><string>https://github.com/ai-screams/mara/releases/latest/download/appcast.xml</string>
+    <key>SUFeedURL</key><string>https://github.com/ai-screams/Mara/releases/latest/download/appcast.xml</string>
     <key>SUPublicEDKey</key><string>pyd1gAyhq+RAtlk6plyWdF6tiWtzWvBIjDwzy3JVNbI=</string>
 </dict>
 </plist>

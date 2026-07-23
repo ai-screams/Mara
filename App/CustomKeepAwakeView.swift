@@ -3,6 +3,8 @@ import MaraCore
 
 /// Night Watch 미니 다이얼로그 — 임의 duration 또는 "특정 시각까지" keep-awake 시작.
 /// 저장·세션 시작은 하지 않는다: 선택 결과를 onStart로 넘기고 닫기만 요청한다.
+/// onStart는 시작 성공 여부를 돌려준다 — 실패했는데 창을 닫으면 사용자가 입력한 duration/until을
+/// 잃고 실패 원인을 보려면 상태바나 설정을 다시 열어야 한다. 성공했을 때만 닫는다.
 struct CustomKeepAwakeView: View {
     enum Mode: String, CaseIterable, Identifiable {
         case duration = "Duration"
@@ -11,7 +13,8 @@ struct CustomKeepAwakeView: View {
     }
 
     @ObservedObject var prefs: PrefsStore   // 캐시 창이라도 tint 변경에 반응하도록 관측
-    let onStart: (SessionDuration) -> Void
+    /// 시작 성공 시 true. 실패(저배터리 veto·duration 해석 실패·assertion 적용 실패)면 false.
+    let onStart: (SessionDuration) -> Bool
     let dismiss: () -> Void
 
     @State private var mode: Mode = .duration
@@ -63,8 +66,9 @@ struct CustomKeepAwakeView: View {
             .frame(height: 56)
 
             Button("Keep Awake") {
-                onStart(selectedDuration())
-                dismiss()
+                // 성공했을 때만 닫는다 — 실패 시 창과 입력값을 유지해 사용자가 조정 후 재시도할 수 있다
+                // (실패 원인은 호출부의 beep + 상태바/설정의 lastFailure 문구가 알린다).
+                if onStart(selectedDuration()) { dismiss() }
             }
             .buttonStyle(.borderedProminent)
             .disabled(mode == .duration && durationSeconds <= 0)

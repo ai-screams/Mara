@@ -60,11 +60,14 @@ if [[ -z "$VERSION" ]]; then
     VERSION="$(git describe --tags --abbrev=0 2>/dev/null || echo "0.0.0-dev")"
 fi
 VERSION="${VERSION#v}"  # 앞의 v 제거
-# 형식 방어: SemVer만 허용. CI에서 VERSION은 git 태그(github.ref_name)에서 오는데, 태그명에
-# 셸/경로/XML 특수문자가 들어가면 DMG 경로·ExportOptions.plist를 오염시킬 수 있다(모든 사용처는
-# 인용돼 인젝션은 불가하나, 방어적으로 형식을 강제한다).
-[[ "$VERSION" =~ '^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$' ]] \
-    || die "예상치 못한 VERSION 거부: '$VERSION' (SemVer X.Y.Z 형식만 허용)"
+# 형식 방어: Mara 릴리스 버전 문법만 허용. CI에서 VERSION은 git 태그(github.ref_name)에서 오는데,
+# 태그명에 셸/경로/XML 특수문자가 들어가면 DMG 경로·ExportOptions.plist를 오염시킬 수 있다(모든
+# 사용처는 인용돼 인젝션은 불가하나, 방어적으로 형식을 강제한다).
+# 문법은 scripts/check-release-version.sh가 단일 출처 — release.yml의 appcast 스텝도 같은 스크립트를
+# 호출한다. 두 곳에 정규식을 복제하면 드리프트로 한쪽만 느슨해진다(실제로 그랬다: 이 자리의 옛
+# 정규식은 `1.2.3.foo`를, appcast의 셸 glob은 `v1foo.2bar.3baz`를 통과시켰다).
+# 실패 시 스크립트가 자체 메시지를 내고 exit 1 → set -e로 여기서 중단된다.
+"$ROOT_DIR/scripts/check-release-version.sh" "$VERSION"
 DMG="$DIST_DIR/$APP_NAME-$VERSION.dmg"
 
 # CFBundleVersion(=CURRENT_PROJECT_VERSION)은 단조 증가해야 하므로 git 커밋 수를 빌드번호로 쓴다.

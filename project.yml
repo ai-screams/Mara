@@ -11,7 +11,7 @@ packages:
   # scripts/generate-project.sh가 생성 workspace에 복원한다.
   Sparkle:
     url: https://github.com/sparkle-project/Sparkle
-    exactVersion: 2.9.3
+    exactVersion: 2.9.4
 targets:
   Mara:
     type: application

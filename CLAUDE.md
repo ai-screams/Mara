@@ -8,16 +8,16 @@
 - 로컬 스모크: Release 빌드 후 반드시 Apple Development 정체성으로 재서명(ad-hoc 금지, 글로벌 규칙).
   정체성 조회: `security find-identity -v -p codesigning` (Apple Development 항목 사용).
   Sparkle 중첩 코드를 inside-out으로 먼저: Frameworks의 `*.xpc`/`Autoupdate` → `Sparkle.framework` → 앱 순.
-- 로컬 실행 서명은 **처음부터 서명해 빌드**가 정공법: `xcodebuild … CODE_SIGN_STYLE=Manual
+- 로컬 실행 서명은 **처음부터 서명해 빌드가** 정공법: `xcodebuild … CODE_SIGN_STYLE=Manual
   "CODE_SIGN_IDENTITY=Developer ID Application" DEVELOPMENT_TEAM=7K6MK3KP9K build` — 중첩 Sparkle까지 xcodebuild가
   올바로 서명한다(위 inside-out 수동 재서명은 '이미 빌드된 산출물 사후 재서명'일 때만). Apple Development '자동'
   서명은 이 맥에서 실패(그 팀 Xcode 계정 없음) — 실행 앱·release.sh와 같은 Developer ID(7K6MK3KP9K)를 쓴다.
 - 실행 교체 전 `pgrep -x Mara` 확인 → `osascript -e 'tell application "Mara" to quit'` → **quit 후 pgrep 재확인**
   (quit이 종료 완료 전 반환할 수 있음 — 중복 인스턴스가 라이브 Mara를 죽인 실사고 있음) → 교체 → `open`.
 - 로컬 Release 리빌드가 **기존 서명 번들** 위에서 `"Operation not permitted"`(AppIcon.icns 복사 등)로 실패하면,
-  App Management TCC가 서명된 `.app`의 **in-place 수정**을 막는 것이다(uchg 플래그 아님). 정공법 = stale 번들을
+  App Management TCC가 서명된 `.app`의 **in-place 수정을** 막는 것이다(uchg 플래그 아님). 정공법 = stale 번들을
   `rm -rf`(삭제는 허용 — 우회 아님)한 뒤 **클린 리빌드**(실행 중이면 먼저 quit). 실사고 1회(B→C 배포 중).
-- 더 안전한 정공법: 로컬 App 빌드/스모크는 **격리 `-derivedDataPath`(scratchpad)**로 하라 — 라이브 Mara가 도는
+- 더 안전한 정공법: 로컬 App 빌드/스모크는 **격리 `-derivedDataPath`(scratchpad)로** 하라 — 라이브 Mara가 도는
   공유 DerivedData(`~/Library/.../Products/Release/Mara.app`)를 안 건드려 위 TCC in-place 차단·라이브 앱 손상을
   동시에 회피. 격리 빌드로 **성공+심볼 검증 후에만** quit→pgrep 확인→교체(다운타임 0, 검증 전 교체 금지).
 - QA 빌드 설치 전 **산출물 심볼 검증** 필수: `grep -c -a '<새 셀렉터/타입명>' <APP>/Contents/MacOS/Mara` ≥1 확인 후 설치.
@@ -74,8 +74,8 @@
 - codesign 서명 검증: Hardened Runtime 신호는 `flags=…(runtime)`(CodeDirectory 플래그)이지 `Runtime Version=`
   (SDK 버전)이 아니다. leaf 인증서는 `Authority=Developer ID Application`, `…Certification Authority`는 중간 CA.
 - PR CI 상태 폴링: `gh pr checks`의 탭 출력을 `awk '{print $2}'`로 파싱 금지 — 체크명 "Build & Test"의
-  공백이 필드를 밀어 상태가 "&"로 잡혀 **조기 종료**한다(실사고 2회). `gh pr view <n> --json statusCheckRollup`을
-  쓰되, 실행 중 `.conclusion`은 null이 아니라 **빈 문자열**이라 jq `// "RUNNING"` 폴백이 안 먹는다 —
+  공백이 필드를 밀어 상태가 "&"로 잡혀 **조기 종료한다**(실사고 2회). `gh pr view <n> --json statusCheckRollup`을
+  쓰되, 실행 중 `.conclusion`은 null이 아니라 **빈 문자열이라** jq `// "RUNNING"` 폴백이 안 먹는다 —
   완료 판정은 `.status=="COMPLETED"`로 할 것.
 - 로컬 공증: 암호를 argv에 넣지 말 것 — `NOTARY_PROFILE=mara-notary`(Keychain 프로필) 사용.
 

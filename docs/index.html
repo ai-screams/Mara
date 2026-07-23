@@ -6,7 +6,7 @@
   <title>Mara — Keep your Mac awake</title>
   <meta name="description" content="Mara — a macOS menu-bar app that keeps your Mac awake. Caffeine-style, but built the honest way: official IOKit power assertions, zero permissions, notarized." />
   <meta name="theme-color" content="#17171a" />
-  <link rel="canonical" href="https://ai-scream.ai/mara/" />
+  <link rel="canonical" href="https://ai-scream.ai/Mara/" />
   <link rel="icon" type="image/png" href="assets/favicon.png" />
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
 
@@ -14,11 +14,11 @@
   <meta property="og:type" content="website" />
   <meta property="og:title" content="Mara — Keep your Mac awake" />
   <meta property="og:description" content="Caffeine-style macOS keep-awake, built the honest way: official APIs, zero permissions, notarized." />
-  <meta property="og:url" content="https://ai-scream.ai/mara/" />
-  <meta property="og:image" content="https://ai-scream.ai/mara/assets/og-image.png" />
+  <meta property="og:url" content="https://ai-scream.ai/Mara/" />
+  <meta property="og:image" content="https://ai-scream.ai/Mara/assets/og-image.png" />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="Mara — Keep your Mac awake" />
-  <meta name="twitter:image" content="https://ai-scream.ai/mara/assets/og-image.png" />
+  <meta name="twitter:image" content="https://ai-scream.ai/Mara/assets/og-image.png" />
 
   <!-- SEO: structured data (no hardcoded version — download resolves via /releases/latest) -->
   <script type="application/ld+json">
@@ -28,8 +28,8 @@
     "name": "Mara",
     "applicationCategory": "UtilitiesApplication",
     "operatingSystem": "macOS 14+",
-    "url": "https://ai-scream.ai/mara/",
-    "downloadUrl": "https://github.com/ai-screams/mara/releases/latest",
+    "url": "https://ai-scream.ai/Mara/",
+    "downloadUrl": "https://github.com/ai-screams/Mara/releases/latest",
     "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
   }
   </script>
@@ -197,7 +197,7 @@
       <div class="nav-right">
         <a href="#features" data-en="Features" data-ko="기능">기능</a>
         <a href="#privacy" data-en="Privacy" data-ko="프라이버시">프라이버시</a>
-        <a href="https://github.com/ai-screams/mara" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://github.com/ai-screams/Mara" target="_blank" rel="noopener">GitHub</a>
         <button class="lang-toggle" id="langBtn">EN</button>
       </div>
     </div>
@@ -214,7 +214,7 @@
         Mac이 잠들지 못하게 막는 macOS 메뉴바 앱. Caffeine 계열이지만 정공법으로 만들었습니다. 공식 API만, 권한 요구 0.
       </p>
       <div class="cta">
-        <a class="btn" id="dlBtn" href="https://github.com/ai-screams/mara/releases/latest" target="_blank" rel="noopener">
+        <a class="btn" id="dlBtn" href="https://github.com/ai-screams/Mara/releases/latest" target="_blank" rel="noopener">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 21h16"/></svg>
           <span data-en="Download for macOS" data-ko="macOS용 다운로드">macOS용 다운로드</span>
         </a>
@@ -391,8 +391,8 @@
     <div class="wrap">
       <a class="brand" href="#top"><img src="assets/favicon.png" alt="Mara" /> Mara</a>
       <div class="flinks">
-        <a href="https://github.com/ai-screams/mara" target="_blank" rel="noopener">GitHub</a>
-        <a href="https://github.com/ai-screams/mara/releases" target="_blank" rel="noopener" data-en="Releases" data-ko="릴리스">릴리스</a>
+        <a href="https://github.com/ai-screams/Mara" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://github.com/ai-screams/Mara/releases" target="_blank" rel="noopener" data-en="Releases" data-ko="릴리스">릴리스</a>
         <a href="#features" data-en="Features" data-ko="기능">기능</a>
         <a href="#support" data-en="Support" data-ko="후원">후원</a>
       </div>
@@ -427,7 +427,7 @@
       document.getElementById("yr").textContent = new Date().getFullYear();
 
       // Resolve the latest release: fill version + point the button at the .dmg asset.
-      fetch("https://api.github.com/repos/ai-screams/mara/releases/latest", {
+      fetch("https://api.github.com/repos/ai-screams/Mara/releases/latest", {
         headers: { "Accept": "application/vnd.github+json" }
       }).then(function (r) { return r.ok ? r.json() : null; })
         .then(function (data) {

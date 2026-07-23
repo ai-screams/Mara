@@ -1,5 +1,5 @@
 <p align="center">
-  <a href="https://ai-scream.ai/mara/">
+  <a href="https://ai-scream.ai/Mara/">
     <img src="docs/assets/og-image.png" alt="Mara — Keep your Mac awake" width="720">
   </a>
 </p>
@@ -10,16 +10,16 @@
 </p>
 
 <p align="center">
-  <a href="https://ai-scream.ai/mara/">Website</a> ·
-  <a href="https://github.com/ai-screams/mara/releases/latest">Download</a> ·
+  <a href="https://ai-scream.ai/Mara/">Website</a> ·
+  <a href="https://github.com/ai-screams/Mara/releases/latest">Download</a> ·
   <a href="RELEASING.md">Release process</a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/ai-screams/mara/actions/workflows/ci.yml"><img src="https://github.com/ai-screams/mara/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-  <a href="https://github.com/ai-screams/mara/actions/workflows/secret-scan.yml"><img src="https://github.com/ai-screams/mara/actions/workflows/secret-scan.yml/badge.svg" alt="Secret Scan"></a>
-  <a href="https://github.com/ai-screams/mara/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/coverage-%E2%89%A580%25-green" alt="MaraCore coverage (CI-gated ≥80%)"></a>
-  <a href="https://github.com/ai-screams/mara/releases/latest"><img src="https://img.shields.io/github/v/release/ai-screams/mara?label=release&color=ff9500" alt="Latest release"></a>
+  <a href="https://github.com/ai-screams/Mara/actions/workflows/ci.yml"><img src="https://github.com/ai-screams/Mara/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/ai-screams/Mara/actions/workflows/secret-scan.yml"><img src="https://github.com/ai-screams/Mara/actions/workflows/secret-scan.yml/badge.svg" alt="Secret Scan"></a>
+  <a href="https://github.com/ai-screams/Mara/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/coverage-%E2%89%A580%25-green" alt="MaraCore coverage (CI-gated ≥80%)"></a>
+  <a href="https://github.com/ai-screams/Mara/releases/latest"><img src="https://img.shields.io/github/v/release/ai-screams/Mara?label=release&color=ff9500" alt="Latest release"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Proprietary-lightgrey" alt="License"></a>
 </p>
 
@@ -61,7 +61,7 @@ The network trigger uses no location permission. It normalizes and matches the d
 
 ## Install
 
-1. Download `Mara-<version>.dmg` from the [latest release](https://github.com/ai-screams/mara/releases/latest).
+1. Download `Mara-<version>.dmg` from the [latest release](https://github.com/ai-screams/Mara/releases/latest).
 2. Open the DMG and drag **Mara** onto the Applications link in the installer window.
 3. Launch Mara — a closed-eye icon appears in the menu bar. Click it and choose `Keep Awake`.
 
@@ -167,18 +167,22 @@ git tag v1.0.0
 git push origin v1.0.0
 ```
 
-The release workflow runs in a protected `release` environment (requires reviewer approval before the signing/notarization secrets are exposed), builds and notarizes the DMG, signs the update feed after verifying the signing key matches the key embedded in the app, and attaches the DMG, its `.sha256` checksum, and `appcast.xml` to a GitHub Release. Installed apps pick updates up from `releases/latest/download/appcast.xml`. Prerelease tags (containing `-`, e.g. `v1.0.0-rc.1`) are published as pre-releases and excluded from "latest". Full steps and required secrets are in [RELEASING.md](RELEASING.md).
+The release workflow runs in a protected `release` environment (the current one-maintainer organization uses a manual confirmation before signing/notarization secrets are exposed; this is not independent separation of duties), builds and notarizes the DMG, signs the update feed after verifying the signing key matches the key embedded in the app, and attaches the DMG, its `.sha256` checksum, and `appcast.xml` to a GitHub Release. Installed apps pick updates up from `releases/latest/download/appcast.xml`. Prerelease tags (containing `-`, e.g. `v1.0.0-rc.1`) are published as pre-releases and excluded from "latest". Full steps and required secrets are in [RELEASING.md](RELEASING.md).
 
 ## Quality gates
 
 - CI: `swift test`, coverage gate (≥80% overall plus per-file critical floors — SleepEngine 95%, SessionManager 90%, PowerAssertion 90%, BatteryMonitoring 75%, RoutingTableNetworkProvider 45%), revision-locked SwiftPM resolution, and an unsigned Debug build
 - Concurrency: complete strict-concurrency checking with warnings treated as errors for the full app build
+- Shell & workflow lint: ShellCheck and actionlint, each pinned to a version and verified against the official release checksum
+- Drift guards, each shipping a self-test that proves the guard actually catches a regression: public site-URL casing (`scripts/check-site-links.sh`), sponsor-URL parity across App/README/docs/FUNDING (`scripts/check-sponsor-links.sh`), and the release-version grammar shared by `release.sh` and the appcast step (`scripts/check-release-version.sh`)
 - Secret Scan: TruffleHog verified/unknown results
 - GitHub Actions supply-chain hardening:
   - all third-party actions pinned to commit SHAs, kept current by Dependabot
   - **XcodeGen** installed from a checksum-pinned release (`scripts/install-xcodegen.sh`) — the same script runs in CI and in the release job, so every PR exercises the exact release install path
   - the **update-signing-key check derives the Ed25519 public key with the Python standard library only** (`scripts/ed25519_pub.py`, RFC 8032, self-tested against the spec's vectors on every run) — no third-party package is downloaded or executed in the job that holds the Sparkle signing key
   - protected `v*` tags with an approved-commit checkout guard
+  - CI and the release job build with the **same pinned Xcode**, so a compile or packaging regression can't stay hidden until an immutable `v*` tag is pushed
+  - a scheduled **Sparkle upstream-version watch** (`scripts/check-sparkle-version.sh`, run weekly by `dependency-watch.yml`) — Dependabot can't see the SwiftPM dependency declared in `project.yml`, so this flags a newer stable Sparkle release
 - Release verification: `spctl -t open`, `xcrun stapler validate`, Sparkle key-match gate
 
 ## Support

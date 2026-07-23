@@ -26,10 +26,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
         guard case .success = result else {
             NSSound.beep()
-            return
+            return false   // 실패 → 창을 닫지 않는다(입력값 보존, 조정 후 재시도 가능)
         }
         // 성공한 duration만 MRU에 기록 — 실패한 입력과 절대시각(until)은 기록하지 않는다.
         if case let .duration(seconds) = duration { env.prefs.rememberCustomDuration(seconds) }
+        return true
     }
     private lazy var settingsPresenter = SettingsWindowPresenter { [env, updaterController, notificationService] in
         SettingsView(

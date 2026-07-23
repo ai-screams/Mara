@@ -5,16 +5,85 @@ on:
     branches: [main]
   pull_request:
 
+# 저장소 기본 workflow 권한이 read라 지금은 충분하지만, 기본값이 나중에 바뀌어도 이 워크플로의
+# 권한이 조용히 커지지 않도록 명시한다(최소권한을 파일에 고정).
+permissions:
+  contents: read
+
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  test:
-    name: Build & Test
-    runs-on: macos-latest
+  # 셸·워크플로 린트는 Xcode가 필요 없다. public repo의 표준 Ubuntu/macOS 러너는 모두 무료지만,
+  # Ubuntu에서 병렬 실행하면 제한된 macOS concurrency를 점유하지 않고 더 빨리 실패한다.
+  lint:
+    name: Lint (shell & workflows)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10   # 실측 1분 미만. 기본 360분은 멈춘 스텝을 방치한다.
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+
+      - name: Public URL parity
+        # GitHub Pages 프로젝트 사이트 경로는 리포 이름 대소문자를 구분한다 — /Mara/는 200, /mara/는 404.
+        # 리포 전체가 소문자를 쓰고 있었다(README Website 링크·canonical·og:image·SUFeedURL 등 25곳).
+        run: |
+          scripts/check-site-links.sh --selftest
+          scripts/check-site-links.sh
+
+      - name: ShellCheck (bash scripts)
+        env:
+          # runner 내장 버전은 이미지 갱신에 따라 움직인다. actionlint와 같은 방식으로 버전+공식 asset
+          # digest를 고정해 코드 변경 없이 lint 결과가 바뀌는 일을 막는다.
+          SHELLCHECK_VERSION: "0.11.0"
+          SHELLCHECK_SHA256: "8c3be12b05d5c177a04c29e3c78ce89ac86f1595681cab149b65b97c4e227198"
+        run: |
+          archive="shellcheck-v${SHELLCHECK_VERSION}.linux.x86_64.tar.xz"
+          url="https://github.com/koalaman/shellcheck/releases/download/v${SHELLCHECK_VERSION}/${archive}"
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/$archive" "$url"
+          echo "${SHELLCHECK_SHA256}  $RUNNER_TEMP/$archive" | sha256sum -c -
+          tar -xJf "$RUNNER_TEMP/$archive" -C "$RUNNER_TEMP"
+          shellcheck_bin="$RUNNER_TEMP/shellcheck-v${SHELLCHECK_VERSION}/shellcheck"
+          "$shellcheck_bin" --version | sed -n '2p'
+
+          # 셔뱅으로 자동 탐색하되 배열을 써서 공백 파일명을 보존한다. zsh는 아래 macOS 문법 검사가 담당.
+          scripts=()
+          while IFS= read -r -d '' file; do
+            first_line="$(head -n 1 "$file")"
+            case "$first_line" in '#!'*bash*) scripts+=("$file") ;; esac
+          done < <(find scripts .github -type f -print0)
+          [ "${#scripts[@]}" -gt 0 ] \
+            || { echo "::error::bash script discovery found nothing — the guard would check nothing"; exit 1; }
+          printf '%s\n' "${scripts[@]}"
+          "$shellcheck_bin" "${scripts[@]}"
+
+      - name: actionlint (pinned, checksum-verified)
+        env:
+          # install-xcodegen.sh와 같은 이유로 핀+체크섬: 버전 드리프트로 무관한 PR에서 CI가 깨지거나
+          # 배포 아티팩트가 바뀌는 것을 막는다. 버전 올릴 때 두 값을 함께 교체
+          # (체크섬 출처: 릴리스의 actionlint_<ver>_checksums.txt).
+          ACTIONLINT_VERSION: "1.7.12"
+          ACTIONLINT_SHA256: "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8"
+        run: |
+          url="https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/actionlint.tar.gz" "$url"
+          echo "${ACTIONLINT_SHA256}  $RUNNER_TEMP/actionlint.tar.gz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/actionlint.tar.gz" -C "$RUNNER_TEMP" actionlint
+          "$RUNNER_TEMP/actionlint" -version
+          "$RUNNER_TEMP/actionlint" .github/workflows/*.yml
+
+  test:
+    name: Build & Test
+    runs-on: macos-15
+    timeout-minutes: 25   # 최근 실측 최대 161초 대비 충분한 여유.
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+
+      - name: Select release-parity Xcode
+        uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1
+        with:
+          # Release와 정확히 같은 compiler. 새 Xcode 검증은 별도 non-blocking job에서 할 것.
+          xcode-version: "26.3.0"
 
       - name: Show toolchain
         run: |
@@ -23,7 +92,42 @@ jobs:
 
       - name: Sponsor link parity
         # 후원 URL이 App·README·랜딩·FUNDING 네 곳에서 갈라지지 않게 고정(핸들만 바꾸고 표면 놓치면 404). 빠른 fail.
-        run: scripts/check-sponsor-links.sh
+        # --selftest는 가드 자체를 fixture로 검증한다 — 이 검사는 도입 당시 `/typo` 접미사를 조용히
+        # 통과시켰다. 가드가 아무것도 안 잡으면서 초록인 상태를 막는다.
+        run: |
+          scripts/check-sponsor-links.sh --selftest
+          scripts/check-sponsor-links.sh
+
+      - name: Release version grammar selftest
+        # release.sh와 release.yml appcast 스텝이 공유하는 태그 문법의 반례 고정.
+        # 태그를 밀어야만 검증되던 경로를 PR CI로 당긴다(v* 태그는 룰셋상 불변이라 재시도 불가).
+        run: |
+          scripts/check-release-version.sh --selftest
+          # 문법이 맞는 것과 가드가 실제로 '불린다'는 것은 다른 명제다. 두 호출부가 떨어져 나가면
+          # (인라인·삭제) 위 selftest는 계속 초록이고, 태그를 민 뒤에야 드러난다 — 그런데 v* 태그는
+          # 불변이라 패치 범프로만 복구된다(RELEASING.md). 그 발견 시점을 PR로 당긴다.
+          # rename은 이 파일이 같은 경로를 참조하므로 자동으로 잡힌다.
+          grep -q 'check-release-version\.sh' scripts/release.sh \
+            || { echo "::error::release.sh no longer calls check-release-version.sh"; exit 1; }
+          grep -q 'check-release-version\.sh' .github/workflows/release.yml \
+            || { echo "::error::release.yml appcast step no longer calls check-release-version.sh"; exit 1; }
+
+      - name: Zsh script syntax
+        # shellcheck는 zsh를 지원하지 않아 lint 잡이 release.sh·generate-project.sh를 건드리지 못한다.
+        # zsh가 기본 셸인 이 macOS 잡에서 최소한 문법만이라도 잡는다(설치 0). bash 잡과 같은 이유로
+        # 대상은 셔뱅으로 자동 탐색 — 하드코딩하면 새 zsh 스크립트가 조용히 빠진다.
+        run: |
+          scripts=()
+          while IFS= read -r -d '' file; do
+            first_line="$(head -n 1 "$file")"
+            case "$first_line" in '#!'*zsh*) scripts+=("$file") ;; esac
+          done < <(find scripts -type f -print0)
+          [ "${#scripts[@]}" -gt 0 ] \
+            || { echo "::error::zsh script discovery found nothing — the guard would check nothing"; exit 1; }
+          for file in "${scripts[@]}"; do
+            echo "$file"
+            zsh -n "$file"
+          done
 
       - name: Run MaraCore unit tests (with coverage)
         run: |

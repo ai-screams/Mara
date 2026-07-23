@@ -7,9 +7,9 @@ import MaraCore
 final class CustomKeepAwakePresenter {
     private var window: NSWindow?
     private let prefs: PrefsStore
-    private let onStart: (SessionDuration) -> Void
+    private let onStart: (SessionDuration) -> Bool
 
-    init(prefs: PrefsStore, onStart: @escaping (SessionDuration) -> Void) {
+    init(prefs: PrefsStore, onStart: @escaping (SessionDuration) -> Bool) {
         self.prefs = prefs
         self.onStart = onStart
     }

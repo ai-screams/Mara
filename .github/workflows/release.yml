@@ -5,9 +5,11 @@ name: Release
 #
 # 보안 하드닝:
 #  - `environment: release`로 배포를 게이트한다(저장소 설정에서 required reviewer + 환경 한정 secret 지정).
-#    → 태그 푸시 권한이 탈취돼도 사람이 승인해야 서명·공증·릴리스가 실행된다.
+#    현재 1인 조직이라 동일 유지보자의 수동 확인이며 독립 승인은 아니다. 무인 태그 push는 막지만
+#    유지보자 계정 전체 탈취까지 방어한다고 과장하지 않는다.
 #  - 모든 액션은 commit SHA로 핀(공급망: 태그 변조 방지). 버전 주석은 Dependabot이 갱신한다.
-#  - permissions는 최소(contents: write)로만.
+#  - permissions는 최소(contents: write)로만. 게다가 checkout에 persist-credentials: false를 줘서
+#    그 쓰기 토큰이 빌드·서명 스텝 전체에 살아있지 않게 한다(권한 수명 최소화).
 on:
   push:
     tags:
@@ -23,6 +25,9 @@ concurrency:
 jobs:
   release:
     runs-on: macos-15
+    # 대표 실행의 러너 구간은 약 161초. 공증 변동은 허용하되 6시간 기본값은 제거한다.
+    # (환경 승인 대기는 이 상한에 포함되지 않는다 — job 시작 전이다.)
+    timeout-minutes: 45
     environment: release # 배포 승인 게이트(필수 리뷰어는 저장소 Environments 설정에서 지정).
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
@@ -32,6 +37,16 @@ jobs:
           # 런 생성 시점의 커밋(github.sha)을 고정 체크아웃한다 — 승인 후 태그를
           # 옮겨도(force-update) 승인된 커밋이 빌드된다. 태그 룰셋(protect-release-tags)과 이중 방어.
           ref: ${{ github.sha }}
+          # 이 잡은 릴리스 게시 때문에 contents: write를 갖는다. checkout은 기본값이
+          # persist-credentials: true라(핀된 v7.0.0 action.yml에서 확인) 그 쓰기 토큰을 로컬 git
+          # 설정에 심어두고, 이후 모든 스텝(brew install create-dmg, xcodegen, SwiftPM, 빌드/서명/
+          # 공증 스크립트)이 별도 토큰 전달 없이 인증된 git push를 할 수 있게 된다. 게시 스텝만
+          # 권한을 쓰면 충분하므로 자격증명 수명을 끊는다.
+          # 안전 확인: release.sh의 git 사용은 describe/rev-list/tag --points-at 뿐이라 전부 로컬
+          # 히스토리(fetch-depth: 0으로 이미 받음)이고, SwiftPM은 public Sparkle을 익명 HTTPS로
+          # 받는다. 게시는 softprops/action-gh-release가 github.token으로 API 호출 — 로컬 git
+          # 자격증명과 무관하다.
+          persist-credentials: false
 
       # 실제 TOCTOU 차단은 위의 ref 핀 + protect-release-tags 룰셋이 담당한다. 이 스텝은
       # checkout 액션 오동작을 잡는 belt-and-suspenders일 뿐, 태그 이동 자체를 감지하지 못한다.
@@ -44,7 +59,8 @@ jobs:
       - name: Select Xcode
         uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1
         with:
-          xcode-version: latest-stable
+          # CI와 정확히 같은 compiler. 두 workflow의 값을 한 PR에서 함께 올린다.
+          xcode-version: "26.3.0"
 
       - name: Import Developer ID certificate
         uses: apple-actions/import-codesign-certs@5142e029c445c10ffc7149d172e540235a065466 # v7
@@ -108,10 +124,11 @@ jobs:
         run: |
           set -euo pipefail
           # 방어적: 이 스텝이 스텝 순서에 의존하지 않도록 태그 형식을 여기서도 검증한다.
-          case "$GITHUB_REF_NAME" in
-            v[0-9]*.[0-9]*.[0-9]*) : ;;
-            *) echo "::error::Refusing non-SemVer tag for appcast: $GITHUB_REF_NAME"; exit 1 ;;
-          esac
+          # release.sh와 **같은 스크립트**를 쓴다 — 예전엔 여기가 셸 glob이라 `v1foo.2bar.3baz`를
+          # 통과시켰고, 그래서 "스텝 순서 독립"이라는 이 주석이 사실이 아니었다.
+          # `|| { … }`로 감싸 GitHub Actions 에러 어노테이션(::error::)을 유지한다.
+          scripts/check-release-version.sh "$GITHUB_REF_NAME" || {
+            echo "::error::Refusing invalid release tag for appcast: $GITHUB_REF_NAME"; exit 1; }
           xcodebuild -resolvePackageDependencies \
             -project ./Mara.xcodeproj -scheme Mara \
             -disableAutomaticPackageResolution \
