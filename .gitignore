@@ -7,6 +7,7 @@
 .superpowers/
 .DS_Store
 .scoop-version
+.claude/settings.local.json
 
 # XcodeGen output (generated from project.yml)
 Mara.xcodeproj/
@@ -15,10 +16,18 @@ Mara.xcodeproj/
 build/
 DerivedData/
 .swiftpm/
-MaraCore/.build/
+.build/
 *.xcuserstate
 xcuserdata/
 dist/
+
+# Signing material / local secrets — never commit (repo ships Developer ID–signed releases)
+*.p12
+*.cer
+*.p8
+*.mobileprovision
+.env
+.env.*
 
 # Python bytecode (from scripts/ed25519_pub.py etc.)
 __pycache__/
