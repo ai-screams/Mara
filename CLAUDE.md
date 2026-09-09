@@ -100,3 +100,8 @@
 - The backlog is `.docs/BACKLOG.md` (`.docs` must never be committed — same as the global rule). Specs/plans also live in `.docs/`.
 - When dispatching reviews/audits (subagents / Codex), spell out the design decisions the user has settled on in the
   prompt — a context-less auditor reports intended decisions as defects (one real incident).
+- GitHub Actions pins carry the **exact patch version** in the trailing comment (`# v7.0.1`, not `# v7`).
+  Dependabot copies whatever format is already there, so a major-only comment stays ambiguous through every
+  later bump and forces an upstream SHA lookup to audit the pin. Hand-edited bumps are where this regresses
+  (one real incident: #60 moved checkout to 7.0.1 but left `# v7`) — resolve with
+  `git ls-remote --tags <repo>` and write the tag the SHA actually is.

@@ -38,7 +38,7 @@ jobs:
           # 옮겨도(force-update) 승인된 커밋이 빌드된다. 태그 룰셋(protect-release-tags)과 이중 방어.
           ref: ${{ github.sha }}
           # 이 잡은 릴리스 게시 때문에 contents: write를 갖는다. checkout은 기본값이
-          # persist-credentials: true라(핀된 v7.0.0 action.yml에서 확인) 그 쓰기 토큰을 로컬 git
+          # persist-credentials: true라(핀된 v7.0.1 action.yml에서 확인) 그 쓰기 토큰을 로컬 git
           # 설정에 심어두고, 이후 모든 스텝(brew install create-dmg, xcodegen, SwiftPM, 빌드/서명/
           # 공증 스크립트)이 별도 토큰 전달 없이 인증된 git push를 할 수 있게 된다. 게시 스텝만
           # 권한을 쓰면 충분하므로 자격증명 수명을 끊는다.
