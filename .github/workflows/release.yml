@@ -30,7 +30,7 @@ jobs:
     timeout-minutes: 45
     environment: release # 배포 승인 게이트(필수 리뷰어는 저장소 Environments 설정에서 지정).
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0 # CFBundleVersion = git 커밋 수(단조 증가)라 전체 히스토리 필요(shallow면 1)
           # TOCTOU 방어: 승인 게이트는 잡 시작 전에 걸리므로, 가변 태그 ref 대신
@@ -57,13 +57,13 @@ jobs:
           echo "✅ Building approved commit ${{ github.sha }}."
 
       - name: Select Xcode
-        uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1
+        uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
         with:
           # CI와 정확히 같은 compiler. 두 workflow의 값을 한 PR에서 함께 올린다.
           xcode-version: "26.3.0"
 
       - name: Import Developer ID certificate
-        uses: apple-actions/import-codesign-certs@5142e029c445c10ffc7149d172e540235a065466 # v7
+        uses: apple-actions/import-codesign-certs@5142e029c445c10ffc7149d172e540235a065466 # v7.0.0
         with:
           p12-file-base64: ${{ secrets.DEVELOPER_ID_CERT_P12 }}
           p12-password: ${{ secrets.DEVELOPER_ID_CERT_PASSWORD }}
@@ -146,7 +146,7 @@ jobs:
           echo "appcast.xml generated ($(wc -l < dist/appcast.xml) lines)."
 
       - name: Create GitHub Release with DMG
-        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
           files: | # .dmg + .dmg.sha256 + Sparkle 피드
             dist/*.dmg
