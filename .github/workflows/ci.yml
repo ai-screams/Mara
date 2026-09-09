@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10   # 실측 1분 미만. 기본 360분은 멈춘 스텝을 방치한다.
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Public URL parity
         # GitHub Pages 프로젝트 사이트 경로는 리포 이름 대소문자를 구분한다 — /Mara/는 200, /mara/는 404.
@@ -77,10 +77,10 @@ jobs:
     runs-on: macos-15
     timeout-minutes: 25   # 최근 실측 최대 161초 대비 충분한 여유.
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Select release-parity Xcode
-        uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1
+        uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
         with:
           # Release와 정확히 같은 compiler. 새 Xcode 검증은 별도 non-blocking job에서 할 것.
           xcode-version: "26.3.0"
