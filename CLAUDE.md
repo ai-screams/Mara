@@ -88,6 +88,13 @@
   Use `gh pr view <n> --json statusCheckRollup` instead, but note that while running `.conclusion` is not null but an
   **empty string**, so a jq `// "RUNNING"` fallback doesn't kick in — judge completion by `.status=="COMPLETED"`.
 - Local notarization: don't put the password on argv — use `NOTARY_PROFILE=mara-notary` (Keychain profile).
+- `protect-main` requires **strict** status checks (branch must be up to date), so merging one PR invalidates
+  every other open PR's green. 2+ open Actions bumps get hand-batched into one PR (#60 absorbed Dependabot
+  #56–#59, including a patch-level *group* PR) rather than merged one at a time; a lone group PR merges as-is (#63).
+- Audit greps produce false clean results two ways (both hit once here): a pattern requiring the tool name next
+  to the version misses prose like `핀된 v7.0.0`, and `grep -A<n>` truncates a `with:` block so a guard that is
+  present (`persist-credentials: false` at release.yml:49) looks absent. Anchor on the stable token (the SHA) and
+  read the whole block before concluding anything is missing.
 
 ## macOS 26 menu-bar quirks (details in auto-memory · code comments)
 
@@ -104,4 +111,7 @@
   Dependabot copies whatever format is already there, so a major-only comment stays ambiguous through every
   later bump and forces an upstream SHA lookup to audit the pin. Hand-edited bumps are where this regresses
   (one real incident: #60 moved checkout to 7.0.1 but left `# v7`) — resolve with
-  `git ls-remote --tags <repo>` and write the tag the SHA actually is.
+  `git ls-remote --tags <repo>` (deref the `^{}` line — these are annotated tags, so the bare ref is the tag
+  object, not the commit) and write the tag the SHA actually is.
+- Completed `[x]` entries in `.docs/BACKLOG.md` and commit messages record what was verified *at that time* —
+  don't retro-edit version numbers that look stale (#65 deliberately left `v7.0.0` in A-01).
