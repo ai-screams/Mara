@@ -132,6 +132,9 @@ xcodebuild -exportArchive \
     -exportOptionsPlist "$EXPORT_OPTS" \
     | tail -3
 [[ -d "$APP" ]] || die "export 실패: $APP 없음"
+# 번들 정체성 키(CFBundleExecutable·CFBundlePackageType 등)와 PkgInfo — CI는 Debug 산출물로 보고,
+# 여기서는 실제로 배포되는 export 산출물로 다시 본다(#76).
+./scripts/bundle-identity-gate.sh "$APP" || die "번들 정체성 키 누락: $APP"
 
 # ── 4) 서명/Hardened Runtime 검증 ────────────────────────────────────────────
 # Sparkle 등 내장 프레임워크(Contents/Frameworks)는 exportArchive(developer-id)가
@@ -252,8 +255,9 @@ notarize "$DMG"
 xcrun stapler staple "$DMG"
 
 # ── 게시 전 자가검증 ─────────────────────────────────────────────────────────
-# 앱은 stapler로 검증한다(공증 티켓 부착 여부 = 권위 있는 확인). `spctl -a -t exec`는
-# LSUIElement(메뉴바 agent) 앱에서 "does not seem to be an app" 오탐을 내므로 게이트로 쓰지 않는다.
+# 앱은 stapler로 검증한다(공증 티켓 부착 여부 = 권위 있는 확인). v0.11.2까지 `spctl -a -t exec`가 낸
+# "does not seem to be an app"은 LSUIElement 탓이 아니라 Info.plist에 CFBundlePackageType이 없어서였다(#76 —
+# 같은 LSUIElement 앱인 Azimuth는 accepted). 공증 산출물로 아직 확인하지 않아 게이트로는 쓰지 않는다.
 # DMG는 사용자가 실제로 겪는 다운로드-오픈 Gatekeeper 흐름(`spctl -t open`)으로 검증한다.
 print "▸ 검증…"
 xcrun stapler validate "$APP" | sed 's/^/    /'

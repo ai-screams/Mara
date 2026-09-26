@@ -150,5 +150,13 @@ jobs:
         run: |
           xcodebuild -project Mara.xcodeproj -scheme Mara \
             -configuration Debug -disableAutomaticPackageResolution \
+            -derivedDataPath "$RUNNER_TEMP/dd" \
             CODE_SIGNING_ALLOWED=NO SWIFT_STRICT_CONCURRENCY=complete \
             SWIFT_TREAT_WARNINGS_AS_ERRORS=YES build
+
+      - name: Bundle identity keys
+        # App/Info.plist는 사용자 지정이라 Xcode가 번들 정체성 키를 넣어 주지 않는다. 빠지면 이름이 바뀐 사본의
+        # 서명이 무효가 되고(CFBundleExecutable) PkgInfo가 ????????가 된다(CFBundlePackageType). 빌드 산출물로 확인한다.
+        run: |
+          APP="$RUNNER_TEMP/dd/Build/Products/Debug/Mara.app"
+          ./scripts/bundle-identity-gate.sh "$APP"
