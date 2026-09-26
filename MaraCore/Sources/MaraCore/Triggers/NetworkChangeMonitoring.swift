@@ -65,8 +65,13 @@ public final class SCDynamicStoreChangeMonitor: NetworkChangeMonitoring {
             box.release()
             return
         }
-        SCDynamicStoreSetNotificationKeys(store, Self.watchedKeys as CFArray, nil)
-        SCDynamicStoreSetDispatchQueue(store, .main)
+        // 둘 다 성공해야 감시 중이다 — 하나라도 실패하면 box를 놓고 감시하지 않은 상태로 둔다(fail closed).
+        guard SCDynamicStoreSetNotificationKeys(store, Self.watchedKeys as CFArray, nil),
+              SCDynamicStoreSetDispatchQueue(store, .main) else {
+            SCDynamicStoreSetDispatchQueue(store, nil)
+            box.release()
+            return
+        }
         self.store = store
         self.box = box
     }

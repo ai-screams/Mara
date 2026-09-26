@@ -36,13 +36,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         if #available(macOS 10.15, *) {
             let box = NotificationBox(env: env)
             notificationBox = box
-            statusBar.requestNotificationAuth = { completion in box.requestAuthorization(completion) }
+            statusBar.requestNotificationAuth = { [weak box] completion in box?.requestAuthorization(completion) }
         }
         statusBar.install()
     }
 
     func applicationWillTerminate(_ notification: Notification) {
         // 순서 고정: 알림 구독을 먼저 끊고(트리거 세션 종료 알림이 앱 종료 직후 뜨지 않게) 그다음 정리.
+        statusBar.requestNotificationAuth = nil   // box를 붙잡는 다른 참조가 없게
         notificationBox = nil
         env.shutdown()
     }

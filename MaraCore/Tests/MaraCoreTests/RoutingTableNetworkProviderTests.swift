@@ -115,3 +115,46 @@ private final class GatedIdentityReader: @unchecked Sendable {
     func waitUntilFirstReadStarted() { started.wait() }
     func releaseFirstRead() { gate.signal() }
 }
+
+@MainActor
+final class RoutingTableNetworkProviderRetryTests: XCTestCase {
+    /// 재시도 대기 중에 새 세대가 시작되면(A→B→A 전환) 옛 세대의 예약된 재시도는 다시 읽지 않는다.
+    func test_staleScheduledRetry_doesNotReadAgain() {
+        let b = NetworkIdentity(gatewayMAC: "bb:bb:bb:bb:bb:bb")
+        let reader = CountingReader(values: [nil, b, b])   // 세대1: nil(재시도 예약) / 세대2: b / 세대3: b
+        let provider = RoutingTableNetworkProvider(readIdentity: { reader.read() }, retryDelays: [0.3])
+
+        provider.startRefresh()                       // 세대 1 — nil이라 0.3초 뒤 재시도 예약
+        let firstRead = expectation(description: "first read")
+        DispatchQueue.global().asyncAfter(deadline: .now() + 0.1) { DispatchQueue.main.async { firstRead.fulfill() } }
+        wait(for: [firstRead], timeout: 5)
+
+        for _ in 0..<2 {                              // 세대 2, 3 — 즉시 성공
+            let done = expectation(description: "refresh")
+            provider.onRefreshFinishedForTesting = { done.fulfill() }
+            provider.startRefresh()
+            wait(for: [done], timeout: 5)
+        }
+        provider.onRefreshFinishedForTesting = nil
+        let settled = expectation(description: "stale retry window passed")
+        DispatchQueue.global().asyncAfter(deadline: .now() + 0.5) { DispatchQueue.main.async { settled.fulfill() } }
+        wait(for: [settled], timeout: 5)
+
+        XCTAssertEqual(provider.current, b)
+        XCTAssertEqual(reader.count, 3)               // 옛 세대 1의 재시도가 네 번째 읽기를 하지 않았다
+    }
+}
+
+private final class CountingReader: @unchecked Sendable {
+    private let lock = NSLock()
+    private var values: [NetworkIdentity?]
+    private var reads = 0
+    init(values: [NetworkIdentity?]) { self.values = values }
+    var count: Int { lock.withLock { reads } }
+    func read() -> NetworkIdentity? {
+        lock.withLock {
+            reads += 1
+            return values.isEmpty ? nil : values.removeFirst()
+        }
+    }
+}

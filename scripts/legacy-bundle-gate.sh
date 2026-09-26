@@ -79,8 +79,24 @@ fi
 for dylib in "$FW"/libswift*.dylib(N); do
     check "${dylib:t} x86_64 minimum OS <= 10.13" 'at_most_10_13 "$(min_os x86_64 "$dylib")"'
 done
-check "Sparkle.framework has x86_64 and arm64" \
-    'has_archs "$FW/Sparkle.framework/Versions/B/Sparkle" x86_64 arm64'
+# ── Sparkle(업데이트 경로) ─────────────────────────────────────────────────────
+# 버전을 못 박는다: 무시되는 Mara.xcodeproj가 옛 브랜치(2.9.4, 보안 권고 대상)에서 생성된 채 남으면 조용히 섞인다.
+SPK="$FW/Sparkle.framework/Versions/B"
+check "Sparkle is 2.9.6" \
+    '[[ "$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$SPK/Resources/Info.plist")" == 2.9.6 ]]'
+# 업데이트 설치는 프레임워크 본체가 아니라 헬퍼들이 한다 — 전부 두 조각과 10.13 최소 OS를 가져야 한다.
+SPARKLE_BINS=("$SPK/Sparkle" "$SPK/Autoupdate" "$SPK/Updater.app/Contents/MacOS/Updater"
+              "$SPK"/XPCServices/*.xpc/Contents/MacOS/*(N))
+check "Sparkle ships 5 executables (framework, Autoupdate, Updater, 2 XPC)" '[[ ${#SPARKLE_BINS} == 5 ]]'
+for bin in $SPARKLE_BINS; do
+    check "Sparkle ${bin:t} has x86_64 and arm64" 'has_archs "$bin" x86_64 arm64'
+    check "Sparkle ${bin:t} x86_64 minimum OS <= 10.13 ($(min_os x86_64 "$bin"))" \
+        'at_most_10_13 "$(min_os x86_64 "$bin")"'
+done
+for plist in "$SPK/Updater.app/Contents/Info.plist" "$SPK"/XPCServices/*.xpc/Contents/Info.plist(N); do
+    check "Sparkle ${${plist:h:h}:t} LSMinimumSystemVersion <= 10.13" \
+        'at_most_10_13 "$(/usr/libexec/PlistBuddy -c "Print :LSMinimumSystemVersion" "$plist")"'
+done
 
 # 비 weak Swift 심볼: 아키텍처마다, 이미지가 `@rpath`로 싣는(= 번들이 대야 하는) Swift 라이브러리의 심볼이
 # 모두 동봉본의 같은 아키텍처 조각에 있어야 한다. x86_64(10.13)는 표준 라이브러리 전부가 `@rpath`, arm64(11+)는
@@ -91,7 +107,7 @@ SYMS_DIR="$(mktemp -d)"
 trap 'rm -rf "$SYMS_DIR"' EXIT
 missing=0
 for arch in x86_64 arm64; do
-    for image in "$BIN" "$FW"/libswift*.dylib(N); do
+    for image in "$BIN" "$FW"/libswift*.dylib(N) $SPARKLE_BINS; do
         has_archs "$image" "$arch" || continue
         bundled=(${(f)"$(otool -arch "$arch" -L "$image" \
             | sed -nE 's#^[[:space:]]*@rpath/(libswift[A-Za-z_]+)\.dylib .*#\1#p' | sort -u)"})
@@ -128,6 +144,9 @@ if [[ "$MODE" == "--signed" ]]; then
     check "app signed by $EXPECT_AUTHORITY" '[[ "$sign_info" == *"Authority=$EXPECT_AUTHORITY"* ]]'
     check "app TeamIdentifier $EXPECT_TEAM" '[[ "$sign_info" == *"TeamIdentifier=$EXPECT_TEAM"* ]]'
     check "app hardened runtime" '[[ "$sign_info" =~ "flags=.*runtime" ]]'
+    for bin in $SPARKLE_BINS; do
+        check "Sparkle ${bin:t} signature verifies" 'codesign --verify --strict "$bin" 2>/dev/null'
+    done
     for dylib in "$FW"/*.dylib(N); do
         dylib_info="$(codesign -dvvv "$dylib" 2>&1)"
         check "${dylib:t} signed ($EXPECT_AUTHORITY, runtime)" \

@@ -16,7 +16,10 @@ SDK="$(xcrun --sdk macosx --show-sdk-path)"
 FRONTEND="$(xcrun -f swift-frontend)"
 
 # Sparkle 2.9.6 바이너리(xcframework)만 필요 — 해석만 하므로 Xcode 27로도 된다.
-[[ -d Mara.xcodeproj ]] || ./scripts/generate-project.sh >/dev/null
+# 무시되는(gitignore) Mara.xcodeproj가 다른 브랜치(예: v0.11.2의 Sparkle 2.9.4)에서 생성된 채 남아 있을 수 있다 —
+# 핀을 단언하고 매번 다시 생성한다.
+./scripts/legacy-sparkle-pin.sh >/dev/null
+./scripts/generate-project.sh >/dev/null
 xcodebuild -resolvePackageDependencies -project Mara.xcodeproj -scheme Mara -derivedDataPath "$WORK/dd" \
     -disableAutomaticPackageResolution >"$WORK/resolve.log" 2>&1
 SPARKLE="$(find "$WORK/dd/SourcePackages/artifacts" -name Sparkle.xcframework -maxdepth 4 | head -1)/macos-arm64_x86_64"

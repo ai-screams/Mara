@@ -98,8 +98,10 @@ final class StatusBarController: NSObject, NSMenuDelegate {
 
         guard let button = statusItem?.button else { return }
         button.image = statusIcon(active: state.isActive, tint: tint)
-        button.imagePosition = .imageLeading
-        button.title = durationLabel(for: state).map { " " + $0 } ?? ""
+        let label = durationLabel(for: state)
+        button.title = label.map { " " + $0 } ?? ""
+        // 10.13은 빈 제목을 "Button"으로 그린다 — 라벨이 없으면 이미지 전용으로 둔다.
+        button.imagePosition = label == nil ? .imageOnly : .imageLeading
 
         // expiresAt이 있는 활성 세션: 다음 라벨 전환 시각에 non-repeating 타이머를 건다.
         if case let .active(_, expiresAt) = state, let expiry = expiresAt {

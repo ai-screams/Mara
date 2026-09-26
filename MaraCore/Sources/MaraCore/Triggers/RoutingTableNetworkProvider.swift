@@ -87,7 +87,10 @@ public final class RoutingTableNetworkProvider: NetworkIdentityProviding {
             return
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + retryDelays[index]) { [weak self] in
-            unsafeAssumeMainActor { self?.attempt(index + 1, generation: expected) }
+            unsafeAssumeMainActor {
+                guard let self, expected == self.generation else { return }   // 그 사이 새 세대가 시작됐으면 옛 재시도는 읽지도 않는다
+                self.attempt(index + 1, generation: expected)
+            }
         }
     }
 
