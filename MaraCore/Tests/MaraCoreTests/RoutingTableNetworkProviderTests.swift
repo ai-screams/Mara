@@ -124,10 +124,12 @@ final class RoutingTableNetworkProviderRetryTests: XCTestCase {
         let reader = CountingReader(values: [nil, b, b])   // 세대1: nil(재시도 예약) / 세대2: b / 세대3: b
         let provider = RoutingTableNetworkProvider(readIdentity: { reader.read() }, retryDelays: [0.3])
 
-        provider.startRefresh()                       // 세대 1 — nil이라 0.3초 뒤 재시도 예약
-        let firstRead = expectation(description: "first read")
-        DispatchQueue.global().asyncAfter(deadline: .now() + 0.1) { DispatchQueue.main.async { firstRead.fulfill() } }
-        wait(for: [firstRead], timeout: 5)
+        // 세대 1 — nil이라 0.3초 뒤 재시도가 **예약된 것을 확인한 뒤** 다음 세대를 시작한다(시간이 아니라 사건으로 동기화).
+        let scheduled = expectation(description: "generation-1 retry scheduled")
+        provider.onRetryScheduledForTesting = { scheduled.fulfill() }
+        provider.startRefresh()
+        wait(for: [scheduled], timeout: 5)
+        provider.onRetryScheduledForTesting = nil
 
         for _ in 0..<2 {                              // 세대 2, 3 — 즉시 성공
             let done = expectation(description: "refresh")

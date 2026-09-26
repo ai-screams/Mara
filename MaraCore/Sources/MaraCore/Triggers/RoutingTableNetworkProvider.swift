@@ -22,6 +22,8 @@ public final class RoutingTableNetworkProvider: NetworkIdentityProviding {
     private var wakeObserver: NSObjectProtocol?
     /// 테스트 전용: 한 세대의 새로고침이 끝나(값을 방출하고) 호출된다.
     var onRefreshFinishedForTesting: (() -> Void)?
+    /// 테스트 전용: 실패한 읽기 뒤 지연 재시도가 예약되는 순간 호출된다.
+    var onRetryScheduledForTesting: (() -> Void)?
 
     public init() {
         subject = CurrentValueSubject(nil)
@@ -86,6 +88,7 @@ public final class RoutingTableNetworkProvider: NetworkIdentityProviding {
             onRefreshFinishedForTesting?()
             return
         }
+        onRetryScheduledForTesting?()
         DispatchQueue.main.asyncAfter(deadline: .now() + retryDelays[index]) { [weak self] in
             unsafeAssumeMainActor {
                 guard let self, expected == self.generation else { return }   // 그 사이 새 세대가 시작됐으면 옛 재시도는 읽지도 않는다
