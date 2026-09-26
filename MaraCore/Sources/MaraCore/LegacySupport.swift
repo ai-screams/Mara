@@ -8,7 +8,8 @@ import OpenCombine
 /// SAFETY(10.15 미만): 그 OS에는 동시성 런타임의 격리 검사가 없다. 메인 큐임을 `dispatchPrecondition`으로
 /// 단언(어기면 즉시 트랩 — off-main 방출을 조용히 넘기지 않는다)한 뒤, 같은 클로저를 비격리 함수 타입으로
 /// 바꿔(`unsafeBitCast` — 전역 액터 격리는 호출 규약을 바꾸지 않는다) 직접 실행한다.
-/// 호출 지점은 레거시 계획 §4 표로 고정한다 — 표를 갱신하지 않고 새 호출을 늘리지 말 것.
+/// 호출은 main 큐가 구조적으로 보장되는 곳에만 둔다: 진입점(main.swift 최상위), `queue: .main` 알림 관찰,
+/// main RunLoop 타이머·CFRunLoop 소스, `DispatchQueue.main` 작업, main에서 동기 방출하는 publisher의 sink.
 public func unsafeAssumeMainActor<T>(_ body: @MainActor () throws -> T) rethrows -> T {
     if #available(macOS 10.15, *) {
         return try MainActor.assumeIsolated(body)

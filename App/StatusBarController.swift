@@ -83,7 +83,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
             NotificationCenter.default.addObserver(
                 forName: NSApplication.didBecomeActiveNotification, object: nil, queue: .main
             ) { [weak self] _ in
-                MainActor.assumeIsolated { self?.launchAtLoginEnabled = LaunchAtLogin.isEnabled }   // 13+ 블록 — 원본(§4 6행)
+                MainActor.assumeIsolated { self?.launchAtLoginEnabled = LaunchAtLogin.isEnabled }   // 13+ 블록 안이라 원본
             }
         }
     }

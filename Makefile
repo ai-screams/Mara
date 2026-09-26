@@ -19,4 +19,8 @@ release:
 legacy-check:
 	./scripts/legacy-check.sh
 
-.PHONY: test generate build release legacy-check
+# 레거시 실기 시험 앱(서명, com.aiscream.Mara.legacytest) → build/legacy/Mara.app
+legacy-app:
+	./scripts/legacy-build-app.sh
+
+.PHONY: test generate build release legacy-check legacy-app

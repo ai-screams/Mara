@@ -11,7 +11,7 @@ final class SessionNotifier {
 
     init(session: SessionManager, isEnabled: @escaping () -> Bool, service: NotificationService) {
         cancellable = session.events.sink { event in
-            MainActor.assumeIsolated {   // 10.15+ 블록 안 — 원본 사용(§4 8행)
+            MainActor.assumeIsolated {   // 이 타입은 10.15+ 전용이라 원본을 쓴다
                 guard isEnabled(), let c = Self.content(for: event) else { return }
                 service.post(title: c.title, body: c.body)
             }
