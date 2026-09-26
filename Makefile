@@ -15,4 +15,8 @@ build: generate
 release:
 	./scripts/release.sh
 
-.PHONY: test generate build release
+# 레거시 10.13 로컬 컴파일 검사(Xcode 27은 10.13 target xcodebuild를 거부 — swiftc 직접 호출)
+legacy-check:
+	./scripts/legacy-check.sh
+
+.PHONY: test generate build release legacy-check
