@@ -246,8 +246,9 @@ notarize "$DMG"
 xcrun stapler staple "$DMG"
 
 # ── 게시 전 자가검증 ─────────────────────────────────────────────────────────
-# 앱은 stapler로 검증한다(공증 티켓 부착 여부 = 권위 있는 확인). `spctl -a -t exec`는
-# LSUIElement(메뉴바 agent) 앱에서 "does not seem to be an app" 오탐을 내므로 게이트로 쓰지 않는다.
+# 앱은 stapler로 검증한다(공증 티켓 부착 여부 = 권위 있는 확인). legacy-v0.11.2-2까지 `spctl -a -t exec`가 낸
+# "does not seem to be an app"은 LSUIElement 탓이 아니라 Info.plist에 CFBundlePackageType이 없어서였다(#76 —
+# 같은 LSUIElement 앱인 Azimuth는 accepted). 공증 산출물로 아직 확인하지 않아 게이트로는 쓰지 않는다.
 # DMG는 사용자가 실제로 겪는 다운로드-오픈 Gatekeeper 흐름(`spctl -t open`)으로 검증한다.
 print "▸ 검증…"
 xcrun stapler validate "$APP" | sed 's/^/    /'

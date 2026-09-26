@@ -49,7 +49,7 @@ print "▸ legacy bundle gate: $APP ${MODE:+($MODE)}"
 [[ -x "$BIN" ]] || { print "  FAIL  executable missing: $BIN"; exit 1; }
 
 # ── 번들 정체성 ───────────────────────────────────────────────────────────────
-# App/Info.plist는 사용자 지정이라 Xcode가 이 키들을 넣지 않는다. 빠지면 이름이 바뀐 사본("Mara 2.app")의
+# App/Info.plist는 사용자 지정이라 Xcode 빌드도, legacy-build-app.sh의 직접 조립도 이 키들을 따로 넣지 않는다. 빠지면 이름이 바뀐 사본("Mara 2.app")의
 # 서명이 "not signed at all"로 판정되고(CFBundleExecutable) PkgInfo가 ????????가 된다(CFBundlePackageType).
 plist_is() { [[ "$(/usr/libexec/PlistBuddy -c "Print :$1" "$PLIST" 2>/dev/null)" == "$2" ]] }
 check "CFBundleExecutable = Mara" 'plist_is CFBundleExecutable Mara'

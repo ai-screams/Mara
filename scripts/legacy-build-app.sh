@@ -69,6 +69,8 @@ sed -e "s|\$(MARKETING_VERSION)|$MARKETING_VERSION|" -e "s|\$(CURRENT_PROJECT_VE
     -c "Add :CFBundleIconName string AppIcon" \
     "$CONTENTS/Info.plist"
 plutil -lint "$CONTENTS/Info.plist" >/dev/null
+# Xcode는 PkgInfo를 CFBundlePackageType으로 쓰지만 직접 조립은 고정값을 쓴다 — 그래서 번들 게이트의
+# PkgInfo 검사는 Xcode 경로(CI·릴리스)용이고, 이 경로의 plist 회귀는 게이트의 키 검사가 잡는다.
 print -n "APPL????" >"$CONTENTS/PkgInfo"
 
 print "▸ Sparkle.framework"
