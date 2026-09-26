@@ -61,17 +61,16 @@ xcrun actool App/Assets.xcassets --compile "$CONTENTS/Resources" --platform maco
     --output-partial-info-plist "$WORK/assets.plist" >"$WORK/actool.log"
 sed -e "s|\$(MARKETING_VERSION)|$MARKETING_VERSION|" -e "s|\$(CURRENT_PROJECT_VERSION)|$BUILD_NUMBER|" \
     App/Info.plist >"$CONTENTS/Info.plist"
-# Xcode 빌드가 자동으로 넣는 키 — 직접 조립이라 여기서 채운다.
+# Xcode 빌드에서는 actool이 넣는 아이콘 키 — 직접 조립이라 여기서 채운다.
+# 번들 정체성 키(CFBundleExecutable·CFBundlePackageType 등)는 App/Info.plist에 있다.
 /usr/libexec/PlistBuddy \
     -c "Set :CFBundleIdentifier $BUNDLE_ID" \
-    -c "Add :CFBundleExecutable string Mara" \
-    -c "Add :CFBundlePackageType string APPL" \
-    -c "Add :CFBundleInfoDictionaryVersion string 6.0" \
-    -c "Add :CFBundleDevelopmentRegion string en" \
     -c "Add :CFBundleIconFile string AppIcon" \
     -c "Add :CFBundleIconName string AppIcon" \
     "$CONTENTS/Info.plist"
 plutil -lint "$CONTENTS/Info.plist" >/dev/null
+# Xcode는 PkgInfo를 CFBundlePackageType으로 쓰지만 직접 조립은 고정값을 쓴다 — 그래서 번들 게이트의
+# PkgInfo 검사는 Xcode 경로(CI·릴리스)용이고, 이 경로의 plist 회귀는 게이트의 키 검사가 잡는다.
 print -n "APPL????" >"$CONTENTS/PkgInfo"
 
 print "▸ Sparkle.framework"
