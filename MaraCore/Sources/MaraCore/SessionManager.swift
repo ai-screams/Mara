@@ -186,7 +186,8 @@ public final class SessionManager: ObservableObject {
     }
 
     /// 저배터리 임계값의 허용 범위. App(입력 clamp·stepper range)도 이 상수를 참조한다.
-    public static let batteryThresholdRange: ClosedRange<Int> = 5...100
+    // 불변 상수(Sendable) — 격리 없이 읽을 수 있어야 순수 정책(LegacyMenuPolicy)이 쓴다.
+    nonisolated public static let batteryThresholdRange: ClosedRange<Int> = 5...100
 
     private static func clampBatteryThreshold(_ value: Int) -> Int {
         min(max(value, batteryThresholdRange.lowerBound), batteryThresholdRange.upperBound)

@@ -10,7 +10,7 @@ import OpenCombine
 /// 바꿔(`unsafeBitCast` — 전역 액터 격리는 호출 규약을 바꾸지 않는다) 직접 실행한다.
 /// 호출은 main 큐가 구조적으로 보장되는 곳에만 둔다: 진입점(main.swift 최상위), `queue: .main` 알림 관찰,
 /// main RunLoop 타이머·CFRunLoop 소스, `DispatchQueue.main` 작업, main에서 동기 방출하는 publisher의 sink.
-public func unsafeAssumeMainActor<T>(_ body: @MainActor () throws -> T) rethrows -> T {
+public func unsafeAssumeMainActor<T: Sendable>(_ body: @MainActor () throws -> T) rethrows -> T {
     if #available(macOS 10.15, *) {
         return try MainActor.assumeIsolated(body)
     }

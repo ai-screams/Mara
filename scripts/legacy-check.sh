@@ -55,6 +55,15 @@ for target in $LEGACY_TARGETS; do
     ./scripts/legacy-build-modules.sh "$target" "$mods" --core-optional || core_built=0
     inc=(-I "$mods/include" -I "$mods/include/COpenCombineHelpers")
     typecheck core "$target" MaraCore "${inc[@]}" -- $CORE_FILES || true
+    # CI(`swift test -Xswiftc -warnings-as-errors`)와 같게 Core 소스의 경고도 실패로 본다. 플래그 대신 세는 이유:
+    # frontend 직접 호출에는 매크로 플러그인 경로가 없어 SDK 헤더(sysctl.h)의 `_SwiftifyImport` 경고가 나는데,
+    # 이것은 코드가 아니라 도구 경고라 -warnings-as-errors로 올리면 거짓 실패가 된다.
+    core_warnings=$(grep -E '^MaraCore/[^ ]+\.swift:[0-9]+:[0-9]+: warning:' "$WORK/typecheck-core-$target.log" | sort -u || true)
+    if [[ -n "$core_warnings" ]]; then
+        print "  core $target: $(print -r -- "$core_warnings" | wc -l | tr -d ' ') warning(s) in Core sources"
+        print -r -- "$core_warnings" | head -${LEGACY_CHECK_SHOW:-15}
+        status_code=1
+    fi
     if [[ $core_built == 1 ]]; then
         typecheck app "$target" Mara "${inc[@]}" -F "$SPARKLE" -warnings-as-errors -- $APP_FILES || true
     else

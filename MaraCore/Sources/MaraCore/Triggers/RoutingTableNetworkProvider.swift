@@ -75,8 +75,9 @@ public final class RoutingTableNetworkProvider: NetworkIdentityProviding {
         let reader = readIdentity
         DispatchQueue.global(qos: .utility).async { [weak self] in
             let identity = reader()
+            let provider = self   // 약한 참조를 let으로 고정해 main 홉에 넘긴다(var 캡처는 동시성 검사에 걸린다)
             DispatchQueue.main.async {
-                unsafeAssumeMainActor { self?.handle(identity, attempt: index, generation: expected) }
+                unsafeAssumeMainActor { provider?.handle(identity, attempt: index, generation: expected) }
             }
         }
     }
