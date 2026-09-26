@@ -1,5 +1,5 @@
 import Foundation
-import Combine
+import OpenCombine
 import MaraCore
 
 // @MainActor: @Published 프로퍼티가 main에서만 변이됨을 컴파일러가 강제한다.
