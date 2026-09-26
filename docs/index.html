@@ -108,6 +108,10 @@
     .btn:hover { background: var(--accent-2); transform: translateY(-2px); box-shadow: 0 10px 30px rgba(255,149,0,0.36); }
     .btn svg { width: 19px; height: 19px; }
     .cta .meta { font-size: 13.5px; color: var(--text-muted); }
+    .cta .legacy-link, .legacy a { color: var(--text-mid); text-decoration: underline; text-underline-offset: 2px; font-size: 13.5px; }
+    .legacy { text-align: center; margin-top: 18px; color: var(--text-muted); font-size: 14px; max-width: 640px; margin-left: auto; margin-right: auto; }
+    .legacy .btn-legacy { margin-top: 12px; background: transparent; color: var(--text-mid); border: 1px solid var(--text-muted); box-shadow: none; font-size: 15px; padding: 11px 22px; }
+    .legacy .btn-legacy:hover { background: transparent; color: var(--accent); border-color: var(--accent); box-shadow: none; }
 
     /* ── sections ── */
     section.block { padding: 66px 0; border-top: 1px solid var(--border); }
@@ -222,6 +226,9 @@
           <span data-en="Download for macOS" data-ko="macOS용 다운로드">macOS용 다운로드</span>
         </a>
         <span class="meta" id="dlMeta">Universal · macOS 14+ · .dmg</span>
+        <a class="legacy-link" href="#legacy"
+           data-en="Older Mac (macOS 10.13–13)? Get the legacy build →"
+           data-ko="구형 Mac(macOS 10.13~13)이라면 레거시판 받기 →">구형 Mac(macOS 10.13~13)이라면 레거시판 받기 →</a>
       </div>
     </div>
   </header>
@@ -366,6 +373,16 @@
          data-ko="Developer ID 서명 + Apple 공증 — <b>Gatekeeper 경고 없음</b>. macOS 14 이상 (Apple Silicon·Intel).">
         Developer ID 서명 + Apple 공증 — <b>Gatekeeper 경고 없음</b>. macOS 14 이상 (Apple Silicon·Intel).
       </p>
+      <div class="legacy" id="legacy">
+        <p data-en="&lt;strong&gt;macOS 10.13–13?&lt;/strong&gt; Download the &lt;a href=&quot;https://github.com/ai-screams/Mara/releases/tag/legacy-v0.11.2-2&quot;&gt;legacy build (0.11.2 Legacy)&lt;/a&gt;. It keeps the core features — keep-awake, timers, low-battery auto-off and the automatic triggers — from the menu bar, but has no settings window, first-run guide or Shortcuts, and gets no new features. Launch at login needs macOS 13 and notifications need 10.15. It updates itself, and after you upgrade to macOS 14 or later its next update check switches it to the regular version. Tested on a real Mac with macOS 10.13.6; 10.14–13 have not been tested on real hardware. These macOS versions no longer receive Apple security updates, so upgrade if your Mac can."
+           data-ko="&lt;strong&gt;macOS 10.13~13인가요?&lt;/strong&gt; &lt;a href=&quot;https://github.com/ai-screams/Mara/releases/tag/legacy-v0.11.2-2&quot;&gt;레거시판(0.11.2 Legacy)을&lt;/a&gt; 받으세요. 잠자기 방지·타이머·저배터리 자동 끄기·자동 트리거 같은 핵심 기능을 메뉴바 메뉴에서 쓸 수 있습니다. 다만 설정 창·첫 실행 안내·단축어(Shortcuts)는 없고 새 기능도 들어가지 않습니다. 로그인 시 실행은 macOS 13 이상, 알림은 10.15 이상에서만 됩니다. 스스로 업데이트되며, macOS 14 이상으로 올린 뒤 업데이트를 확인하면 일반판으로 전환됩니다. macOS 10.13.6 실제 Mac에서 확인했고, 10.14~13은 실제 Mac에서 확인하지 않았습니다. 이 macOS들은 Apple 보안 업데이트가 끝났으므로 가능하면 macOS를 업그레이드하세요."><strong>macOS 10.13~13인가요?</strong> <a href="https://github.com/ai-screams/Mara/releases/tag/legacy-v0.11.2-2">레거시판(0.11.2 Legacy)을</a> 받으세요. 잠자기 방지·타이머·저배터리 자동 끄기·자동 트리거 같은 핵심 기능을 메뉴바 메뉴에서 쓸 수 있습니다. 다만 설정 창·첫 실행 안내·단축어(Shortcuts)는 없고 새 기능도 들어가지 않습니다. 로그인 시 실행은 macOS 13 이상, 알림은 10.15 이상에서만 됩니다. 스스로 업데이트되며, macOS 14 이상으로 올린 뒤 업데이트를 확인하면 일반판으로 전환됩니다. macOS 10.13.6 실제 Mac에서 확인했고, 10.14~13은 실제 Mac에서 확인하지 않았습니다. 이 macOS들은 Apple 보안 업데이트가 끝났으므로 가능하면 macOS를 업그레이드하세요.</p>
+        <!-- 레거시 DMG 직접 링크. 라벨은 별도 span에 둔다 — 언어 전환(textContent)이 아이콘을 지우지 않게.
+             레거시 릴리스마다 태그와 파일 이름을 올린다. -->
+        <a class="btn btn-legacy" id="dlLegacy" href="https://github.com/ai-screams/Mara/releases/download/legacy-v0.11.2-2/Mara-0.11.2-legacy-2.dmg">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 21h16"/></svg>
+          <span data-en="Download for macOS 10.13–13 (.dmg)" data-ko="macOS 10.13~13용 다운로드 (.dmg)">macOS 10.13~13용 다운로드 (.dmg)</span>
+        </a>
+      </div>
     </div>
   </section>
 

@@ -24,7 +24,7 @@
 </p>
 
 <p align="center">
-  <a href="https://www.apple.com/macos/"><img src="https://img.shields.io/badge/macOS-14%2B-000000?logo=apple&logoColor=white" alt="macOS 14+"></a>
+  <a href="#requirements"><img src="https://img.shields.io/badge/macOS-14%2B%20%C2%B7%20legacy%2010.13--13-000000?logo=apple&logoColor=white" alt="macOS 14+ · legacy 10.13–13"></a>
   <a href="https://swift.org"><img src="https://img.shields.io/badge/Swift-5.9-F05138?logo=swift&logoColor=white" alt="Swift 5.9"></a>
   <a href="#install"><img src="https://img.shields.io/badge/Universal-Apple%20Silicon%20%26%20Intel-000000?logo=apple&logoColor=white" alt="Universal"></a>
   <a href="RELEASING.md"><img src="https://img.shields.io/badge/Apple-Notarized-34c759?logo=apple&logoColor=white" alt="Notarized"></a>
@@ -65,14 +65,27 @@ The network trigger uses no location permission. It normalizes and matches the d
 2. Open the DMG and drag **Mara** onto the Applications link in the installer window.
 3. Launch Mara — a closed-eye icon appears in the menu bar. Click it and choose `Keep Awake`.
 
-Requirements:
+### Requirements
 
 - macOS 14 or later
+- **On macOS 10.13–13**, use the [legacy build](https://github.com/ai-screams/Mara/releases/tag/legacy-v0.11.2-2) (`0.11.2 Legacy`) — see [Older macOS](#older-macos-legacy-build).
 - Apple Silicon and Intel Macs
 - Developer ID–signed and Apple-notarized DMG (opens Gatekeeper-clean, no warning)
 - No Location, Accessibility, or Screen Recording permissions
 
 Updates are delivered in-app: Mara checks the signed release feed and offers new versions automatically (or use `Check for Updates…` in the menu).
+
+### Older macOS (legacy build)
+
+Download [`Mara-0.11.2-legacy-2.dmg`](https://github.com/ai-screams/Mara/releases/download/legacy-v0.11.2-2/Mara-0.11.2-legacy-2.dmg) (release notes: [legacy release](https://github.com/ai-screams/Mara/releases/tag/legacy-v0.11.2-2)) and install it the same way. It is Developer ID–signed and notarized like the regular build.
+
+- **Same core features, from the menu bar.** Keep-awake, timers (presets, custom durations, until a time of day), `Keep display awake`, low-battery auto-off, the automatic triggers (charging, external display, watched apps, networks) and the icon color all live in the menu.
+- **What it leaves out.** There is no settings window, first-run guide, or Shortcuts support, and watched apps are picked from the running apps only (no manual bundle ID entry). Launch at login needs macOS 13; notifications need macOS 10.15. It gets fixes only — new features ship in the regular version.
+- **Updates itself, then moves on.** It checks its own update feed; after you upgrade the Mac to macOS 14 or later, its next update check switches it to the regular version.
+- **Tested** on a real Mac with macOS 10.13.6 (a 2009 MacBook). macOS 10.14–13 have not been tested on real hardware.
+- These macOS versions no longer receive Apple security updates — upgrade macOS if your Mac can.
+
+The legacy build lives on the [`legacy/10.13`](https://github.com/ai-screams/Mara/tree/legacy/10.13) branch.
 
 ## Usage
 
