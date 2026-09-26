@@ -62,7 +62,11 @@ jobs:
       - name: Assert toolchain
         run: |
           set -euo pipefail
-          xcodebuild -version | tee /dev/stderr | head -1 | grep -qx "Xcode 26.3" \
+          # 출력을 먼저 변수로 받는다: `xcodebuild -version | tee … | head -1`은 head가 첫 줄 뒤 파이프를 닫아
+          # tee가 둘째 줄(Build version)에서 Broken pipe로 죽고, pipefail이 그걸 실패로 올린다(legacy-v0.11.2-1에서 실측).
+          version="$(xcodebuild -version)"
+          echo "$version"
+          [ "$(printf '%s\n' "$version" | sed -n 1p)" = "Xcode 26.3" ] \
             || { echo "::error::legacy builds require Xcode 26.3 exactly"; exit 1; }
 
       - name: Import Developer ID certificate
