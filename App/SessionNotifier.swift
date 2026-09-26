@@ -1,3 +1,4 @@
+import Foundation
 import OpenCombine
 import MaraCore
 
@@ -23,7 +24,7 @@ final class SessionNotifier {
         if case .active(let cfg, _) = session.state,
            cfg.origin == .trigger,
            isEnabled(),
-           let c = Self.content(for: SessionEvent(at: .now, kind: .started(cfg))) {
+           let c = Self.content(for: SessionEvent(at: Date(), kind: .started(cfg))) {
             service.post(title: c.title, body: c.body)
         }
     }

@@ -419,7 +419,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     /// 그 안에서 모달 루프를 돌리고 세션 시작으로 버튼 이미지·제목이 바뀌면, 추적이 끝날 때
     /// `_endTrackingNavigationLoopOnMenu`가 이미 풀린 객체를 release해 EXC_BAD_ACCESS로 죽는다.
     /// default 모드로만 예약해 이벤트 추적 모드가 끝난 뒤(메뉴가 완전히 닫힌 뒤)에 실행되게 한다.
-    static func afterMenuTracking(_ work: @escaping @MainActor () -> Void) {
+    static func afterMenuTracking(_ work: @escaping @MainActor @Sendable () -> Void) {
         RunLoop.main.perform(inModes: [.default]) { unsafeAssumeMainActor { work() } }
     }
 
