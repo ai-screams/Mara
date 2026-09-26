@@ -49,31 +49,45 @@ asset_line() { # <release tag> <asset name>
 }
 
 # 올린 자산을 검증: 이름·state == uploaded·API digest == 로컬 sha256·asset ID로 내려받은 바이트 == 로컬.
+# 절대 exit하지 않는다 — 실패는 재시도 뒤 return 1. 호출자가 P5에서는 die로, P6에서는 정리·복원으로 바꾼다
+# (여기서 exit하면 P6의 정리·복원 분기가 건너뛰어진다). digest 불일치도 재시도한다: --clobber 직후 API가
+# 잠시 이전 자산을 돌려줄 수 있다.
 verify_asset() { # <release tag> <asset name> <local file>
     local release="$1" name="$2" file="$3" line id digest state want attempt
     want="$(sha256 "$file")"
     for attempt in 1 2 3 4 5; do
         line="$(asset_line "$release" "$name")"
+        id=""; digest=""; state=""
         read -r id digest state <<<"$line" || true
-        if [ -n "${id:-}" ] && [ "${state:-}" = uploaded ]; then
-            [ "${digest#sha256:}" = "$want" ] || die "$release/$name digest ${digest:-none} != local $want"
-            if gh api -H "Accept: application/octet-stream" "repos/$REPO/releases/assets/$id" >"$WORK/dl" 2>/dev/null \
-                && cmp -s "$WORK/dl" "$file"; then
-                echo "  ok    $release/$name (asset $id, sha256 $want)"
-                return 0
-            fi
+        if [ -n "$id" ] && [ "$state" = uploaded ] && [ "${digest#sha256:}" = "$want" ] \
+            && gh api -H "Accept: application/octet-stream" "repos/$REPO/releases/assets/$id" >"$WORK/dl" 2>/dev/null \
+            && cmp -s "$WORK/dl" "$file"; then
+            echo "  ok    $release/$name (asset $id, sha256 $want)"
+            return 0
         fi
+        echo "::warning::$release/$name not verified yet (asset ${id:-none}, state ${state:-none}, digest ${digest:-none}) — retry $attempt" >&2
         sleep $((attempt * 3))
     done
+    echo "::error::$release/$name failed verification against local sha256 $want" >&2
     return 1
 }
 
-LATEST_BEFORE="$(gh api "repos/$REPO/releases/latest" --jq .tag_name 2>/dev/null || echo none)"
+# P7 전제: 쓰기 전에 latest가 본판 형식임을 확정한다(없거나 조회 실패·레거시면 아무것도 쓰지 않는다).
+LATEST_BEFORE="$(gh api "repos/$REPO/releases/latest" --jq .tag_name)" || die "cannot establish the repository latest release"
+[[ "$LATEST_BEFORE" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || die "repository latest is not a main release tag: $LATEST_BEFORE"
 
 # ── P1 판정(읽기만) ──────────────────────────────────────────────────────────
-if ! gh release view "$FEED_TAG" --repo "$REPO" >/dev/null 2>&1; then
+# 404일 때만 bootstrap이다. 네트워크·권한·5xx 같은 다른 실패를 "피드 없음"으로 오판하면 정상 피드 위에
+# bootstrap을 시도하게 된다 — 판정할 수 없으면 멈춘다.
+if gh api "repos/$REPO/releases/tags/$FEED_TAG" >/dev/null 2>"$WORK/feed.err"; then
+    STATE=normal
+elif grep -q 'HTTP 404' "$WORK/feed.err"; then
     STATE=bootstrap
 else
+    cat "$WORK/feed.err" >&2
+    die "cannot determine $FEED_TAG state (not a 404)"
+fi
+if [ "$STATE" = normal ]; then
     line="$(asset_line "$FEED_TAG" appcast.xml)"
     [ -n "$line" ] || die "damaged: $FEED_TAG release exists without appcast.xml — restore it by hand from the newest legacy-v* release's appcast.xml"
     STATE=normal
@@ -111,8 +125,9 @@ if [ "$STATE" = normal ]; then
         die "previous legacy $PREV is newer than candidate $CAND (out-of-order run — nothing published)"
     fi
 else
-    others="$(gh release list --repo "$REPO" --limit 200 --json tagName --jq '.[].tagName' \
-        | grep -E '^legacy-v[0-9]+\.[0-9]+\.[0-9]+-[1-9][0-9]?$' | grep -Fvx -- "$TAG" || true)"
+    # 전 페이지를 본다 — 오래된 레거시 릴리스가 최근 N개 밖으로 밀려도 N 단조성을 지킨다.
+    all_tags="$(gh api --paginate "repos/$REPO/releases?per_page=100" --jq '.[].tag_name')" || die "cannot list releases"
+    others="$(echo "$all_tags" | grep -E '^legacy-v[0-9]+\.[0-9]+\.[0-9]+-[1-9][0-9]?$' | grep -Fvx -- "$TAG" || true)"
     for other in $others; do
         other_n="${other##*-}"
         [ "$N" -gt "$other_n" ] || die "bootstrap: candidate N=$N is not greater than existing $other"
@@ -142,7 +157,7 @@ for file in "$DMG" "$DMG.sha256" "$DIST/appcast.xml"; do
         [ "${digest#sha256:}" = "$(sha256 "$file")" ] \
             || die "$TAG/$name already exists with a different digest — delete it by hand, then re-run"
     fi
-    verify_asset "$TAG" "$name" "$file" || die "$TAG/$name did not verify"
+    verify_asset "$TAG" "$name" "$file" || die "$TAG/$name did not verify — re-run the publish job"
 done
 # 피드가 가리킬 enclosure가 정말 이 DMG를 내려주는지(피드의 URL 그대로).
 read -r _ ENCLOSURE <<<"$(feedpy item "$DIST/appcast.xml")"
@@ -154,25 +169,32 @@ echo "  ok    enclosure serves the candidate DMG"
 # ── P6 피드 게시 ─────────────────────────────────────────────────────────────
 if [ "$STATE" = bootstrap ]; then
     info "P6: creating $FEED_TAG release at $TARGET_SHA"
-    created=0
-    if gh release create "$FEED_TAG" "$DIST/appcast.xml" --repo "$REPO" --latest=false --target "$TARGET_SHA" \
-        --title "Legacy update feed" --notes "Sparkle appcast for the macOS 10.13–13 legacy build. Not a download — the app reads appcast.xml from here."; then
-        created=1
-    fi
-    if [ $created = 0 ] || ! verify_asset "$FEED_TAG" appcast.xml "$DIST/appcast.xml"; then
-        # 이 실행이 만든 불완전 피드만 지운다(대상 커밋으로 식별) — 같은 태그 재실행이 다시 bootstrap이 되게.
-        if [ "$(gh api "repos/$REPO/releases/tags/$FEED_TAG" --jq .target_commitish 2>/dev/null || true)" = "$TARGET_SHA" ]; then
-            gh release delete "$FEED_TAG" --repo "$REPO" --yes --cleanup-tag || true
+    # API로 만들어 **이 실행이 만든 release ID**를 얻는다. 정리는 그 ID와 현재 release ID가 같을 때만 한다 —
+    # 커밋 SHA는 실행 식별자가 아니다(여러 태그가 같은 커밋일 수 있다). 생성 자체가 실패하면(이미 있음 등) 지우지 않는다.
+    created_id="$(gh api -X POST "repos/$REPO/releases" \
+        -f tag_name="$FEED_TAG" -f target_commitish="$TARGET_SHA" -f name="Legacy update feed" \
+        -f body="Sparkle appcast for the macOS 10.13–13 legacy build. Not a download — the app reads appcast.xml from here. (created by run ${GITHUB_RUN_ID:-local} for $TAG)" \
+        -F draft=false -F prerelease=false -f make_latest=false --jq .id)" \
+        || die "could not create the $FEED_TAG release — nothing was removed; inspect and re-run the publish job"
+    if ! gh release upload "$FEED_TAG" "$DIST/appcast.xml" --repo "$REPO" \
+        || ! verify_asset "$FEED_TAG" appcast.xml "$DIST/appcast.xml"; then
+        current_id="$(gh api "repos/$REPO/releases/tags/$FEED_TAG" --jq .id 2>/dev/null || true)"
+        if [ -n "$created_id" ] && [ "$current_id" = "$created_id" ]; then
+            gh release delete "$FEED_TAG" --repo "$REPO" --yes --cleanup-tag \
+                || die "bootstrap publish failed and cleanup of release $created_id failed — remove it by hand"
+            die "bootstrap feed publish failed — removed the release this run created ($created_id); re-run the publish job"
         fi
-        die "bootstrap feed publish failed — cleaned up; re-run the publish job"
+        die "bootstrap feed publish failed and $FEED_TAG is not the release this run created (${current_id:-none} != $created_id) — left untouched"
     fi
 else
     info "P6: replacing $FEED_TAG/appcast.xml (backup kept)"
     if ! gh release upload "$FEED_TAG" "$DIST/appcast.xml" --repo "$REPO" --clobber \
         || ! verify_asset "$FEED_TAG" appcast.xml "$DIST/appcast.xml"; then
-        gh release upload "$FEED_TAG" "$WORK/backup.xml#appcast.xml" --repo "$REPO" --clobber || true
-        cp "$WORK/backup.xml" "$WORK/appcast.xml"
-        verify_asset "$FEED_TAG" appcast.xml "$WORK/appcast.xml" || die "feed update failed AND backup restore did not verify — fix by hand"
+        # 복원은 파일 이름 자체가 appcast.xml이어야 한다 — `file#label`의 #은 표시 라벨일 뿐 자산 이름을 바꾸지 않는다.
+        mkdir -p "$WORK/restore" && cp "$WORK/backup.xml" "$WORK/restore/appcast.xml"
+        gh release upload "$FEED_TAG" "$WORK/restore/appcast.xml" --repo "$REPO" --clobber || true
+        verify_asset "$FEED_TAG" appcast.xml "$WORK/restore/appcast.xml" \
+            || die "feed update failed AND backup restore did not verify — restore $FEED_TAG/appcast.xml by hand from the previous legacy-v* release"
         die "feed update failed — backup restored and verified; re-run the publish job"
     fi
 fi
