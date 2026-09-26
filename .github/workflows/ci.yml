@@ -98,19 +98,20 @@ jobs:
           scripts/check-sponsor-links.sh --selftest
           scripts/check-sponsor-links.sh
 
-      - name: Release version grammar selftest
-        # release.sh와 release.yml appcast 스텝이 공유하는 태그 문법의 반례 고정.
-        # 태그를 밀어야만 검증되던 경로를 PR CI로 당긴다(v* 태그는 룰셋상 불변이라 재시도 불가).
+      - name: Legacy release grammar & pipeline selftests
+        # 레거시 브랜치에는 본판 release.yml이 없다(v* 태그가 본판 latest를 덮지 않게). 대신 레거시 태그 문법·
+        # appcast 후처리·버전 비교를 반례로 고정하고, 두 호출부(release.sh, release-legacy.yml)가 같은 파서를
+        # 부르는지 확인한다 — 떨어져 나가면 태그를 민 뒤에야 드러나는데 태그는 불변이다.
         run: |
-          scripts/check-release-version.sh --selftest
-          # 문법이 맞는 것과 가드가 실제로 '불린다'는 것은 다른 명제다. 두 호출부가 떨어져 나가면
-          # (인라인·삭제) 위 selftest는 계속 초록이고, 태그를 민 뒤에야 드러난다 — 그런데 v* 태그는
-          # 불변이라 패치 범프로만 복구된다(RELEASING.md). 그 발견 시점을 PR로 당긴다.
-          # rename은 이 파일이 같은 경로를 참조하므로 자동으로 잡힌다.
-          grep -q 'check-release-version\.sh' scripts/release.sh \
-            || { echo "::error::release.sh no longer calls check-release-version.sh"; exit 1; }
-          grep -q 'check-release-version\.sh' .github/workflows/release.yml \
-            || { echo "::error::release.yml appcast step no longer calls check-release-version.sh"; exit 1; }
+          scripts/legacy-release-tag.sh --selftest
+          python3 scripts/legacy-appcast-finalize.py --selftest
+          python3 scripts/legacy-feed.py --selftest
+          grep -q 'legacy-release-tag\.sh' scripts/release.sh \
+            || { echo "::error::release.sh no longer calls legacy-release-tag.sh"; exit 1; }
+          grep -q 'legacy-release-tag\.sh' .github/workflows/release-legacy.yml \
+            || { echo "::error::release-legacy.yml no longer calls legacy-release-tag.sh"; exit 1; }
+          [ ! -e .github/workflows/release.yml ] \
+            || { echo "::error::the legacy branch must not carry the main release.yml"; exit 1; }
 
       - name: Zsh script syntax
         # shellcheck는 zsh를 지원하지 않아 lint 잡이 release.sh·generate-project.sh를 건드리지 못한다.
