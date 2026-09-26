@@ -1,5 +1,37 @@
 # Releasing Mara
 
+> **Legacy branch (`legacy/10.13`, macOS 10.13–13).** This branch has **no `release.yml`** — releases use
+> `.github/workflows/release-legacy.yml` on **Xcode 26.3** (Xcode 27 rejects 10.13 targets). The rest of this
+> file describes main; where it conflicts, this box wins.
+>
+> 1. **RC first.** Push `legacy-rc-vX.Y.Z-N` (N = 1–99, a serial across the whole legacy channel). It builds,
+>    bundles the 10.13 runtime, runs the signed bundle gate, notarizes, and leaves the DMG + single-item
+>    `appcast.xml` as an **Actions artifact only** — nothing is published and the job has no write permission.
+>    Pass the real-hardware RC gate (Late 2009 MacBook, 10.13.6) with that artifact.
+> 2. **Release.** Push `legacy-vX.Y.Z-N` with the **same N on the same commit**. The `publish` job refuses to run
+>    otherwise — change anything after the RC and start over with a new N. It creates the versioned release
+>    (never "latest"), replaces `appcast.xml` on the fixed `legacy-feed` release (backup, asset-ID + digest
+>    verification, restore on failure), and asserts the repository's latest release is still the main `vX.Y.Z`.
+> 3. **Partial failure:** in the same workflow run use **Re-run failed jobs** (publish only). Re-running the whole
+>    workflow rebuilds and re-signs, so digests differ and publish fails closed by design.
+> 4. **One legacy tag at a time.** All legacy runs share the `legacy-feed` concurrency group (`queue: max`); if two
+>    runs finish out of order, the smaller N fails its version check and the feed is left untouched.
+> 5. Versions: short `X.Y.Z`, build **`114.N`** — always below main's build numbers (git commit count, 115 at
+>    v0.11.2), so a legacy install that reaches the main minimum OS migrates to main. Shown as "Legacy N".
+> 6. **Lowering main's minimum OS** needs a bridge first: ship a legacy build whose `LegacySupport.mainMinimumOS`
+>    is the new value while the legacy appcast maximum stays, wait for adoption, then lower main's deployment
+>    target and the legacy appcast maximum together.
+> 7. **Prerequisites (one-time):** the `release` Environment's deployment policy must allow tag patterns
+>    `legacy-v*` and `legacy-rc-v*` (GitHub refuses the build job otherwise), and the tag ruleset should make
+>    `legacy-v*` / `legacy-rc-v*` immutable like `v*`. Check both before the first immutable legacy tag.
+> 8. **Without CI** (runners lost), the same order by hand on a Mac with Xcode 26.3:
+>    `VERSION=legacy-vX.Y.Z-N ./scripts/release.sh` → `generate_appcast` from the pinned Sparkle artifact on a
+>    directory holding only the new DMG → `scripts/legacy-appcast-finalize.py` → `scripts/legacy-publish.sh`
+>    (with `GH_TOKEN`, `GITHUB_REPOSITORY`, `GITHUB_SHA`). `release-legacy.yml` is the authoritative order.
+> 9. Local checks: `make legacy-check` (per-file typecheck at x86_64 10.13 / arm64 11 + link) and
+>    `make legacy-app` (signed `com.aiscream.Mara.legacytest` test app for real hardware). They are a first
+>    filter — the macOS 26.2 SDK in Xcode 26.3 differs in availability and Sendable annotations, so CI decides.
+
 Mara ships as a **Developer ID–signed, notarized DMG** (drag-to-Applications). This is the orthodox
 path for a non–App Store macOS menu-bar app. Mara requires **no special permissions** (no sandbox,
 no Accessibility/Location/Screen-Recording), so notarization is clean and there are no first-launch

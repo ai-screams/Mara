@@ -1,0 +1,8 @@
+# actionlint 설정. CI의 lint 잡이 이 파일을 자동으로 읽는다.
+paths:
+  .github/workflows/release-legacy.yml:
+    ignore:
+      # GitHub Actions의 `concurrency.queue`(single|max)는 공식 문서에 있는 키지만 actionlint 1.7.12(현재 최신)가
+      # 아직 모른다. 레거시 릴리스가 대기 중에 서로 취소되지 않게 하려면 `queue: max`가 필요하다 — 이 파일의 이 오류만 예외.
+      # actionlint가 지원하면 이 예외를 지운다.
+      - 'unexpected key "queue" for "concurrency" section'

@@ -1,0 +1,177 @@
+name: Release (legacy 10.13–13)
+
+# 레거시판 릴리스. 이 브랜치(legacy/10.13)에는 본판 release.yml이 없다 — v* 태그가 레거시 커밋에서 본판 latest를
+# 덮지 않게 하기 위해서다.
+#
+#   legacy-rc-vX.Y.Z-N → [build]만: 빌드·런타임 보강·번들 게이트·공증·DMG·appcast를 Actions artifact로 남긴다.
+#                        게시하지 않으며 이 잡에는 쓰기 권한이 없다. 이 artifact로 실기 RC 게이트를 통과한다.
+#   legacy-vX.Y.Z-N    → [build] → [publish]: publish는 같은 N의 RC 태그가 **같은 커밋**에 있을 때만 돈다.
+#                        버전별 릴리스(latest 아님) 생성 → legacy-feed 릴리스의 appcast 교체 → 본판 latest 불변 단언.
+#
+# 부분 실패 복구: 같은 run에서 "Re-run failed jobs"로 publish만 다시 돌린다. 전체를 다시 돌리면 서명·공증·DMG가
+# 새로 만들어져 이미 올린 자산과 digest가 달라지고 publish가 멈춘다(의도된 fail closed).
+# 보안: 서명 secret은 [build]에만(environment: release 승인), 쓰기 권한은 [publish]에만, 액션은 SHA 핀.
+
+on:
+  push:
+    tags:
+      - "legacy-v*"
+      - "legacy-rc-v*"
+
+permissions:
+  contents: read
+
+# ref가 아니라 고정 그룹: 두 레거시 릴리스가 legacy-feed를 동시에 갱신하지 않게 한다. 기본 queue(single)는 대기 중
+# 실행을 하나만 두고 새 실행이 오면 앞의 대기를 취소하므로 max로 둔다. 순서는 보장되지 않는다 — 작은 N이 늦게 돌면
+# publish의 버전 단언에서 실패하고 피드는 그대로다. 운영 규칙: 레거시 태그는 앞 릴리스가 끝난 뒤 하나씩 민다.
+concurrency:
+  group: legacy-feed
+  queue: max
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 60
+    environment: release # 서명·공증 secret 승인 게이트. Environment의 태그 정책이 legacy-v*·legacy-rc-v*를 허용해야 한다.
+    permissions:
+      contents: read
+    outputs:
+      kind: ${{ steps.tag.outputs.kind }}
+      release_tag: ${{ steps.tag.outputs.release_tag }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ github.sha }} # 승인 뒤 태그를 옮겨도 승인된 커밋이 빌드된다
+          persist-credentials: false
+
+      - name: Parse legacy tag
+        id: tag
+        run: |
+          set -euo pipefail
+          info="$(scripts/legacy-release-tag.sh "$GITHUB_REF_NAME")" || { echo "::error::Refusing tag $GITHUB_REF_NAME"; exit 1; }
+          echo "$info"
+          echo "kind=$(echo "$info" | sed -n 's/^KIND=//p')" >> "$GITHUB_OUTPUT"
+          echo "release_tag=$(echo "$info" | sed -n 's/^RELEASE_TAG=//p')" >> "$GITHUB_OUTPUT"
+
+      - name: Select Xcode
+        uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
+        with:
+          xcode-version: "26.3.0" # 10.13 target을 빌드하는 마지막 라인(Xcode 27은 12.0 미만을 거부)
+
+      - name: Assert toolchain
+        run: |
+          set -euo pipefail
+          xcodebuild -version | tee /dev/stderr | head -1 | grep -qx "Xcode 26.3" \
+            || { echo "::error::legacy builds require Xcode 26.3 exactly"; exit 1; }
+
+      - name: Import Developer ID certificate
+        uses: apple-actions/import-codesign-certs@5142e029c445c10ffc7149d172e540235a065466 # v7.0.0
+        with:
+          p12-file-base64: ${{ secrets.DEVELOPER_ID_CERT_P12 }}
+          p12-password: ${{ secrets.DEVELOPER_ID_CERT_PASSWORD }}
+
+      - name: Install XcodeGen (pinned, checksum-verified)
+        run: scripts/install-xcodegen.sh
+
+      - name: Install create-dmg
+        run: brew install create-dmg
+
+      - name: Build, bundle runtime, gate, sign, notarize, package
+        env:
+          DEVELOPMENT_TEAM: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+          VERSION: ${{ steps.tag.outputs.release_tag }} # RC도 같은 버전·빌드 번호의 앱을 만든다
+        run: ./scripts/release.sh
+
+      - name: Verify signed/notarized DMG
+        run: |
+          set -euo pipefail
+          DMG="$(ls dist/*.dmg)"
+          spctl -a -t open --context context:primary-signature -vv "$DMG"
+          xcrun stapler validate "$DMG"
+          cd dist && for f in *.dmg; do shasum -a 256 "$f" > "$f.sha256"; done && cat ./*.sha256
+
+      - name: Verify update-signing key matches embedded public key
+        env:
+          SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          APP_PUB="$(/usr/libexec/PlistBuddy -c 'Print :SUPublicEDKey' build/release/export/Mara.app/Contents/Info.plist)"
+          DERIVED_PUB="$(python3 scripts/ed25519_pub.py)"
+          [ "$APP_PUB" = "$DERIVED_PUB" ] || { echo "::error::SUPublicEDKey mismatch — clients would reject every update"; exit 1; }
+
+      - name: Generate single-item legacy appcast (P3/P4)
+        env:
+          SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
+          RELEASE_TAG: ${{ steps.tag.outputs.release_tag }}
+        run: |
+          set -euo pipefail
+          xcodebuild -resolvePackageDependencies -project ./Mara.xcodeproj -scheme Mara \
+            -disableAutomaticPackageResolution -derivedDataPath "$RUNNER_TEMP/spm" >/dev/null
+          GEN="$(find "$RUNNER_TEMP/spm/SourcePackages/artifacts" -type f -name generate_appcast | head -1)"
+          [ -n "$GEN" ] || { echo "generate_appcast not found in the pinned Sparkle artifact"; exit 1; }
+          # 빈 디렉터리에 후보 DMG만 — 기존 피드를 도구에 넣지 않는다(단일 항목 모델).
+          mkdir -p "$RUNNER_TEMP/feed" && cp dist/*.dmg "$RUNNER_TEMP/feed/"
+          printf '%s' "$SPARKLE_ED_PRIVATE_KEY" | "$GEN" --ed-key-file - \
+            --download-url-prefix "https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}/" \
+            -o dist/appcast.xml "$RUNNER_TEMP/feed/"
+          DMG="$(ls dist/*.dmg)"
+          BUILD="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' build/release/export/Mara.app/Contents/Info.plist)"
+          SHORT="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' build/release/export/Mara.app/Contents/Info.plist)"
+          python3 scripts/legacy-appcast-finalize.py dist/appcast.xml "$GITHUB_REPOSITORY" "$RELEASE_TAG" "$DMG" "$SHORT" "$BUILD"
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: legacy-dist-${{ steps.tag.outputs.release_tag }}
+          path: |
+            dist/*.dmg
+            dist/*.dmg.sha256
+            dist/appcast.xml
+          if-no-files-found: error
+          retention-days: 30
+
+  publish:
+    needs: build
+    if: needs.build.outputs.kind == 'release' # RC 태그는 게시하지 않는다
+    runs-on: macos-15 # DMG를 붙여 Info.plist를 읽는다(hdiutil)
+    timeout-minutes: 30
+    permissions:
+      contents: write # 릴리스 생성/자산 업로드, legacy-feed 갱신 — 이 잡에만. 서명 secret은 없다.
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0 # RC 태그의 커밋을 확인한다
+          persist-credentials: false
+
+      - name: Require the matching RC on the same commit
+        env:
+          RELEASE_TAG: ${{ needs.build.outputs.release_tag }}
+        run: |
+          set -euo pipefail
+          rc_tag="$(scripts/legacy-release-tag.sh "$RELEASE_TAG" | sed -n 's/^RC_TAG=//p')"
+          git fetch --no-tags --quiet origin "refs/tags/$rc_tag:refs/tags/$rc_tag" \
+            || { echo "::error::$rc_tag does not exist — push the RC and pass the hardware gate first"; exit 1; }
+          rc_commit="$(git rev-parse "$rc_tag^{commit}")"
+          [ "$rc_commit" = "$GITHUB_SHA" ] \
+            || { echo "::error::$rc_tag is on $rc_commit, $RELEASE_TAG is on $GITHUB_SHA — anything changed after the RC needs a new N"; exit 1; }
+          echo "✅ $rc_tag and $RELEASE_TAG share $GITHUB_SHA"
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: legacy-dist-${{ needs.build.outputs.release_tag }}
+          path: dist
+
+      - name: Verify artifact integrity
+        run: |
+          set -euo pipefail
+          cd dist && shasum -a 256 -c ./*.dmg.sha256
+
+      - name: Publish (P1–P7)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.build.outputs.release_tag }}
+        run: scripts/legacy-publish.sh "$RELEASE_TAG" dist

@@ -54,33 +54,20 @@ if [[ -z "${NOTARY_PROFILE:-}" ]]; then
         || die "공증 자격 없음: NOTARY_PROFILE 또는 (APPLE_ID + APPLE_APP_PASSWORD) 필요"
 fi
 
-# 버전 결정: 인자 > VERSION > git 태그 > 기본값
-VERSION="${1:-${VERSION:-}}"
-if [[ -z "$VERSION" ]]; then
-    VERSION="$(git describe --tags --abbrev=0 2>/dev/null || echo "0.0.0-dev")"
-fi
-VERSION="${VERSION#v}"  # 앞의 v 제거
-# 형식 방어: Mara 릴리스 버전 문법만 허용. CI에서 VERSION은 git 태그(github.ref_name)에서 오는데,
-# 태그명에 셸/경로/XML 특수문자가 들어가면 DMG 경로·ExportOptions.plist를 오염시킬 수 있다(모든
-# 사용처는 인용돼 인젝션은 불가하나, 방어적으로 형식을 강제한다).
-# 문법은 scripts/check-release-version.sh가 단일 출처 — release.yml의 appcast 스텝도 같은 스크립트를
-# 호출한다. 두 곳에 정규식을 복제하면 드리프트로 한쪽만 느슨해진다(실제로 그랬다: 이 자리의 옛
-# 정규식은 `1.2.3.foo`를, appcast의 셸 glob은 `v1foo.2bar.3baz`를 통과시켰다).
-# 실패 시 스크립트가 자체 메시지를 내고 exit 1 → set -e로 여기서 중단된다.
-"$ROOT_DIR/scripts/check-release-version.sh" "$VERSION"
-DMG="$DIST_DIR/$APP_NAME-$VERSION.dmg"
-
-# CFBundleVersion(=CURRENT_PROJECT_VERSION)은 단조 증가해야 하므로 git 커밋 수를 빌드번호로 쓴다.
-# 표시용 MARKETING_VERSION은 태그의 SemVer 유지. CI 체크아웃은 fetch-depth: 0이어야 정확.
-BUILD_NUMBER="$(git rev-list --count HEAD 2>/dev/null || echo 1)"
-
-# 커밋 없이 연속 태그를 막는다: HEAD에 (지금 빌드하는 v$VERSION 외의) 다른 v* 태그가 이미 있으면
-# git 커밋 수가 동일 → CFBundleVersion($BUILD_NUMBER)이 직전 릴리스와 충돌해 Sparkle이 새 버전으로
-# 인식하지 못한다. 정공법은 패치 커밋 후 재태그(빌드번호 단조 증가 보장).
-# grep -F: 버전의 '.'이 정규식 임의문자로 해석돼 다른 태그(예 v0x11x0)를 같은 버전으로 오인하지
-# 않도록 fixed-string 동등 비교. -- 로 옵션 종료(버전이 -로 시작해도 안전).
-existing_tag="$(git tag --points-at HEAD 'v*' 2>/dev/null | grep -Fvx -- "v$VERSION" || true)"
-[[ -z "$existing_tag" ]] || die "커밋 없이 연속 태그 감지: HEAD에 이미 태그 존재($existing_tag) → CFBundleVersion($BUILD_NUMBER)이 직전 릴리스와 충돌. 패치 커밋 후 재태그하라."
+# 버전 결정(레거시 브랜치): 레거시 태그만 받는다 — legacy-v<X.Y.Z>-<N> 또는 legacy-rc-v<X.Y.Z>-<N>.
+# 이 브랜치에서 본판 형식(vX.Y.Z) 릴리스가 나가면 본판 latest를 덮을 수 있으므로 여기서 막는다.
+# 문법·빌드 번호(114.N)는 scripts/legacy-release-tag.sh가 단일 출처(release-legacy.yml도 같은 스크립트).
+LEGACY_TAG="${1:-${VERSION:-}}"
+[[ -n "$LEGACY_TAG" ]] || die "레거시 태그 필요: VERSION=legacy-vX.Y.Z-N ./scripts/release.sh"
+tag_info="$("$ROOT_DIR/scripts/legacy-release-tag.sh" "$LEGACY_TAG")" || die "레거시 태그 형식 아님: $LEGACY_TAG"
+VERSION="$(print -r -- "$tag_info" | sed -n 's/^VERSION=//p')"
+BUILD_NUMBER="$(print -r -- "$tag_info" | sed -n 's/^BUILD=//p')"
+LEGACY_N="$(print -r -- "$tag_info" | sed -n 's/^N=//p')"
+[[ -n "$VERSION" && -n "$BUILD_NUMBER" && -n "$LEGACY_N" ]] || die "태그 파싱 실패: $LEGACY_TAG"
+# RC와 공개 릴리스는 같은 태그 번호(N)로 같은 앱을 만든다 — 둘 다 legacy-v…-N 기준의 버전·빌드 번호.
+DMG="$DIST_DIR/$APP_NAME-$VERSION-legacy-$LEGACY_N.dmg"
+# 레거시 의존성 핀(Sparkle 2.9.6, OpenCombine revision)을 빌드 전에 단언한다.
+"$ROOT_DIR/scripts/legacy-sparkle-pin.sh"
 
 print "▸ $APP_NAME $VERSION (build $BUILD_NUMBER) 배포본 빌드 (team=$DEVELOPMENT_TEAM, id='$DEVELOPER_ID_IDENTITY')"
 
@@ -156,6 +143,13 @@ if [[ -d "$APP/Contents/Frameworks" ]]; then
             || die "중첩 코드 서명 주체 불일치: $nested"
     done < <(find "$APP/Contents/Frameworks" -mindepth 1 -maxdepth 1 -print0)
 fi
+
+# ── 레거시: 10.13 런타임 보강 + 번들 게이트(서명 모드) — 공증 전에 ─────────────────────
+# Xcode 26.3 빌드는 Swift 런타임과 back-deploy 동시성 런타임을 대개 넣지만, 빠진 것만 채우고 다시 서명한다.
+# export가 이미 Developer ID로 서명한 Sparkle은 다시 서명하지 않는다(깨진 봉인을 덮지 않게 — 검증에서 실패).
+print "▸ [3b/6] 레거시 런타임 보강 + 번들 게이트…"
+"$ROOT_DIR/scripts/legacy-bundle-runtime.sh" "$APP" "$DEVELOPER_ID_IDENTITY"
+EXPECT_TEAM="$DEVELOPMENT_TEAM" "$ROOT_DIR/scripts/legacy-bundle-gate.sh" "$APP" --signed
 
 # ── 공증 헬퍼 (자격: NOTARY_PROFILE 또는 APPLE_ID+APP_PASSWORD) ────────────────
 # 실패 시 notary 로그를 덤프해 디버깅 가능하게 한다.
