@@ -411,7 +411,16 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     }
 
     @objc private func openCustomKeepAwake() {
-        onOpenCustomKeepAwake?()
+        Self.afterMenuTracking { [weak self] in self?.onOpenCustomKeepAwake?() }
+    }
+
+    /// 메뉴 동작에서 **모달(NSAlert.runModal)**을 띄울 때는 반드시 이것으로 미룬다.
+    /// 10.13 실기 충돌(probe1): 메뉴 항목 동작은 상태바 메뉴 추적(`popupStatusBarMenu`)이 끝나기 전에 불린다.
+    /// 그 안에서 모달 루프를 돌리고 세션 시작으로 버튼 이미지·제목이 바뀌면, 추적이 끝날 때
+    /// `_endTrackingNavigationLoopOnMenu`가 이미 풀린 객체를 release해 EXC_BAD_ACCESS로 죽는다.
+    /// default 모드로만 예약해 이벤트 추적 모드가 끝난 뒤(메뉴가 완전히 닫힌 뒤)에 실행되게 한다.
+    static func afterMenuTracking(_ work: @escaping @MainActor () -> Void) {
+        RunLoop.main.perform(inModes: [.default]) { unsafeAssumeMainActor { work() } }
     }
 
     @objc private func quit() {
@@ -599,6 +608,10 @@ extension StatusBarController {
 
     @objc fileprivate func forgetNetwork(_ sender: NSMenuItem) {
         guard let mac = sender.representedObject as? String else { return }
+        Self.afterMenuTracking { [weak self] in self?.confirmForgetNetwork(mac) }
+    }
+
+    fileprivate func confirmForgetNetwork(_ mac: String) {
         let alert = NSAlert()
         alert.messageText = "Forget network \(mac)?"
         alert.informativeText = "Mara will no longer keep your Mac awake on this network."
