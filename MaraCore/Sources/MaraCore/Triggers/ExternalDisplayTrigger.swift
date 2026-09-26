@@ -1,4 +1,4 @@
-import Combine
+import OpenCombine
 import AppKit
 import CoreGraphics
 
@@ -29,15 +29,15 @@ public final class NSScreenCounter: ScreenCounting {
             forName: NSApplication.didChangeScreenParametersNotification,
             object: nil, queue: .main
         ) { [weak self] _ in
-            MainActor.assumeIsolated { self?.subject.send(Self.readSnapshot()) }
+            unsafeAssumeMainActor { self?.subject.send(Self.readSnapshot()) }
         }
     }
     public var snapshot: ScreenSnapshot { subject.value }
     public var changes: AnyPublisher<ScreenSnapshot, Never> { subject.eraseToAnyPublisher() }
-    deinit {
-        MainActor.assumeIsolated {
-            if let observer { NotificationCenter.default.removeObserver(observer) }
-        }
+    /// 관찰 중지(멱등). `AppEnvironment.shutdown()`이 부른다(deinit에 정리를 두지 않는 이유는 NSWorkspaceAppsObserver와 같다).
+    public func stop() {
+        if let observer { NotificationCenter.default.removeObserver(observer) }
+        observer = nil
     }
 
     private static func readSnapshot() -> ScreenSnapshot {

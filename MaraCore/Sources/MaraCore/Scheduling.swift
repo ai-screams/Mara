@@ -29,7 +29,7 @@ public final class DispatchScheduler: Scheduling {
     public func schedule(after interval: TimeInterval,
                          _ action: @escaping @MainActor @Sendable () -> Void) -> SchedulerToken {
         let item = DispatchWorkItem {
-            MainActor.assumeIsolated { action() }
+            unsafeAssumeMainActor { action() }
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + interval, execute: item)
         return DispatchToken(item)

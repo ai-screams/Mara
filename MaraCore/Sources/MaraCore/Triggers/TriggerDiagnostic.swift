@@ -1,4 +1,4 @@
-import Combine
+import OpenCombine
 
 /// 트리거 1개의 진단 정보 — "왜 지금 충족/불충족인가"에 답하는 순수 값.
 /// UI 문구는 App 계층이 렌더한다 (Core에 UI 문자열 금지).

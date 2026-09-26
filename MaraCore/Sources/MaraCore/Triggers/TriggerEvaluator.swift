@@ -1,4 +1,4 @@
-import Combine
+import OpenCombine
 
 public enum TriggerKind: String, CaseIterable, Sendable {
     case charging

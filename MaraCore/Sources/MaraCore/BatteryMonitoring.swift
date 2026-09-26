@@ -1,5 +1,5 @@
 import Foundation
-import Combine
+import OpenCombine
 import IOKit.ps
 
 public enum BatterySnapshot: Equatable, Sendable {
@@ -53,7 +53,7 @@ public final class IOKitBatteryMonitor: BatteryMonitoring {
         let context = Unmanaged.passUnretained(self).toOpaque()
         guard let source = IOPSNotificationCreateRunLoopSource({ ctx in
             guard let ctx else { return }
-            MainActor.assumeIsolated {
+            unsafeAssumeMainActor {
                 let me = Unmanaged<IOKitBatteryMonitor>.fromOpaque(ctx).takeUnretainedValue()
                 me.subject.send(IOKitBatteryMonitor.read())
             }
@@ -116,14 +116,19 @@ public final class IOKitBatteryMonitor: BatteryMonitoring {
         return .battery(percentage: percentage, isOnAC: state == kIOPSACPowerValue)
     }
 
-    deinit {
-        MainActor.assumeIsolated {
-            // 제거 후 무효화: 콜백과 정리를 같은 main actor에 직렬화해 raw context가
-            // 해제 후 호출되는 틈을 막는다.
-            if let source = runLoopSource {
-                CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .defaultMode)
-                CFRunLoopSourceInvalidate(source)
-            }
+    /// 전원 알림 중지(멱등). `AppEnvironment.shutdown()`이 부른다.
+    /// 제거 후 무효화: 콜백과 정리를 같은 main actor에 직렬화해 raw context가 해제 후 호출되는 틈을 막는다.
+    public func stop() {
+        if let source = runLoopSource {
+            CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .defaultMode)
+            CFRunLoopSourceInvalidate(source)
         }
+        runLoopSource = nil
+    }
+
+    deinit {
+        // 안전망: context가 passUnretained(self)라 stop() 없이 해제되면 in-flight 콜백이 해제된 self를
+        // 읽는다. 다른 어댑터와 달리 여기서는 deinit 정리를 남긴다 — off-main 해제면 헬퍼가 트랩으로 드러낸다.
+        unsafeAssumeMainActor { stop() }
     }
 }
