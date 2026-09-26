@@ -150,11 +150,12 @@ jobs:
         # 레거시: SWIFT_STRICT_CONCURRENCY·SWIFT_TREAT_WARNINGS_AS_ERRORS를 명령줄로 넘기지 않는다 — 명령줄 빌드 설정은
         # SwiftPM 패키지(OpenCombine)에도 적용돼 패키지의 -suppress-warnings와 충돌한다("conflicting options").
         # 두 값은 project.yml의 Mara 타깃 설정에 이미 있어 앱 코드의 엄격함은 그대로다.
-        # Release인 이유: 아래 번들 게이트가 universal(x86_64 10.13 + arm64) 실행 파일을 본다. Debug는 활성 아키텍처만
+        # Release + generic destination인 이유: 아래 번들 게이트가 universal(x86_64 10.13 + arm64) 실행 파일을 본다
+        # (destination 없이는 러너 아키텍처 하나만 빌드한다). Debug는 활성 아키텍처만
         # 만들고 코드를 Mara.debug.dylib에 둬 게이트가 얇은 실행기만 검사하게 된다.
         run: |
           xcodebuild -project Mara.xcodeproj -scheme Mara \
-            -configuration Release -disableAutomaticPackageResolution \
+            -configuration Release -destination 'generic/platform=macOS' -disableAutomaticPackageResolution \
             -derivedDataPath "$RUNNER_TEMP/dd" CODE_SIGNING_ALLOWED=NO build
 
       - name: Legacy bundle gate (unsigned)
