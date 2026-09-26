@@ -2,6 +2,13 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+    <!-- 번들 정체성 키. 사용자 지정 Info.plist라 Xcode가 대신 넣어 주지 않는다. CFBundleExecutable이 없으면
+         실행 파일을 번들 이름으로 찾아, 이름이 바뀐 사본(Finder "둘 다 유지"의 "Mara 2.app")은 서명이 없는
+         코드로 판정된다. CFBundlePackageType이 없으면 PkgInfo가 ????????가 되어 spctl이 앱으로 보지 않는다. -->
+    <key>CFBundleDevelopmentRegion</key><string>en</string>
+    <key>CFBundleExecutable</key><string>Mara</string>
+    <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
+    <key>CFBundlePackageType</key><string>APPL</string>
     <key>CFBundleName</key><string>Mara</string>
     <key>CFBundleIdentifier</key><string>com.aiscream.Mara</string>
     <key>CFBundleShortVersionString</key><string>$(MARKETING_VERSION)</string>

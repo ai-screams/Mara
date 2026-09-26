@@ -61,13 +61,10 @@ xcrun actool App/Assets.xcassets --compile "$CONTENTS/Resources" --platform maco
     --output-partial-info-plist "$WORK/assets.plist" >"$WORK/actool.log"
 sed -e "s|\$(MARKETING_VERSION)|$MARKETING_VERSION|" -e "s|\$(CURRENT_PROJECT_VERSION)|$BUILD_NUMBER|" \
     App/Info.plist >"$CONTENTS/Info.plist"
-# Xcode 빌드가 자동으로 넣는 키 — 직접 조립이라 여기서 채운다.
+# Xcode 빌드에서는 actool이 넣는 아이콘 키 — 직접 조립이라 여기서 채운다.
+# 번들 정체성 키(CFBundleExecutable·CFBundlePackageType 등)는 App/Info.plist에 있다.
 /usr/libexec/PlistBuddy \
     -c "Set :CFBundleIdentifier $BUNDLE_ID" \
-    -c "Add :CFBundleExecutable string Mara" \
-    -c "Add :CFBundlePackageType string APPL" \
-    -c "Add :CFBundleInfoDictionaryVersion string 6.0" \
-    -c "Add :CFBundleDevelopmentRegion string en" \
     -c "Add :CFBundleIconFile string AppIcon" \
     -c "Add :CFBundleIconName string AppIcon" \
     "$CONTENTS/Info.plist"

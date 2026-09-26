@@ -48,6 +48,16 @@ has_archs() { local file="$1" arch; shift; for arch; do [[ " $(lipo -archs "$fil
 print "▸ legacy bundle gate: $APP ${MODE:+($MODE)}"
 [[ -x "$BIN" ]] || { print "  FAIL  executable missing: $BIN"; exit 1; }
 
+# ── 번들 정체성 ───────────────────────────────────────────────────────────────
+# App/Info.plist는 사용자 지정이라 Xcode가 이 키들을 넣지 않는다. 빠지면 이름이 바뀐 사본("Mara 2.app")의
+# 서명이 "not signed at all"로 판정되고(CFBundleExecutable) PkgInfo가 ????????가 된다(CFBundlePackageType).
+plist_is() { [[ "$(/usr/libexec/PlistBuddy -c "Print :$1" "$PLIST" 2>/dev/null)" == "$2" ]] }
+check "CFBundleExecutable = Mara" 'plist_is CFBundleExecutable Mara'
+check "CFBundlePackageType = APPL" 'plist_is CFBundlePackageType APPL'
+check "CFBundleInfoDictionaryVersion = 6.0" 'plist_is CFBundleInfoDictionaryVersion 6.0'
+check "CFBundleDevelopmentRegion = en" 'plist_is CFBundleDevelopmentRegion en'
+check "PkgInfo starts with APPL" '[[ "$(head -c 4 "$APP/Contents/PkgInfo" 2>/dev/null)" == APPL ]]'
+
 # ── 최소 OS와 아키텍처 ─────────────────────────────────────────────────────────
 check "LSMinimumSystemVersion = 10.13" \
     '[[ "$(/usr/libexec/PlistBuddy -c "Print :LSMinimumSystemVersion" "$PLIST")" == 10.13 ]]'
