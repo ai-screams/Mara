@@ -1,5 +1,5 @@
 import XCTest
-import Combine
+import OpenCombine
 @testable import MaraCore
 
 // @MainActor: SUT(TriggerEngine/SessionManager)가 @MainActor라 테스트도 main-actor에서 구동한다.

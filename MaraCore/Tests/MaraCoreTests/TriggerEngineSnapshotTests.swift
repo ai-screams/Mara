@@ -1,5 +1,5 @@
 import XCTest
-import Combine
+import OpenCombine
 @testable import MaraCore
 
 /// TriggerEngine의 @Published snapshot — armed 목록·만족 여부·진단·suppression의 read-only 노출.

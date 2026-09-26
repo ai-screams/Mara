@@ -1,4 +1,4 @@
-import Combine
+import OpenCombine
 
 @MainActor
 public final class TriggerEngine: ObservableObject {
@@ -27,7 +27,7 @@ public final class TriggerEngine: ObservableObject {
         // 그래서 SessionState(active/inactive)가 아니라 종료 이유를 담은 이벤트를 구독한다 —
         // 저배터리/타이머/트리거해제 종료를 수동 억제로 오분류하지 않기 위함. delivery는 main.
         sessionCancellable = session.events.sink { [weak self] event in
-            MainActor.assumeIsolated { self?.handleSessionEvent(event) }
+            unsafeAssumeMainActor { self?.handleSessionEvent(event) }
         }
         // 저배터리로 거부/종료된 트리거 세션이 전원 회복 후 재개되도록: eligibility가
         // blocked→allowed로 바뀌는 에지에서만 재평가한다. dropFirst로 구독 시 현재값 replay를
@@ -37,7 +37,7 @@ public final class TriggerEngine: ObservableObject {
             .dropFirst()
             .removeDuplicates()
             .sink { [weak self] eligibility in
-                MainActor.assumeIsolated {
+                unsafeAssumeMainActor {
                     guard eligibility == .allowed else { return }
                     self?.reevaluate()
                 }
@@ -59,13 +59,13 @@ public final class TriggerEngine: ObservableObject {
         for (kind, evaluator) in desired {
             if active[kind]?.evaluator === evaluator { continue }   // 동일 인스턴스 → 유지
             let c = evaluator.satisfied.sink { [weak self] _ in
-                MainActor.assumeIsolated { self?.reevaluate() }
+                unsafeAssumeMainActor { self?.reevaluate() }
             }
             // 진단 상세 변화(satisfied Bool로는 안 잡히는 화면 수·매칭 앱 변화) → 스냅샷 갱신.
             // 어댑터 publisher는 CurrentValueSubject 파생(didSet)이라 sink에서 현재값 재-read가 안전
             // (@Published willSet 규칙과 다른 케이스). 구독 시 동기 replay는 reconciling 가드가 흡수.
             let d = (evaluator as? TriggerDiagnosing)?.diagnostics.sink { [weak self] _ in
-                MainActor.assumeIsolated { self?.refreshSnapshot() }
+                unsafeAssumeMainActor { self?.refreshSnapshot() }
             }
             active[kind] = (evaluator, c, d)
         }

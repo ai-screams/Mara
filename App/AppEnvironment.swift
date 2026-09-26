@@ -1,9 +1,10 @@
-import SwiftUI
-import Combine
+import AppKit
+import OpenCombine
+import OpenCombineDispatch
 import MaraCore
 
 @MainActor
-final class AppEnvironment: ObservableObject {
+final class AppEnvironment {
     let session: SessionManager
     let prefs = PrefsStore()
 
@@ -14,10 +15,8 @@ final class AppEnvironment: ObservableObject {
     private let networkProvider = RoutingTableNetworkProvider()
 
     let triggerEngine: TriggerEngine
-    let sessionCommander: SessionCommander
-    // 글로벌 핫키 기능 보류(비활성화) — 코드는 보존, 재활성화 시 주석 해제.
-    // private var hotkey: HotkeyManager?
     private var cancellables = Set<AnyCancellable>()
+    private var isShutDown = false
 
     init() {
         let engine = SleepEngine(provider: IOKitPowerAssertionProvider())
@@ -32,28 +31,31 @@ final class AppEnvironment: ObservableObject {
         // 트리거 엔진은 1회 생성(durable) — suppression이 config 변경에도 유지됨
         let prefs = self.prefs
         self.triggerEngine = TriggerEngine(session: session, scope: { prefs.defaultScope })
-        self.sessionCommander = SessionCommander(session: session, scope: { prefs.defaultScope }, clock: SystemClock())
 
         // PrefsStore(@Published)는 main에서만 변이되므로 두 sink 모두 main에서 delivery된다.
-        // assumeIsolated로 @MainActor 코어(session/reconcileTriggers) 호출을 격리 보장한다.
         prefs.$lowBatteryThreshold
             .dropFirst()   // 초기값 재방출 무시 (init에서 이미 반영)
-            .sink { [weak self] v in MainActor.assumeIsolated { self?.session.lowBatteryThreshold = v } }
+            .sink { [weak self] v in unsafeAssumeMainActor { self?.session.lowBatteryThreshold = v } }
             .store(in: &cancellables)
         reconcileTriggers(prefs.triggerConfig)
         prefs.$triggerConfig
             .dropFirst()   // 초기값 재방출 무시 (위에서 한 번 반영함)
-            // Settings의 TextEditor가 키 입력마다 triggerConfig를 재할당하므로, 평가기
-            // 전체 재구성이 타이핑마다 돌지 않게 잠깐 모아서 반영한다(main 스케줄러 → 격리 유지).
-            .debounce(for: .milliseconds(300), scheduler: DispatchQueue.main)
-            .sink { [weak self] cfg in MainActor.assumeIsolated { self?.reconcileTriggers(cfg) } }
+            // 메뉴 토글이 연달아 바뀔 때 평가기 전체 재구성이 매번 돌지 않게 잠깐 모은다.
+            // OpenCombine: SDK에 Combine이 있으면 DispatchQueue 자체는 스케줄러가 아니다 — `.ocombine`.
+            .debounce(for: .milliseconds(300), scheduler: DispatchQueue.main.ocombine)
+            .sink { [weak self] cfg in unsafeAssumeMainActor { self?.reconcileTriggers(cfg) } }
             .store(in: &cancellables)
-        // installHotkey()  // 글로벌 핫키 보류
+    }
+
+    /// 저장 설정에서 Mara 자신의 감시 ID를 뺀 값 — 트리거 생성·상태 줄·메뉴가 모두 이 값을 쓴다.
+    var effectiveTriggerConfig: TriggerConfig {
+        LegacyMenuPolicy.effectiveConfig(prefs.triggerConfig, selfBundleID: Bundle.main.bundleIdentifier)
     }
 
     private func reconcileTriggers(_ cfg: TriggerConfig) {
         // 결정(어떤 트리거를 켤지)은 순수 activeSpecs()가, 인스턴스화만 여기서 담당.
-        triggerEngine.updateEvaluators(cfg.activeSpecs().map(makeEvaluator))
+        let effective = LegacyMenuPolicy.effectiveConfig(cfg, selfBundleID: Bundle.main.bundleIdentifier)
+        triggerEngine.updateEvaluators(effective.activeSpecs().map(makeEvaluator))
     }
 
     /// TriggerSpec(순수 결정) → 실제 OS 어댑터를 물린 evaluator. 불순한 인스턴스화만 담당.
@@ -68,17 +70,17 @@ final class AppEnvironment: ObservableObject {
 
     var currentNetwork: NetworkIdentity? { networkProvider.current }
 
-    // 글로벌 핫키 기능 보류(비활성화). 삭제하지 않고 보존 — 재활성화하려면 위 호출과
-    // 아래 메서드, 그리고 `hotkey` 프로퍼티 주석을 해제하면 된다. HotkeyManager.swift는 그대로 유지.
-    // private func installHotkey() {
-    //     let hk = HotkeyManager(onToggle: { [weak self] in
-    //         Task { @MainActor in
-    //             guard let self else { return }
-    //             let scope: KeepAwakeScope = self.prefs.defaultKeepDisplayAwake ? .displayAndSystem : .systemOnly
-    //             self.session.toggle(SessionConfig(scope: scope, duration: .indefinite, origin: .manual))
-    //         }
-    //     })
-    //     hk.register()
-    //     hotkey = hk
-    // }
+    /// 앱 종료 정리(1회). 알림 구독은 AppDelegate가 **이보다 먼저** 끊는다 — 여기서 트리거 세션이
+    /// `.triggerCleared`로 끝나며 종료 직후 알림이 뜨지 않게. 이 함수는 알림을 모른다.
+    func shutdown() {
+        guard !isShutDown else { return }
+        isShutDown = true
+        cancellables.removeAll()
+        triggerEngine.stop()
+        if session.state.isActive { _ = session.stop(reason: .manual) }   // assertion·타이머 해제
+        networkProvider.stop()
+        apps.stop()
+        screens.stop()
+        battery.stop()
+    }
 }

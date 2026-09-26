@@ -1,5 +1,5 @@
 import XCTest
-import Combine
+import OpenCombine
 @testable import MaraCore
 
 /// 각 평가기의 TriggerDiagnosing conformance — 현재값과 변화 방출을 검증한다.

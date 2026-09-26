@@ -1,4 +1,4 @@
-import Combine
+import OpenCombine
 import IOKit.ps
 import XCTest
 @testable import MaraCore

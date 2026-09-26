@@ -1,4 +1,4 @@
-import Combine
+import OpenCombine
 
 public struct NetworkIdentity: Hashable, Codable, Sendable {
     public let gatewayMAC: String

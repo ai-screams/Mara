@@ -1,4 +1,4 @@
-import Combine
+import OpenCombine
 import AppKit
 
 @MainActor
@@ -19,7 +19,7 @@ public final class NSWorkspaceAppsObserver: RunningAppsObserving {
                      NSWorkspace.didTerminateApplicationNotification] {
             observers.append(nc.addObserver(forName: name, object: nil, queue: .main) {
                 [weak self] _ in
-                MainActor.assumeIsolated { self?.subject.send(Self.snapshot()) }
+                unsafeAssumeMainActor { self?.subject.send(Self.snapshot()) }
             })
         }
     }
@@ -31,11 +31,12 @@ public final class NSWorkspaceAppsObserver: RunningAppsObserving {
     public var runningBundleIDs: Set<String> { subject.value }
     public var changes: AnyPublisher<Set<String>, Never> { subject.eraseToAnyPublisher() }
 
-    deinit {
-        MainActor.assumeIsolated {
-            let center = NSWorkspace.shared.notificationCenter
-            observers.forEach { center.removeObserver($0) }
-        }
+    /// 관찰 중지(멱등). `AppEnvironment.shutdown()`이 부른다. deinit에 정리를 두지 않는다 — 최종 해제
+    /// 스레드가 타입으로 보장되지 않고, 블록이 `[weak self]`라 남아도 호출되지 않는다.
+    public func stop() {
+        let center = NSWorkspace.shared.notificationCenter
+        observers.forEach { center.removeObserver($0) }
+        observers.removeAll()
     }
 }
 

@@ -147,8 +147,22 @@ jobs:
         run: scripts/generate-project.sh
 
       - name: Build app (no code signing)
+        # 레거시: SWIFT_STRICT_CONCURRENCY·SWIFT_TREAT_WARNINGS_AS_ERRORS를 명령줄로 넘기지 않는다 — 명령줄 빌드 설정은
+        # SwiftPM 패키지(OpenCombine)에도 적용돼 패키지의 -suppress-warnings와 충돌한다("conflicting options").
+        # 두 값은 project.yml의 Mara 타깃 설정에 이미 있어 앱 코드의 엄격함은 그대로다.
+        # Release + generic destination인 이유: 아래 번들 게이트가 universal(x86_64 10.13 + arm64) 실행 파일을 본다
+        # (destination 없이는 러너 아키텍처 하나만 빌드한다). Debug는 활성 아키텍처만
+        # 만들고 코드를 Mara.debug.dylib에 둬 게이트가 얇은 실행기만 검사하게 된다.
         run: |
           xcodebuild -project Mara.xcodeproj -scheme Mara \
-            -configuration Debug -disableAutomaticPackageResolution \
-            CODE_SIGNING_ALLOWED=NO SWIFT_STRICT_CONCURRENCY=complete \
-            SWIFT_TREAT_WARNINGS_AS_ERRORS=YES build
+            -configuration Release -destination 'generic/platform=macOS' -disableAutomaticPackageResolution \
+            -derivedDataPath "$RUNNER_TEMP/dd" CODE_SIGNING_ALLOWED=NO build
+
+      - name: Legacy bundle gate (unsigned)
+        # 10.13에서 뜨는 데 필요한 것(최소 OS, 조각, rpath, 동봉 런타임, Swift 심볼, Sparkle 2.9.6·헬퍼)을
+        # 릴리스 전에 PR에서 잡는다. 서명 없는 빌드는 Sparkle 봉인이 깨져 있어 ad-hoc으로 다시 서명한 뒤 검사한다.
+        run: |
+          APP="$RUNNER_TEMP/dd/Build/Products/Release/Mara.app"
+          ./scripts/legacy-sparkle-pin.sh
+          ./scripts/legacy-bundle-runtime.sh "$APP" -
+          ./scripts/legacy-bundle-gate.sh "$APP"

@@ -1,4 +1,4 @@
-import Combine
+import OpenCombine
 
 @MainActor
 public final class NetworkTrigger: TriggerEvaluator {

@@ -1,15 +1,18 @@
-import Combine
+import Foundation
+import OpenCombine
 import MaraCore
 
 /// 세션 이벤트 → 알림 매핑. 원칙: 사용자가 직접 하지 않은 일만 알린다 —
 /// 트리거 자동 시작, 그리고 자동 종료(타이머/저배터리/트리거 해제). 수동·교체는 침묵.
+/// 레거시: 알림 권한 요청이 async(10.15+)라 10.15 미만에는 이 경로 전체가 없다(`NotificationBox` 참조).
+@available(macOS 10.15, *)
 @MainActor
 final class SessionNotifier {
     private var cancellable: AnyCancellable?
 
     init(session: SessionManager, isEnabled: @escaping () -> Bool, service: NotificationService) {
         cancellable = session.events.sink { event in
-            MainActor.assumeIsolated {
+            MainActor.assumeIsolated {   // 이 타입은 10.15+ 전용이라 원본을 쓴다
                 guard isEnabled(), let c = Self.content(for: event) else { return }
                 service.post(title: c.title, body: c.body)
             }
@@ -21,7 +24,7 @@ final class SessionNotifier {
         if case .active(let cfg, _) = session.state,
            cfg.origin == .trigger,
            isEnabled(),
-           let c = Self.content(for: SessionEvent(at: .now, kind: .started(cfg))) {
+           let c = Self.content(for: SessionEvent(at: Date(), kind: .started(cfg))) {
             service.post(title: c.title, body: c.body)
         }
     }

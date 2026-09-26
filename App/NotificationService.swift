@@ -3,6 +3,7 @@ import UserNotifications
 
 /// UNUserNotificationCenter 어댑터. 권한은 여기서 절대 선요청하지 않는다 —
 /// Settings 토글을 켜는 순간에만 requestAuthorization이 불린다(권한 0 원칙의 opt-in 예외).
+@available(macOS 10.15, *)
 final class NotificationService: NSObject, UNUserNotificationCenterDelegate {
     private let center = UNUserNotificationCenter.current()
 
@@ -28,6 +29,10 @@ final class NotificationService: NSObject, UNUserNotificationCenterDelegate {
                                 willPresent notification: UNNotification,
                                 withCompletionHandler completionHandler:
                                     @escaping (UNNotificationPresentationOptions) -> Void) {
-        completionHandler([.banner, .list])
+        if #available(macOS 11.0, *) {
+            completionHandler([.banner, .list])
+        } else {
+            completionHandler([.alert])   // 10.15: .banner/.list(11+)가 없다
+        }
     }
 }

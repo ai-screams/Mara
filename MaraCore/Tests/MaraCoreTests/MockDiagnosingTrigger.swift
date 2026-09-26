@@ -1,5 +1,5 @@
 import Foundation
-import Combine
+import OpenCombine
 @testable import MaraCore
 
 /// satisfied와 diagnostic을 독립적으로 조작할 수 있는 진단 제공 목.
