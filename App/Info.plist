@@ -6,7 +6,7 @@
     <key>CFBundleIdentifier</key><string>com.aiscream.Mara</string>
     <key>CFBundleShortVersionString</key><string>$(MARKETING_VERSION)</string>
     <key>CFBundleVersion</key><string>$(CURRENT_PROJECT_VERSION)</string>
-    <key>LSMinimumSystemVersion</key><string>14.0</string>
+    <key>LSMinimumSystemVersion</key><string>10.13</string>
     <key>LSUIElement</key><true/>
     <!-- Sparkle 자동 업데이트. 개인키는 유지보수자 Keychain(account "Mara")과 release 환경
          CI secret에만 있고 공개키만 여기 내장. 피드는 최신 GitHub Release 자산(고정 리다이렉트 URL). -->

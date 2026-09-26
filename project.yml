@@ -2,7 +2,7 @@ name: Mara
 options:
   bundleIdPrefix: com.aiscream
   deploymentTarget:
-    macOS: "14.0"
+    macOS: "10.13"
   createIntermediateGroups: true
 packages:
   MaraCore:
@@ -12,6 +12,9 @@ packages:
   Sparkle:
     url: https://github.com/sparkle-project/Sparkle
     exactVersion: 2.9.6
+  OpenCombine:
+    url: https://github.com/OpenCombine/OpenCombine
+    exactVersion: 0.14.0
 targets:
   Mara:
     type: application
@@ -20,6 +23,12 @@ targets:
     dependencies:
       - package: MaraCore
       - package: Sparkle
+      - package: OpenCombine
+        product: OpenCombine
+      - package: OpenCombine
+        product: OpenCombineFoundation
+      - package: OpenCombine
+        product: OpenCombineDispatch
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.aiscream.Mara
