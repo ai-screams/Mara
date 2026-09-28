@@ -246,12 +246,15 @@ notarize "$DMG"
 xcrun stapler staple "$DMG"
 
 # ── 게시 전 자가검증 ─────────────────────────────────────────────────────────
-# 앱은 stapler로 검증한다(공증 티켓 부착 여부 = 권위 있는 확인). legacy-v0.11.2-2까지 `spctl -a -t exec`가 낸
-# "does not seem to be an app"은 LSUIElement 탓이 아니라 Info.plist에 CFBundlePackageType이 없어서였다(#76 —
-# 같은 LSUIElement 앱인 Azimuth는 accepted). 공증 산출물로 아직 확인하지 않아 게이트로는 쓰지 않는다.
+# 앱은 stapler(공증 티켓 부착)와 Gatekeeper 실행 평가(`spctl -a -t exec`) 둘 다로 검증한다. 실행 평가는
+# "accepted" + "source=Notarized Developer ID"여야 통과 — Gatekeeper가 꺼진 러너(override=security disabled)나
+# 번들 키 누락("does not seem to be an app", legacy-v0.11.2-2까지의 상태, #76)은 여기서 실패한다.
 # DMG는 사용자가 실제로 겪는 다운로드-오픈 Gatekeeper 흐름(`spctl -t open`)으로 검증한다.
 print "▸ 검증…"
 xcrun stapler validate "$APP" | sed 's/^/    /'
+gk_exec="$(spctl -a -t exec -vv "$APP" 2>&1)" || die "spctl -t exec 거부: $gk_exec"
+print -r -- "$gk_exec" | sed 's/^/    /'
+[[ "$gk_exec" == *"source=Notarized Developer ID"* ]] || die "spctl -t exec: 공증된 Developer ID 판정이 아님: $gk_exec"
 spctl -a -t open --context context:primary-signature -vv "$DMG" 2>&1 | sed 's/^/    /'
 xcrun stapler validate "$DMG" | sed 's/^/    /'
 
