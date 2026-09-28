@@ -37,7 +37,7 @@ EXPORT_OPTS="$BUILD_DIR/ExportOptions.plist"
 
 DEVELOPER_ID_IDENTITY="${DEVELOPER_ID_IDENTITY:-Developer ID Application}"
 
-die() { print -u2 "release: $1"; exit 1; }
+die() { print -ru2 -- "release: $1"; exit 1; }
 
 # 실패 중단 시 임시 산출물 정리.
 STAGE=""; ZIP=""
@@ -252,7 +252,12 @@ xcrun stapler staple "$DMG"
 # DMG는 사용자가 실제로 겪는 다운로드-오픈 Gatekeeper 흐름(`spctl -t open`)으로 검증한다.
 print "▸ 검증…"
 xcrun stapler validate "$APP" | sed 's/^/    /'
-gk_exec="$(spctl -a -t exec -vv "$APP" 2>&1)" || die "spctl -t exec 거부: $gk_exec"
+# 실행 평가는 사용자가 실제로 받는 사본(최종 DMG 안의 앱)으로 한다.
+GK_MOUNT="$(mktemp -d)"
+hdiutil attach "$DMG" -nobrowse -readonly -mountpoint "$GK_MOUNT" >/dev/null || die "DMG 마운트 실패: $DMG"
+gk_rc=0; gk_exec="$(spctl -a -t exec -vv "$GK_MOUNT/$APP_NAME.app" 2>&1)" || gk_rc=$?
+hdiutil detach "$GK_MOUNT" -quiet || true
+(( gk_rc == 0 )) || die "spctl -t exec 거부(DMG 안의 앱): $gk_exec"
 print -r -- "$gk_exec" | sed 's/^/    /'
 [[ "$gk_exec" == *"source=Notarized Developer ID"* ]] || die "spctl -t exec: 공증된 Developer ID 판정이 아님: $gk_exec"
 spctl -a -t open --context context:primary-signature -vv "$DMG" 2>&1 | sed 's/^/    /'
