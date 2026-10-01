@@ -17,3 +17,23 @@ updates:
           - patch
     commit-message:
       prefix: ci
+
+  # legacy/10.13(macOS 10.13–13 레거시판)도 같은 규칙으로 본다. Dependabot은 기본 브랜치의 이 파일만 읽으므로
+  # 다른 브랜치는 target-branch로 지정해야 한다 — 없으면 레거시 핀이 갈라질 때 상태로 멈춘다.
+  - package-ecosystem: github-actions
+    target-branch: legacy/10.13
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+    groups:
+      github-actions-legacy:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
+    commit-message:
+      prefix: ci
