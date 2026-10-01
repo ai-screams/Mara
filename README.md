@@ -68,7 +68,7 @@ The network trigger uses no location permission. It normalizes and matches the d
 ### Requirements
 
 - macOS 14 or later
-- **On macOS 10.13–13**, use the [legacy build](https://github.com/ai-screams/Mara/releases/tag/legacy-v0.11.2-3) (`0.11.2 Legacy`) — see [Older macOS](#older-macos-legacy-build).
+- **On macOS 10.13–13**, use the [legacy build](https://github.com/ai-screams/Mara/releases/tag/legacy-v0.11.2-4) (`0.11.2 Legacy`) — see [Older macOS](#older-macos-legacy-build).
 - Apple Silicon and Intel Macs
 - Developer ID–signed and Apple-notarized DMG (opens Gatekeeper-clean, no warning)
 - No Location, Accessibility, or Screen Recording permissions
@@ -77,7 +77,7 @@ Updates are delivered in-app: Mara checks the signed release feed and offers new
 
 ### Older macOS (legacy build)
 
-Download [`Mara-0.11.2-legacy-3.dmg`](https://github.com/ai-screams/Mara/releases/download/legacy-v0.11.2-3/Mara-0.11.2-legacy-3.dmg) (release notes: [legacy release](https://github.com/ai-screams/Mara/releases/tag/legacy-v0.11.2-3)) and install it the same way. It is Developer ID–signed and notarized like the regular build.
+Download [`Mara-0.11.2-legacy-4.dmg`](https://github.com/ai-screams/Mara/releases/download/legacy-v0.11.2-4/Mara-0.11.2-legacy-4.dmg) (release notes: [legacy release](https://github.com/ai-screams/Mara/releases/tag/legacy-v0.11.2-4)) and install it the same way. It is Developer ID–signed and notarized like the regular build.
 
 - **Same core features, from the menu bar.** Keep-awake, timers (presets, custom durations, until a time of day), `Keep display awake`, low-battery auto-off, the automatic triggers (charging, external display, watched apps, networks) and the icon color all live in the menu.
 - **What it leaves out.** There is no settings window, first-run guide, or Shortcuts support, and watched apps are picked from the running apps only (no manual bundle ID entry). Launch at login needs macOS 13; notifications need macOS 10.15. It gets fixes only — new features ship in the regular version.
