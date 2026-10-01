@@ -40,7 +40,7 @@ jobs:
       kind: ${{ steps.tag.outputs.kind }}
       release_tag: ${{ steps.tag.outputs.release_tag }}
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.sha }} # 승인 뒤 태그를 옮겨도 승인된 커밋이 빌드된다
           persist-credentials: false
@@ -145,7 +145,7 @@ jobs:
     permissions:
       contents: write # 릴리스 생성/자산 업로드, legacy-feed 갱신 — 이 잡에만. 서명 secret은 없다.
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.sha }}
           fetch-depth: 0 # RC 태그의 커밋을 확인한다
