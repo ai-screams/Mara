@@ -2,7 +2,7 @@
 // Mara DMG 창 배경 생성기 — Night Watch 스타일 (Settings 창·랜딩 페이지와 동일 팔레트).
 // 사용:  swift scripts/dmg/generate-background.swift
 // 산출:  scripts/dmg/background.png (540×380), background@2x.png (1080×760)
-// 좌표 계약: release.sh의 create-dmg와 일치해야 한다 — window 540×380, icon 100,
+// 좌표 계약: release.sh의 create-dmg와 일치해야 한다 — window 540×380, icon 100, text-size 16,
 //            앱 아이콘 중심 (140,200), Applications 드롭링크 중심 (400,200) [좌상단 원점].
 import AppKit
 
@@ -13,6 +13,14 @@ let muted  = NSColor(red: 0x8B / 255, green: 0x8B / 255, blue: 0x95 / 255, alpha
 
 // create-dmg의 아이콘 y=200은 좌상단 원점 → AppKit(좌하단 원점) y = H-200.
 let iconRowY: CGFloat = H - 200
+
+// 아이콘 이름("Mara"·"Applications")은 배경이 아니라 Finder가 그리고, 색은 시스템이 정한다(DMG에서 지정 불가).
+// 라이트 모드와 10.13(다크 모드 없음)은 검은 글자라 어두운 배경에서 사라진다 → 이름 자리에 주황 태그를 깐다.
+// 검은 글자 약 6.6:1, 다크 모드의 흰 글자 약 3.2:1. 이름 중심은 좌상단 원점 y≈268(아이콘 아래),
+// 크기는 release.sh의 --text-size와 같아야 태그가 이름을 감싼다.
+let labelSize: CGFloat = 16
+let labelCenterY: CGFloat = H - 268
+let labelTag = accent.withAlphaComponent(0.8)
 
 func rounded(_ size: CGFloat, _ weight: NSFont.Weight) -> NSFont {
     let base = NSFont.systemFont(ofSize: size, weight: weight)
@@ -84,6 +92,15 @@ func render(scale: CGFloat) -> NSBitmapImageRep {
     head.close()
     accent.setFill()
     head.fill()
+
+    // Finder 이름 뒤 태그 — 폭은 이름 폭 + 좌우 10pt, 높이 26pt 캡슐. 앱 쪽은 "Mara.app" 폭으로 잡는다:
+    // Finder의 "모든 파일 확장자 보기"가 켜져 있으면 숨김 비트와 무관하게 확장자가 보인다(10.13 실기에서 확인).
+    labelTag.setFill()
+    for (centerX, name) in [(CGFloat(140), "Mara.app"), (CGFloat(400), "Applications")] {
+        let w = NSAttributedString(string: name, attributes: [.font: NSFont.systemFont(ofSize: labelSize)]).size().width
+        NSBezierPath(roundedRect: NSRect(x: centerX - w / 2 - 10, y: labelCenterY - 13, width: w + 20, height: 26),
+                     xRadius: 13, yRadius: 13).fill()
+    }
 
     drawCentered("Drag Mara into Applications", font: .systemFont(ofSize: 12),
                  color: muted, kern: 0, centerY: 46)
