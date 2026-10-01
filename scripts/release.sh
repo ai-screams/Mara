@@ -194,6 +194,9 @@ print "▸ [6/6] DMG 생성…"
 STAGE="$BUILD_DIR/dmg-stage"
 rm -rf "$STAGE"; mkdir -p "$STAGE"
 cp -R "$APP" "$STAGE/"
+# 확장자 숨김 비트(SetFile -a E)는 쓰지 않는다 — 서명된 번들 루트에 com.apple.FinderInfo가 붙어
+# `codesign --verify --strict`가 "Finder information … detritus"로 실패한다. "Mara.app"으로 보여도(Finder
+# "모든 파일 확장자 보기") 배경의 이름 태그가 그 폭을 감싼다(scripts/dmg/generate-background.swift).
 
 # 앱 아이콘으로 DMG 볼륨 아이콘(.icns) 생성 → create-dmg --volicon.
 ICONSET="$BUILD_DIR/$APP_NAME.iconset"
@@ -221,6 +224,7 @@ if command -v create-dmg >/dev/null 2>&1; then
         --background "$BG"
         --window-size 540 380
         --icon-size 100
+        --text-size 16
         --icon "$APP_NAME.app" 140 200
         --app-drop-link 400 200
         --no-internet-enable
