@@ -219,7 +219,7 @@ struct SettingsView: View {
             }
 
             ForEach(prefs.triggerConfig.watchedBundleIDs, id: \.self) { id in
-                RemovableChipRow(text: id.rawValue) {
+                WatchedAppRow(bundleID: id.rawValue) {
                     prefs.triggerConfig.removeWatchedBundleID(id)
                 }
             }
