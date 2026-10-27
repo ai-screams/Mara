@@ -39,6 +39,7 @@ final class PrefsStore: ObservableObject {
         didSet { UserDefaults.standard.set(menuBarTint.rawValue, forKey: Keys.menuBarTint) }
     }
     var defaultScope: KeepAwakeScope { KeepAwakeScope(keepDisplay: defaultKeepDisplayAwake) }
+    private static let defaultLowBatteryThreshold = 50
     private enum Keys {
         static let defaultKeepDisplayAwake = "defaultKeepDisplayAwake"
         static let lowBatteryThreshold = "lowBatteryThreshold"
@@ -52,14 +53,16 @@ final class PrefsStore: ObservableObject {
         let d = UserDefaults.standard
         d.register(defaults: [
             Keys.defaultKeepDisplayAwake: true,
-            Keys.lowBatteryThreshold: 50,
+            Keys.lowBatteryThreshold: Self.defaultLowBatteryThreshold,
             Keys.notifyAutoSessionChanges: false,
             Keys.recentCustomDurations: [TimeInterval](),
             Keys.hasShownFirstRunGuide: false,
             Keys.menuBarTint: MenuBarTint.default.rawValue,
         ])
         defaultKeepDisplayAwake = d.bool(forKey: Keys.defaultKeepDisplayAwake)
-        lowBatteryThreshold = Self.sanitizeBatteryThreshold(d.integer(forKey: Keys.lowBatteryThreshold))
+        // 신뢰 경계: integer(forKey:)는 문자열·소수를 0(=끔)으로 바꾸므로 쓰지 않는다 — Core가 검증한다.
+        lowBatteryThreshold = SessionManager.validatedBatteryThreshold(
+            d.object(forKey: Keys.lowBatteryThreshold), fallback: Self.defaultLowBatteryThreshold)
         notifyAutoSessionChanges = d.bool(forKey: Keys.notifyAutoSessionChanges)
         hasShownFirstRunGuide = d.bool(forKey: Keys.hasShownFirstRunGuide)
         // 신뢰 경계: 저장 문자열이 nil/미지 값이면 Core가 기본값(ember)으로 폴백한다.
@@ -74,6 +77,16 @@ final class PrefsStore: ObservableObject {
             triggerConfig = .defaults
         }
     }
+    /// 화면 유지 변경의 단일 경로 — 메뉴 "Keep display awake"와 설정 창 토글이 함께 쓴다.
+    /// 켜진 세션에 먼저 적용하고 성공했을 때만 기본값을 바꾼다. 실패하면 기본값은 그대로고
+    /// 이유는 `session.lastFailure`에 남는다(설정 창 Error 줄). 비활성이면 updateScope는 no-op 성공.
+    @discardableResult
+    func setKeepDisplayAwake(_ value: Bool, applyingTo session: SessionManager) -> Result<Void, SessionFailure> {
+        let result = session.updateScope(KeepAwakeScope(keepDisplay: value))
+        if case .success = result { defaultKeepDisplayAwake = value }
+        return result
+    }
+
     /// 최근 커스텀 duration 전체 삭제 (메뉴 "Clear Recent").
     func clearRecentCustomDurations() {
         recentCustomDurations = []

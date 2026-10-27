@@ -41,7 +41,7 @@ final class SessionEventTests: XCTestCase {
 
     func test_start_recordsStartedWithConfig() {
         let (sm, _, _) = makeSUT()
-        let c = cfg(origin: .trigger)
+        let c = cfg(origin: .trigger(.charging))
         sm.start(c)
         XCTAssertEqual(sm.recentEvents.last?.kind, .started(c))
     }

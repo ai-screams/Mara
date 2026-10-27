@@ -24,7 +24,13 @@ public extension SessionDuration {
 
 public enum SessionOrigin: Equatable, Sendable {
     case manual
-    case trigger
+    /// 트리거가 연 세션. 연 트리거 종류를 함께 담는다(UI의 "Started by charging" 표시용).
+    case trigger(TriggerKind)
+
+    public var isTrigger: Bool {
+        if case .trigger = self { return true }
+        return false
+    }
 }
 
 public struct SessionConfig: Equatable, Sendable {

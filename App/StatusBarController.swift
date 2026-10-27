@@ -201,8 +201,13 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     }
 
     private func addTriggerStatusItem(to menu: NSMenu, state: SessionState) {
-        if case let .active(cfg, _) = state, cfg.origin == .trigger {
-            let t = NSMenuItem(title: "Auto-activated (trigger)", action: nil, keyEquivalent: "")
+        if case let .active(cfg, _) = state, case let .trigger(opener) = cfg.origin {
+            // 메뉴는 "지금" 무엇이 세션을 붙잡고 있는지를 보인다 — 연 트리거가 풀리고 다른 트리거가
+            // 이어받았을 수 있다(예: 충전으로 시작 → 외부 모니터 연결 → 충전기 분리). 연 트리거는 설정 창
+            // 헤더의 "Started by …"가 과거 사실로 보인다. 충족이 없는 순간(해제 직전)엔 연 트리거로 폴백.
+            let holder = env.triggerEngine.firstSatisfiedKind ?? opener
+            let t = NSMenuItem(title: "Auto-activated (\(TriggerKindText.name(holder)))",
+                               action: nil, keyEquivalent: "")
             t.isEnabled = false
             t.image = Self.menuSymbol("bolt.fill")
             menu.addItem(t)
@@ -371,13 +376,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     }
 
     @objc private func toggleDisplay() {
-        let newValue = !currentKeepDisplay
-        let result = env.session.updateScope(KeepAwakeScope(keepDisplay: newValue))
-        guard case .success = result else {
-            report(result)
-            return
-        }
-        env.prefs.defaultKeepDisplayAwake = newValue
+        report(env.prefs.setKeepDisplayAwake(!currentKeepDisplay, applyingTo: env.session))
     }
 
     @objc private func toggleLaunchAtLogin() {

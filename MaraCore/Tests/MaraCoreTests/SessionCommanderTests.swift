@@ -129,7 +129,7 @@ final class SessionCommanderTests: XCTestCase {
     func test_status_isTriggered_whenSessionOriginIsTrigger() {
         let (cmd, sm, _) = make()
         // 트리거 기인 세션을 직접 주입(트리거 엔진 없이 origin만 검증)
-        sm.start(SessionConfig(scope: .systemOnly, duration: .indefinite, origin: .trigger))
+        sm.start(SessionConfig(scope: .systemOnly, duration: .indefinite, origin: .trigger(.charging)))
         XCTAssertEqual(cmd.status(), KeepAwakeStatus(isActive: true, remaining: nil, isTriggered: true))
     }
 }

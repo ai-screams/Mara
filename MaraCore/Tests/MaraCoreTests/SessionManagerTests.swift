@@ -115,7 +115,7 @@ extension SessionManagerTests {
 
     func test_triggerLowBatteryReject_doesNotSetLastFailure_butRecordsEvent() {
         let (sm, _, _, _) = makeSUTWithBattery(threshold: 20, percentage: 15, isOnAC: false)
-        let config = SessionConfig(scope: .systemOnly, duration: .indefinite, origin: .trigger)
+        let config = SessionConfig(scope: .systemOnly, duration: .indefinite, origin: .trigger(.charging))
 
         guard case .failure(.lowBattery(percent: 15)) = sm.start(config) else {
             return XCTFail("expected low-battery pre-rejection")
@@ -132,7 +132,7 @@ extension SessionManagerTests {
         _ = sm.start(SessionConfig(scope: .systemOnly, duration: .indefinite, origin: .manual))
         XCTAssertEqual(sm.lastFailure, .lowBattery(percent: 15))
         // 이어진 트리거 거부는 기존 수동 실패 정보를 지우지 않는다
-        _ = sm.start(SessionConfig(scope: .systemOnly, duration: .indefinite, origin: .trigger))
+        _ = sm.start(SessionConfig(scope: .systemOnly, duration: .indefinite, origin: .trigger(.charging)))
         XCTAssertEqual(sm.lastFailure, .lowBattery(percent: 15))
     }
 
@@ -339,5 +339,85 @@ extension SessionManagerTests {
         XCTAssertNoThrow(try sm.stop().get())
         XCTAssertTrue(p.live.isEmpty)
         XCTAssertNil(sm.lastFailure)
+    }
+}
+
+// 임계값 0 = 저배터리 자동 종료 끔. 0%로 읽혀도 거부·종료하지 않는다.
+// 이것을 실패시키는 것: batteryFloorBreach의 `lowBatteryThreshold != batteryAutoOffDisabled` 가드 제거
+// (0% <= 0 이 참이 되어 거부된다).
+extension SessionManagerTests {
+    func test_thresholdZero_startsEvenAtZeroPercentOnBattery() {
+        let (sm, _, _, _) = makeSUTWithBattery(threshold: 0, percentage: 0, isOnAC: false)
+        XCTAssertNoThrow(try sm.start(
+            SessionConfig(scope: .systemOnly, duration: .indefinite, origin: .manual)).get())
+        XCTAssertTrue(sm.state.isActive)
+        XCTAssertEqual(sm.startEligibility, .allowed)
+    }
+
+    func test_thresholdZero_doesNotStopWhenBatteryReadsZero() {
+        let (sm, battery, _, _) = makeSUTWithBattery(threshold: 0, percentage: 50, isOnAC: false)
+        sm.start(SessionConfig(scope: .systemOnly, duration: .indefinite, origin: .manual))
+        battery.emit(percentage: 0, isOnAC: false)
+        XCTAssertTrue(sm.state.isActive)
+    }
+
+    // 경계: 0만 "끔"이고 1은 퍼센트다. 이것을 실패시키는 것: 가드를 `> 1` 같은 범위 비교로 넓히는 것.
+    func test_thresholdOne_stillRejectsAtOnePercent() {
+        let (sm, _, _, _) = makeSUTWithBattery(threshold: 1, percentage: 1, isOnAC: false)
+        guard case .failure(.lowBattery(percent: 1)) = sm.start(
+            SessionConfig(scope: .systemOnly, duration: .indefinite, origin: .manual)) else {
+            return XCTFail("expected low-battery rejection at 1%")
+        }
+    }
+
+    func test_thresholdBelowRange_clampsToOff() {
+        let (sm, _, _, _) = makeSUTWithBattery(threshold: -10)
+        XCTAssertEqual(sm.lowBatteryThreshold, SessionManager.batteryAutoOffDisabled)
+    }
+}
+
+// 저장소 신뢰 경계: 범위 안의 정수만 받고 나머지는 fallback. 0(끔)으로 clamp하면 보호가 조용히 꺼진다.
+// 이것을 실패시키는 것: validatedBatteryThreshold를 clamp(`min(max(v, lower), upper)`)로 바꾸는 것.
+extension SessionManagerTests {
+    func test_validatedBatteryThreshold_acceptsInRangeIntsIncludingOff() {
+        XCTAssertEqual(SessionManager.validatedBatteryThreshold(40, fallback: 50), 40)
+        XCTAssertEqual(SessionManager.validatedBatteryThreshold(0, fallback: 50), 0)
+        XCTAssertEqual(SessionManager.validatedBatteryThreshold(100, fallback: 50), 100)
+        XCTAssertEqual(SessionManager.validatedBatteryThreshold(NSNumber(value: 30), fallback: 50), 30)
+    }
+
+    func test_validatedBatteryThreshold_rejectsMalformedAndOutOfRange() {
+        for stored: Any? in ["abc", NSNumber(value: 0.5), -10, 101, nil] as [Any?] {
+            XCTAssertEqual(SessionManager.validatedBatteryThreshold(stored, fallback: 50), 50,
+                           "\(String(describing: stored)) must fall back, not turn protection off")
+        }
+    }
+
+    // 하한 = 끔이라는 두 상수의 약속을 고정. 이것을 실패시키는 것: 범위 하한을 독립 리터럴로 되돌려 다르게 두는 것.
+    func test_thresholdRangeLowerBound_isOff() {
+        XCTAssertEqual(SessionManager.batteryThresholdRange.lowerBound, SessionManager.batteryAutoOffDisabled)
+    }
+}
+
+// NSNumber 변환 브리지: plist의 Bool·부동소수가 `as? Int`를 통과한다(false → 0 = 끔).
+// 이것을 실패시키는 것: validatedBatteryThreshold의 CFBoolean 검사(Bool 케이스) 또는 "f"/"d" 저장형 검사(50.0 케이스) 제거.
+extension SessionManagerTests {
+    func test_validatedBatteryThreshold_rejectsBooleans() {
+        let d = UserDefaults(suiteName: "MaraCoreTests.threshold")!
+        defer { d.removePersistentDomain(forName: "MaraCoreTests.threshold") }
+        for flag in [false, true] {
+            d.set(flag, forKey: "k")
+            XCTAssertEqual(SessionManager.validatedBatteryThreshold(d.object(forKey: "k"), fallback: 50), 50,
+                           "stored Bool \(flag) must fall back, not become \(flag ? 1 : 0)")
+        }
+    }
+
+    func test_validatedBatteryThreshold_rejectsIntegralFloats() {
+        let d = UserDefaults(suiteName: "MaraCoreTests.threshold")!
+        defer { d.removePersistentDomain(forName: "MaraCoreTests.threshold") }
+        d.set(50.0, forKey: "k")
+        XCTAssertEqual(SessionManager.validatedBatteryThreshold(d.object(forKey: "k"), fallback: 20), 20)
+        d.set(40, forKey: "k")   // 같은 경로의 정상 정수는 통과
+        XCTAssertEqual(SessionManager.validatedBatteryThreshold(d.object(forKey: "k"), fallback: 20), 40)
     }
 }

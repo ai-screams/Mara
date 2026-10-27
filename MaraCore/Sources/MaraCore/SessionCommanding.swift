@@ -69,6 +69,6 @@ public final class SessionCommander: SessionCommanding {
             return KeepAwakeStatus(isActive: false, remaining: nil, isTriggered: false)
         }
         let remaining = expiresAt.map { max(0, $0.timeIntervalSince(clock.now)) }
-        return KeepAwakeStatus(isActive: true, remaining: remaining, isTriggered: cfg.origin == .trigger)
+        return KeepAwakeStatus(isActive: true, remaining: remaining, isTriggered: cfg.origin.isTrigger)
     }
 }

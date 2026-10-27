@@ -66,7 +66,8 @@ final class AppEnvironment: ObservableObject {
         }
     }
 
-    var currentNetwork: NetworkIdentity? { networkProvider.current }
+    /// 현재 네트워크(게이트웨이) — CurrentValueSubject라 구독 즉시 현재값을 재방출한다. delivery는 main.
+    var networkChanges: AnyPublisher<NetworkIdentity?, Never> { networkProvider.changes }
 
     // 글로벌 핫키 기능 보류(비활성화). 삭제하지 않고 보존 — 재활성화하려면 위 호출과
     // 아래 메서드, 그리고 `hotkey` 프로퍼티 주석을 해제하면 된다. HotkeyManager.swift는 그대로 유지.

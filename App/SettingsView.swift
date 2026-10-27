@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 import MaraCore
 
 /// "Night Watch" 설정 창 — 항상 다크(MaraTheme), 눈 아이콘 glow 헤더 + 카드형 섹션.
@@ -7,11 +8,14 @@ struct SettingsView: View {
     @ObservedObject var prefs: PrefsStore
     @ObservedObject var session: SessionManager
     @ObservedObject var triggers: TriggerEngine
-    let currentNetwork: () -> NetworkIdentity?
+    /// 네트워크는 비동기로 늦게 알려지고, 감시 목록이 비면 네트워크 트리거가 없어 진단 갱신도 없다.
+    /// 그래서 클로저로 읽지 않고 직접 구독한다 — 아니면 버튼·안내가 첫 등록 전에 낡은 채 남는다.
+    let networkChanges: AnyPublisher<NetworkIdentity?, Never>
     var checkForUpdates: () -> Void = {}
     var requestNotificationAuth: () async -> Bool = { false }
     @State private var appPicker: AppPickerPayload?
     @State private var manualBundleID = ""
+    @State private var currentNetwork: NetworkIdentity?
 
     /// sheet(item:)용 페이로드 — isPresented+별도 @State 조합은 첫 표시가 낡은(빈) 상태를
     /// 캡처하는 SwiftUI 함정이 있다(실사고: 빈 피커). 데이터가 곧 표시 트리거가 되게 한다.
@@ -38,6 +42,14 @@ struct SettingsView: View {
         .background(MaraTheme.bg)
         .preferredColorScheme(.dark)
         .maraAccent(prefs.menuBarTint)
+        .onReceive(networkChanges) { currentNetwork = $0 }
+    }
+
+    /// 메뉴 "Keep display awake"와 같은 경로(`PrefsStore.setKeepDisplayAwake`) — 켜진 세션에도 바로 적용한다.
+    /// 적용에 실패하면 기본값이 바뀌지 않으므로 토글이 이전 값으로 돌아가고 Error 줄이 이유를 보인다.
+    private var keepDisplayBinding: Binding<Bool> {
+        Binding(get: { prefs.defaultKeepDisplayAwake },
+                set: { prefs.setKeepDisplayAwake($0, applyingTo: session) })
     }
 
     // MARK: - Cards
@@ -45,11 +57,16 @@ struct SettingsView: View {
     private var generalCard: some View {
         SettingsCard(title: "GENERAL") {
             SettingsToggleRow(symbol: "display", title: "Keep display awake by default",
-                              isOn: $prefs.defaultKeepDisplayAwake)
+                              isOn: keepDisplayBinding)
             SettingsStepperRow(symbol: "battery.25", title: "Low-battery auto-off",
                                value: $prefs.lowBatteryThreshold,
-                               range: SessionManager.batteryThresholdRange, step: 5)
-            SettingsCaption("On battery power, a session won't start—and a running session ends—when the level is at or below the threshold. At 100%, keep-awake never runs on battery.")
+                               range: SessionManager.batteryThresholdRange, step: 5,
+                               offValue: SessionManager.batteryAutoOffDisabled)
+            if prefs.lowBatteryThreshold == SessionManager.batteryAutoOffDisabled {
+                SettingsCaption("Off — keep-awake runs at any battery level.")
+            } else {
+                SettingsCaption("On battery power, a session won't start—and a running session ends—when the level is at or below the threshold. At 100%, keep-awake never runs on battery. Step below 5% to turn it off.")
+            }
             SettingsToggleRow(symbol: "bell.badge", title: "Notify on automatic start & end",
                               isOn: $prefs.notifyAutoSessionChanges)
                 .onChange(of: prefs.notifyAutoSessionChanges) { _, enabled in
@@ -62,9 +79,6 @@ struct SettingsView: View {
                         }
                     }
                 }
-            if let last = session.recentEvents.last {
-                SettingsCaption("Last: \(Self.eventLine(last))")
-            }
             if let failure = session.lastFailure {
                 SettingsCaption("Error: \(SessionFailureText.describe(failure))")
             }
@@ -126,6 +140,12 @@ struct SettingsView: View {
             Text(active ? "Keeping your Mac awake" : "The eye is resting — your Mac may sleep")
                 .font(.caption)
                 .foregroundStyle(active ? accent : MaraTheme.muted)
+            // 마지막 세션 이벤트는 세션 상태 문구 바로 밑에 둔다 — 알림 토글 밑에 두면 알림 기록처럼 읽힌다.
+            if let last = session.recentEvents.last {
+                Text(Self.eventLine(last))
+                    .font(.caption)
+                    .foregroundStyle(MaraTheme.muted)
+            }
         }
         .frame(maxWidth: .infinity)
         .animation(.easeInOut(duration: 0.25), value: active)
@@ -203,7 +223,7 @@ struct SettingsView: View {
             }
 
             ForEach(prefs.triggerConfig.watchedBundleIDs, id: \.self) { id in
-                RemovableChipRow(text: id.rawValue) {
+                WatchedAppRow(bundleID: id.rawValue) {
                     prefs.triggerConfig.removeWatchedBundleID(id)
                 }
             }
@@ -236,7 +256,7 @@ struct SettingsView: View {
     private var networkList: some View {
         VStack(alignment: .leading, spacing: 7) {
             Button {
-                if let mac = currentNetwork()?.gatewayMAC,
+                if let mac = currentNetwork?.gatewayMAC,
                    !prefs.triggerConfig.watchedNetworks.contains(mac) {
                     prefs.triggerConfig.watchedNetworks.append(mac)
                 }
@@ -245,8 +265,13 @@ struct SettingsView: View {
                     .font(.callout)
             }
             .buttonStyle(.borderless)
-            .foregroundStyle(accent)
-            .disabled(currentNetwork() == nil)
+            // 색을 직접 지정하면 비활성이어도 흐려지지 않는다 — 비활성일 땐 muted로 바꿔 상태와 모양을 맞춘다.
+            .foregroundStyle(currentNetwork == nil ? MaraTheme.muted : accent)
+            .disabled(currentNetwork == nil)
+            if currentNetwork == nil {
+                // 버튼이 회색인 이유 — 진단 줄 "can't resolve gateway"와 같은 판단(게이트웨이 MAC 미해석).
+                SettingsCaption("Can't identify this network — no router found. VPNs and tethering can hide it.")
+            }
 
             ForEach(prefs.triggerConfig.watchedNetworks, id: \.self) { mac in
                 RemovableChipRow(text: mac) {
@@ -279,7 +304,8 @@ struct SettingsView: View {
         case .externalDisplay(let active, let count):
             return externalDisplayStatus(active: active, count: count)
         case .appRunningSingle(let active, let id):
-            return (active, "Active — \(id) running")
+            // 감시 목록과 같은 이름으로 — 설치되지 않은 ID는 ID 그대로.
+            return (active, "Active — \(InstalledAppInfo.lookup(id)?.name ?? id) running")
         case .appRunningMultiple(let count):
             return (true, "Active — \(count) watched apps running")
         case .appRunningNone(let watched):
@@ -310,20 +336,23 @@ struct SettingsView: View {
 
     // MARK: - Event formatter
 
-    /// 최근 이벤트 한 줄 요약(영어) — 메뉴를 로그 뷰어로 만들지 않는다는 원칙에 따라 1개만.
+    /// 최근 이벤트 한 줄 요약(영어, 문장형 대문자) — 메뉴를 로그 뷰어로 만들지 않는다는 원칙에 따라 1개만.
     static func eventLine(_ event: SessionEvent) -> String {
         let time = event.at.formatted(date: .omitted, time: .shortened)
         switch event.kind {
         case .started(let cfg):
-            return cfg.origin == .trigger ? "started by trigger · \(time)" : "started · \(time)"
-        case .stopped(.manual):               return "turned off · \(time)"
-        case .stopped(.timerExpired):         return "timer expired · \(time)"
-        case .stopped(.lowBattery(let p)):    return "ended — low battery \(p)% · \(time)"
-        case .stopped(.triggerCleared):       return "ended — trigger cleared · \(time)"
-        case .stopped(.replacedByNewSession): return "restarted · \(time)"
-        case .scopeChanged:                   return "scope changed · \(time)"
-        case .startRejected(_, .lowBattery(let p)): return "didn't start — low battery \(p)% · \(time)"
-        case .startRejected:                  return "didn't start · \(time)"
+            if case let .trigger(kind) = cfg.origin {
+                return "Started by \(TriggerKindText.name(kind)) · \(time)"
+            }
+            return "Started · \(time)"
+        case .stopped(.manual):               return "Turned off · \(time)"
+        case .stopped(.timerExpired):         return "Timer expired · \(time)"
+        case .stopped(.lowBattery(let p)):    return "Ended — low battery \(p)% · \(time)"
+        case .stopped(.triggerCleared):       return "Ended — trigger cleared · \(time)"
+        case .stopped(.replacedByNewSession): return "Restarted · \(time)"
+        case .scopeChanged:                   return "Scope changed · \(time)"
+        case .startRejected(_, .lowBattery(let p)): return "Didn't start — low battery \(p)% · \(time)"
+        case .startRejected:                  return "Didn't start · \(time)"
         }
     }
 }
