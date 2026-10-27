@@ -89,7 +89,10 @@ struct SettingsCaption: View {
     private let text: String
     init(_ text: String) { self.text = text }
     var body: some View {
+        // 창 높이는 NSHostingController가 콘텐츠 크기로 정한다. 세로 고정이 없으면 긴 문구가
+        // 한 줄 높이에 갇혀 말줄임으로 잘린다(실사고: 저배터리 캡션의 100% 안내가 안 보임).
         Text(text).font(.caption).foregroundStyle(MaraTheme.muted)
+            .fixedSize(horizontal: false, vertical: true)
     }
 }
 
@@ -123,6 +126,7 @@ struct SettingsStatusRow: View {
             Text(text)
                 .font(.caption)
                 .foregroundStyle(active ? accent : MaraTheme.muted)
+                .fixedSize(horizontal: false, vertical: true)   // SettingsCaption과 같은 이유
         }
         .padding(.leading, indent ? 27 : 0)
         .accessibilityElement(children: .combine)
