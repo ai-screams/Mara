@@ -265,7 +265,8 @@ struct SettingsView: View {
                     .font(.callout)
             }
             .buttonStyle(.borderless)
-            .foregroundStyle(accent)
+            // 색을 직접 지정하면 비활성이어도 흐려지지 않는다 — 비활성일 땐 muted로 바꿔 상태와 모양을 맞춘다.
+            .foregroundStyle(currentNetwork == nil ? MaraTheme.muted : accent)
             .disabled(currentNetwork == nil)
             if currentNetwork == nil {
                 // 버튼이 회색인 이유 — 진단 줄 "can't resolve gateway"와 같은 판단(게이트웨이 MAC 미해석).
