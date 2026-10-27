@@ -304,7 +304,8 @@ struct SettingsView: View {
         case .externalDisplay(let active, let count):
             return externalDisplayStatus(active: active, count: count)
         case .appRunningSingle(let active, let id):
-            return (active, "Active — \(id) running")
+            // 감시 목록과 같은 이름으로 — 설치되지 않은 ID는 ID 그대로.
+            return (active, "Active — \(InstalledAppInfo.lookup(id)?.name ?? id) running")
         case .appRunningMultiple(let count):
             return (true, "Active — \(count) watched apps running")
         case .appRunningNone(let watched):

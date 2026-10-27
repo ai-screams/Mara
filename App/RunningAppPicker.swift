@@ -117,9 +117,30 @@ struct RunningAppPickerView: View {
 enum InstalledAppInfo {
     static func lookup(_ bundleID: String) -> RunningAppItem? {
         guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else { return nil }
-        let name = FileManager.default.displayName(atPath: url.path)
+        return RunningAppItem(id: bundleID, name: localizedName(bundleID: bundleID, url: url),
+                              icon: NSWorkspace.shared.icon(forFile: url.path))
+    }
+
+    /// 피커(`NSRunningApplication.localizedName`)와 같은 사용자 언어 이름.
+    /// `FileManager.displayName`은 문서와 달리 호출 앱(영어 전용 Mara)의 언어를 따라 "카카오톡" 대신
+    /// "KakaoTalk"을 준다(실측, macOS 27). 실행 중이 아닌 앱은 그 번들의 InfoPlist 테이블(.strings·
+    /// .loctable)을 사용자 언어로 읽는다 — 그 API가 15.4+라 그 전에는 파일 표시 이름으로 돌아간다.
+    private static func localizedName(bundleID: String, url: URL) -> String {
+        if let running = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first?.localizedName {
+            return running
+        }
+        if #available(macOS 15.4, *), let bundle = Bundle(url: url) {
+            let languages = Bundle.preferredLocalizations(from: bundle.localizations,
+                                                          forPreferences: Locale.preferredLanguages)
+                .map { Locale.Language(identifier: $0) }
+            for key in ["CFBundleDisplayName", "CFBundleName"] {
+                // 번역이 없으면 key를 그대로 돌려준다(value: nil).
+                let name = bundle.localizedString(forKey: key, value: nil, table: "InfoPlist", localizations: languages)
+                if name != key { return name }
+            }
+        }
+        return FileManager.default.displayName(atPath: url.path)
             .replacingOccurrences(of: ".app", with: "", options: [.anchored, .backwards])
-        return RunningAppItem(id: bundleID, name: name, icon: NSWorkspace.shared.icon(forFile: url.path))
     }
 }
 
