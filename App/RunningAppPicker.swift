@@ -112,20 +112,14 @@ struct RunningAppPickerView: View {
 }
 
 /// 감시 목록의 bundle ID → 설치된 앱의 이름·아이콘. 설치되지 않은 ID(직접 입력·삭제한 앱)는 nil.
-/// 찾은 결과만 캐시한다 — 설정 창은 진단 갱신마다 다시 그려지므로 LaunchServices 조회를 반복하지 않고,
-/// 못 찾은 ID는 나중에 설치될 수 있어 캐시하지 않는다.
+/// 캐시하지 않는다 — 감시 앱은 몇 개뿐이고, 캐시하면 앱 이름 변경·삭제 뒤에도 옛 표시가 남는다.
 @MainActor
 enum InstalledAppInfo {
-    private static var cache: [String: RunningAppItem] = [:]
-
     static func lookup(_ bundleID: String) -> RunningAppItem? {
-        if let hit = cache[bundleID] { return hit }
         guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else { return nil }
         let name = FileManager.default.displayName(atPath: url.path)
             .replacingOccurrences(of: ".app", with: "", options: [.anchored, .backwards])
-        let item = RunningAppItem(id: bundleID, name: name, icon: NSWorkspace.shared.icon(forFile: url.path))
-        cache[bundleID] = item
-        return item
+        return RunningAppItem(id: bundleID, name: name, icon: NSWorkspace.shared.icon(forFile: url.path))
     }
 }
 
