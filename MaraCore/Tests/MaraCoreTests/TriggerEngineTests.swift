@@ -308,3 +308,40 @@ extension TriggerEngineTests {
         XCTAssertFalse(sm.state.isActive)
     }
 }
+
+// 세션을 연 트리거 종류를 SessionConfig.trigger에 기록한다(UI의 "Started by charging" 표시용).
+extension TriggerEngineTests {
+    // 이것을 실패시키는 것: TriggerEngine.reevaluate의 start에서 `trigger: opener` 인자 제거.
+    func test_triggerSession_recordsOpeningKind() {
+        let (sm, _) = makeSession()
+        let t = MockTrigger(kind: .externalDisplay, satisfied: false)
+        let engine = TriggerEngine(session: sm, scope: { .systemOnly })
+        engine.updateEvaluators([t])
+        t.set(true)
+        guard case let .active(cfg, _) = sm.state else { return XCTFail("expected active") }
+        XCTAssertEqual(cfg.trigger, .externalDisplay)
+    }
+
+    // 동시 충족이면 TriggerKind 선언 순서의 첫 번째. 이것을 실패시키는 것: allCases를 역순(.reversed())으로 도는 것.
+    func test_triggerSession_multipleSatisfied_recordsFirstInDeclarationOrder() {
+        let (sm, _) = makeSession()
+        let app = MockTrigger(kind: .appRunning, satisfied: true)
+        let charging = MockTrigger(kind: .charging, satisfied: true)
+        let engine = TriggerEngine(session: sm, scope: { .systemOnly })
+        engine.updateEvaluators([app, charging])
+        guard case let .active(cfg, _) = sm.state else { return XCTFail("expected active") }
+        XCTAssertEqual(cfg.trigger, .charging)
+    }
+
+    // 이것을 실패시키는 것: withScope가 trigger를 빠뜨리는 것(scope 변경 뒤 표시가 "trigger"로 퇴화).
+    func test_scopeChange_keepsOpeningKind() {
+        let (sm, _) = makeSession()
+        let t = MockTrigger(kind: .network, satisfied: true)
+        let engine = TriggerEngine(session: sm, scope: { .systemOnly })
+        engine.updateEvaluators([t])
+        _ = sm.updateScope(.displayAndSystem)
+        guard case let .active(cfg, _) = sm.state else { return XCTFail("expected active") }
+        XCTAssertEqual(cfg.trigger, .network)
+        XCTAssertTrue(cfg.scope.keepsDisplayAwake)
+    }
+}

@@ -331,7 +331,9 @@ struct SettingsView: View {
         let time = event.at.formatted(date: .omitted, time: .shortened)
         switch event.kind {
         case .started(let cfg):
-            return cfg.origin == .trigger ? "started by trigger · \(time)" : "started · \(time)"
+            return cfg.origin == .trigger
+                ? "started by \(TriggerKindText.name(cfg.trigger)) · \(time)"
+                : "started · \(time)"
         case .stopped(.manual):               return "turned off · \(time)"
         case .stopped(.timerExpired):         return "timer expired · \(time)"
         case .stopped(.lowBattery(let p)):    return "ended — low battery \(p)% · \(time)"

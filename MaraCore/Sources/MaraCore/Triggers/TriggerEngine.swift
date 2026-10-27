@@ -109,7 +109,10 @@ public final class TriggerEngine: ObservableObject {
         }
         guard !suppressed else { return }
         if !session.state.isActive {
-            session.start(SessionConfig(scope: scope(), duration: .indefinite, origin: .trigger))
+            // 여러 트리거가 동시에 충족이면 TriggerKind 선언 순서의 첫 번째를 기록한다(표시용).
+            let opener = TriggerKind.allCases.first { active[$0]?.evaluator.isSatisfied == true }
+            session.start(SessionConfig(scope: scope(), duration: .indefinite, origin: .trigger,
+                                        trigger: opener))
         }
         // 이미 활성(수동 포함)이면 no-op — 수동 > 트리거
     }

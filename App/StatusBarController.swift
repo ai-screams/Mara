@@ -202,7 +202,8 @@ final class StatusBarController: NSObject, NSMenuDelegate {
 
     private func addTriggerStatusItem(to menu: NSMenu, state: SessionState) {
         if case let .active(cfg, _) = state, cfg.origin == .trigger {
-            let t = NSMenuItem(title: "Auto-activated (trigger)", action: nil, keyEquivalent: "")
+            let t = NSMenuItem(title: "Auto-activated (\(TriggerKindText.name(cfg.trigger)))",
+                               action: nil, keyEquivalent: "")
             t.isEnabled = false
             t.image = Self.menuSymbol("bolt.fill")
             menu.addItem(t)

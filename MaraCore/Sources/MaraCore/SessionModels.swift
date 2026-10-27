@@ -31,14 +31,17 @@ public struct SessionConfig: Equatable, Sendable {
     public var scope: KeepAwakeScope
     public var duration: SessionDuration
     public var origin: SessionOrigin
-    public init(scope: KeepAwakeScope, duration: SessionDuration, origin: SessionOrigin) {
-        self.scope = scope; self.duration = duration; self.origin = origin
+    /// 세션을 연 트리거(origin == .trigger일 때만 non-nil). UI가 "무엇이 켰나"를 보여 주는 데 쓴다.
+    public var trigger: TriggerKind?
+    public init(scope: KeepAwakeScope, duration: SessionDuration, origin: SessionOrigin,
+                trigger: TriggerKind? = nil) {
+        self.scope = scope; self.duration = duration; self.origin = origin; self.trigger = trigger
     }
 }
 
 public extension SessionConfig {
     func withScope(_ scope: KeepAwakeScope) -> SessionConfig {
-        SessionConfig(scope: scope, duration: duration, origin: origin)
+        SessionConfig(scope: scope, duration: duration, origin: origin, trigger: trigger)
     }
 }
 
