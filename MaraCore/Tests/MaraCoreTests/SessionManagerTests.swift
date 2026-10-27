@@ -341,3 +341,37 @@ extension SessionManagerTests {
         XCTAssertNil(sm.lastFailure)
     }
 }
+
+// 임계값 0 = 저배터리 자동 종료 끔. 0%로 읽혀도 거부·종료하지 않는다.
+// 이것을 실패시키는 것: batteryFloorBreach의 `lowBatteryThreshold != batteryAutoOffDisabled` 가드 제거
+// (0% <= 0 이 참이 되어 거부된다).
+extension SessionManagerTests {
+    func test_thresholdZero_startsEvenAtZeroPercentOnBattery() {
+        let (sm, _, _, _) = makeSUTWithBattery(threshold: 0, percentage: 0, isOnAC: false)
+        XCTAssertNoThrow(try sm.start(
+            SessionConfig(scope: .systemOnly, duration: .indefinite, origin: .manual)).get())
+        XCTAssertTrue(sm.state.isActive)
+        XCTAssertEqual(sm.startEligibility, .allowed)
+    }
+
+    func test_thresholdZero_doesNotStopWhenBatteryReadsZero() {
+        let (sm, battery, _, _) = makeSUTWithBattery(threshold: 0, percentage: 50, isOnAC: false)
+        sm.start(SessionConfig(scope: .systemOnly, duration: .indefinite, origin: .manual))
+        battery.emit(percentage: 0, isOnAC: false)
+        XCTAssertTrue(sm.state.isActive)
+    }
+
+    // 경계: 0만 "끔"이고 1은 퍼센트다. 이것을 실패시키는 것: 가드를 `> 1` 같은 범위 비교로 넓히는 것.
+    func test_thresholdOne_stillRejectsAtOnePercent() {
+        let (sm, _, _, _) = makeSUTWithBattery(threshold: 1, percentage: 1, isOnAC: false)
+        guard case .failure(.lowBattery(percent: 1)) = sm.start(
+            SessionConfig(scope: .systemOnly, duration: .indefinite, origin: .manual)) else {
+            return XCTFail("expected low-battery rejection at 1%")
+        }
+    }
+
+    func test_thresholdBelowRange_clampsToOff() {
+        let (sm, _, _, _) = makeSUTWithBattery(threshold: -10)
+        XCTAssertEqual(sm.lowBatteryThreshold, SessionManager.batteryAutoOffDisabled)
+    }
+}

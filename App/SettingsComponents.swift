@@ -49,6 +49,8 @@ struct SettingsStepperRow: View {
     @Binding var value: Int
     let range: ClosedRange<Int>
     let step: Int
+    /// 이 값이면 숫자 대신 "Off"를 보인다(예: 저배터리 임계값 0 = 끔). nil이면 항상 숫자.
+    var offValue: Int? = nil
     @Environment(\.accentTint) private var accent
 
     // 텍스트 입력·스테퍼 모두 이 바인딩을 통해서만 값을 쓴다 → 범위 밖 입력(예: 250)이
@@ -65,14 +67,20 @@ struct SettingsStepperRow: View {
             Spacer(minLength: 8)
             // 직접 입력 가능한 숫자 필드 + "%" — 편집 영역임을 은은한 박스로 표시(수동 bundle ID 필드와 동일 패턴).
             HStack(spacing: 1) {
-                TextField(title, value: clamped, format: .number)
-                    .labelsHidden()
-                    .textFieldStyle(.plain)
-                    .multilineTextAlignment(.trailing)
-                    .font(.callout.monospacedDigit())
-                    .foregroundStyle(accent)
-                    .frame(width: 30)
-                Text("%").font(.callout).foregroundStyle(accent)
+                if value == offValue {
+                    // 끔 상태는 입력 필드 대신 고정 라벨 — 스테퍼를 올리면 다시 숫자 필드가 된다.
+                    Text("Off").font(.callout).foregroundStyle(accent)
+                        .frame(width: 41, alignment: .trailing)
+                } else {
+                    TextField(title, value: clamped, format: .number)
+                        .labelsHidden()
+                        .textFieldStyle(.plain)
+                        .multilineTextAlignment(.trailing)
+                        .font(.callout.monospacedDigit())
+                        .foregroundStyle(accent)
+                        .frame(width: 30)
+                    Text("%").font(.callout).foregroundStyle(accent)
+                }
             }
             .padding(.horizontal, 6)
             .padding(.vertical, 2)

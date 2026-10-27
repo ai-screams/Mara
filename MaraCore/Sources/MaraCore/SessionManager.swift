@@ -80,8 +80,10 @@ public final class SessionManager: ObservableObject {
 
     /// The offending battery % if a session must not run on the current power state; nil otherwise.
     /// nil for .desktop / .unavailable / nil-battery, and for on-AC or above-floor states.
+    /// 임계값 0 = 자동 종료 끔(`batteryAutoOffDisabled`) — 0%로 잘못 읽힌 값도 거부하지 않는다.
     private func batteryFloorBreach(_ snapshot: BatterySnapshot?) -> Int? {
-        guard case let .battery(percentage, isOnAC) = snapshot,
+        guard lowBatteryThreshold != Self.batteryAutoOffDisabled,
+              case let .battery(percentage, isOnAC) = snapshot,
               !isOnAC, percentage <= lowBatteryThreshold else { return nil }
         return percentage
     }
@@ -186,7 +188,10 @@ public final class SessionManager: ObservableObject {
     }
 
     /// 저배터리 임계값의 허용 범위. App(입력 clamp·stepper range)도 이 상수를 참조한다.
-    public static let batteryThresholdRange: ClosedRange<Int> = 5...100
+    /// 하한 0은 퍼센트가 아니라 "끔"이다(`batteryAutoOffDisabled`). 1–4는 5 단위 stepper로는 닿지 않는다.
+    public static let batteryThresholdRange: ClosedRange<Int> = 0...100
+    /// 이 임계값이면 저배터리 거부권을 걸지 않는다.
+    public static let batteryAutoOffDisabled = 0
 
     private static func clampBatteryThreshold(_ value: Int) -> Int {
         min(max(value, batteryThresholdRange.lowerBound), batteryThresholdRange.upperBound)

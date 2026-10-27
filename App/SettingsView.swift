@@ -55,8 +55,13 @@ struct SettingsView: View {
                               isOn: keepDisplayBinding)
             SettingsStepperRow(symbol: "battery.25", title: "Low-battery auto-off",
                                value: $prefs.lowBatteryThreshold,
-                               range: SessionManager.batteryThresholdRange, step: 5)
-            SettingsCaption("On battery power, a session won't start—and a running session ends—when the level is at or below the threshold. At 100%, keep-awake never runs on battery.")
+                               range: SessionManager.batteryThresholdRange, step: 5,
+                               offValue: SessionManager.batteryAutoOffDisabled)
+            if prefs.lowBatteryThreshold == SessionManager.batteryAutoOffDisabled {
+                SettingsCaption("Off — keep-awake runs at any battery level.")
+            } else {
+                SettingsCaption("On battery power, a session won't start—and a running session ends—when the level is at or below the threshold. At 100%, keep-awake never runs on battery. Step below 5% to turn it off.")
+            }
             SettingsToggleRow(symbol: "bell.badge", title: "Notify on automatic start & end",
                               isOn: $prefs.notifyAutoSessionChanges)
                 .onChange(of: prefs.notifyAutoSessionChanges) { _, enabled in
