@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 import MaraCore
 
 /// "Night Watch" 설정 창 — 항상 다크(MaraTheme), 눈 아이콘 glow 헤더 + 카드형 섹션.
@@ -7,11 +8,14 @@ struct SettingsView: View {
     @ObservedObject var prefs: PrefsStore
     @ObservedObject var session: SessionManager
     @ObservedObject var triggers: TriggerEngine
-    let currentNetwork: () -> NetworkIdentity?
+    /// 네트워크는 비동기로 늦게 알려지고, 감시 목록이 비면 네트워크 트리거가 없어 진단 갱신도 없다.
+    /// 그래서 클로저로 읽지 않고 직접 구독한다 — 아니면 버튼·안내가 첫 등록 전에 낡은 채 남는다.
+    let networkChanges: AnyPublisher<NetworkIdentity?, Never>
     var checkForUpdates: () -> Void = {}
     var requestNotificationAuth: () async -> Bool = { false }
     @State private var appPicker: AppPickerPayload?
     @State private var manualBundleID = ""
+    @State private var currentNetwork: NetworkIdentity?
 
     /// sheet(item:)용 페이로드 — isPresented+별도 @State 조합은 첫 표시가 낡은(빈) 상태를
     /// 캡처하는 SwiftUI 함정이 있다(실사고: 빈 피커). 데이터가 곧 표시 트리거가 되게 한다.
@@ -38,6 +42,7 @@ struct SettingsView: View {
         .background(MaraTheme.bg)
         .preferredColorScheme(.dark)
         .maraAccent(prefs.menuBarTint)
+        .onReceive(networkChanges) { currentNetwork = $0 }
     }
 
     /// 메뉴 "Keep display awake"와 같은 경로(`PrefsStore.setKeepDisplayAwake`) — 켜진 세션에도 바로 적용한다.
@@ -251,7 +256,7 @@ struct SettingsView: View {
     private var networkList: some View {
         VStack(alignment: .leading, spacing: 7) {
             Button {
-                if let mac = currentNetwork()?.gatewayMAC,
+                if let mac = currentNetwork?.gatewayMAC,
                    !prefs.triggerConfig.watchedNetworks.contains(mac) {
                     prefs.triggerConfig.watchedNetworks.append(mac)
                 }
@@ -261,8 +266,8 @@ struct SettingsView: View {
             }
             .buttonStyle(.borderless)
             .foregroundStyle(accent)
-            .disabled(currentNetwork() == nil)
-            if currentNetwork() == nil {
+            .disabled(currentNetwork == nil)
+            if currentNetwork == nil {
                 // 버튼이 회색인 이유 — 진단 줄 "can't resolve gateway"와 같은 판단(게이트웨이 MAC 미해석).
                 SettingsCaption("Can't identify this network — no router found. VPNs and tethering can hide it.")
             }

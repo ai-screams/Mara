@@ -37,7 +37,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             prefs: env.prefs,
             session: env.session,
             triggers: env.triggerEngine,
-            currentNetwork: { env.currentNetwork },
+            networkChanges: env.networkChanges,
             checkForUpdates: { updaterController.checkForUpdates(nil) },
             requestNotificationAuth: { await notificationService.requestAuthorization() }
         )
