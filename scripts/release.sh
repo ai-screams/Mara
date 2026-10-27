@@ -10,6 +10,8 @@
 # ── 필요한 환경변수 ───────────────────────────────────────────────────────────
 #   DEVELOPMENT_TEAM        Apple Developer Team ID (예: 7K6MK3KP9K)               [필수]
 #   DEVELOPER_ID_IDENTITY   codesign 인증서 이름. 기본 "Developer ID Application"   [선택]
+#   PROVISIONING_PROFILE_PATH  "Mara Developer ID" 프로비저닝 프로파일 파일 경로       [필수]
+#                           (macOS 27 네트워크 트리거용 entitlement를 허가한다, #91)
 #
 #   공증 자격은 아래 둘 중 하나:
 #   (A) NOTARY_PROFILE      `xcrun notarytool store-credentials`로 저장한 키체인 프로필 이름
@@ -49,6 +51,8 @@ command -v xcodegen >/dev/null 2>&1 || die "xcodegen 없음 (brew install xcodeg
 xcrun --find notarytool >/dev/null 2>&1 || die "notarytool 없음 (Xcode 13+ 필요)"
 
 [[ -n "${DEVELOPMENT_TEAM:-}" ]] || die "DEVELOPMENT_TEAM 미설정 (Apple Team ID)"
+# 프로파일 없이 내보내면 macOS 27에서 네트워크 트리거가 조용히 동작하지 않는 앱이 배포된다 — 필수로 막는다.
+[[ -f "${PROVISIONING_PROFILE_PATH:-}" ]] || die "PROVISIONING_PROFILE_PATH 미설정 또는 파일 없음 (#91)"
 if [[ -z "${NOTARY_PROFILE:-}" ]]; then
     [[ -n "${APPLE_ID:-}" && -n "${APPLE_APP_PASSWORD:-}" ]] \
         || die "공증 자격 없음: NOTARY_PROFILE 또는 (APPLE_ID + APPLE_APP_PASSWORD) 필요"
@@ -135,6 +139,12 @@ xcodebuild -exportArchive \
 # 번들 정체성 키(CFBundleExecutable·CFBundlePackageType 등)와 PkgInfo — CI는 Debug 산출물로 보고,
 # 여기서는 실제로 배포되는 export 산출물로 다시 본다(#76).
 ./scripts/bundle-identity-gate.sh "$APP" || die "번들 정체성 키 누락: $APP"
+
+# 릴리스 전용 entitlement + 프로비저닝 프로파일(#91). 공증 전에 적용해야 공증 티켓이 최종 서명을 덮는다.
+print "▸ [2b/6] 프로비저닝 프로파일 포함 + entitlements 재서명…"
+./scripts/embed-release-entitlements.sh "$APP" "$PROVISIONING_PROFILE_PATH" \
+    "$ROOT_DIR/config/Mara-release.entitlements" "$DEVELOPER_ID_IDENTITY" "$DEVELOPMENT_TEAM" \
+    || die "프로비저닝 프로파일/entitlements 적용 실패"
 
 # ── 4) 서명/Hardened Runtime 검증 ────────────────────────────────────────────
 # Sparkle 등 내장 프레임워크(Contents/Frameworks)는 exportArchive(developer-id)가

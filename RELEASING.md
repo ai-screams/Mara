@@ -16,12 +16,19 @@ TCC prompts.
    - a keychain profile:
      `xcrun notarytool store-credentials mara-notary --apple-id <id> --team-id 7K6MK3KP9K --password <app-specific-password>`, or
    - an **app-specific password** (appleid.apple.com → Sign-In & Security → App-Specific Passwords).
+4. The **"Mara Developer ID" provisioning profile** (Developer portal → Profiles → Developer ID, App ID
+   `com.aiscream.Mara` with the *Network Topology Observation* capability). It grants
+   `com.apple.developer.networking.topology-observation`, without which macOS 27 hides the ARP table and
+   the network trigger cannot identify the router (#91). The release build embeds it and re-signs the app
+   with `config/Mara-release.entitlements` (`scripts/embed-release-entitlements.sh`). It is tied to the
+   Developer ID certificate: regenerate it whenever that certificate is renewed.
 
 ## Local release
 
 ```bash
 DEVELOPMENT_TEAM=7K6MK3KP9K \
 NOTARY_PROFILE=mara-notary \
+PROVISIONING_PROFILE_PATH=~/Downloads/Mara_Developer_ID.provisionprofile \
 make release            # or: ./scripts/release.sh 1.0.0
 ```
 
@@ -31,6 +38,7 @@ Or with an Apple ID instead of a stored profile:
 DEVELOPMENT_TEAM=7K6MK3KP9K \
 APPLE_ID=you@example.com \
 APPLE_APP_PASSWORD=abcd-efgh-ijkl-mnop \
+PROVISIONING_PROFILE_PATH=~/Downloads/Mara_Developer_ID.provisionprofile \
 ./scripts/release.sh 1.0.0
 ```
 
@@ -77,6 +85,7 @@ repo-wide secrets, so only the approved release job can read them):
 | `APPLE_ID` | Apple ID email used for notarization |
 | `APPLE_APP_PASSWORD` | app-specific password for that Apple ID |
 | `SPARKLE_ED_PRIVATE_KEY` | EdDSA private key that signs the Sparkle update feed (see below) |
+| `MARA_PROVISIONING_PROFILE` | the "Mara Developer ID" provisioning profile, base64-encoded (`base64 -i Mara_Developer_ID.provisionprofile \| gh secret set MARA_PROVISIONING_PROFILE --env release`) |
 
 ### Sparkle update-signing key (one-time)
 
