@@ -187,11 +187,18 @@ public final class SessionManager: ObservableObject {
         }
     }
 
-    /// 저배터리 임계값의 허용 범위. App(입력 clamp·stepper range)도 이 상수를 참조한다.
-    /// 하한 0은 퍼센트가 아니라 "끔"이다(`batteryAutoOffDisabled`). 1–4는 5 단위 stepper로는 닿지 않는다.
-    public static let batteryThresholdRange: ClosedRange<Int> = 0...100
     /// 이 임계값이면 저배터리 거부권을 걸지 않는다.
     public static let batteryAutoOffDisabled = 0
+    /// 저배터리 임계값의 허용 범위. App(입력 clamp·stepper range)도 이 상수를 참조한다.
+    /// 하한이 곧 "끔"이다(퍼센트 아님). 1–4는 5 단위 stepper로는 닿지 않고 직접 입력으로만 닿는다.
+    public static let batteryThresholdRange: ClosedRange<Int> = batteryAutoOffDisabled...100
+
+    /// 저장소에서 읽은 임계값 검증(신뢰 경계). 범위 안의 정수만 받고, 그 밖은 전부 `fallback`이다.
+    /// clamp하지 않는 이유: 0이 "끔"이라, 손상값(문자열·소수·음수)을 clamp하면 보호가 조용히 꺼진다.
+    public static func validatedBatteryThreshold(_ stored: Any?, fallback: Int) -> Int {
+        guard let value = stored as? Int, batteryThresholdRange.contains(value) else { return fallback }
+        return value
+    }
 
     private static func clampBatteryThreshold(_ value: Int) -> Int {
         min(max(value, batteryThresholdRange.lowerBound), batteryThresholdRange.upperBound)

@@ -375,3 +375,26 @@ extension SessionManagerTests {
         XCTAssertEqual(sm.lowBatteryThreshold, SessionManager.batteryAutoOffDisabled)
     }
 }
+
+// 저장소 신뢰 경계: 범위 안의 정수만 받고 나머지는 fallback. 0(끔)으로 clamp하면 보호가 조용히 꺼진다.
+// 이것을 실패시키는 것: validatedBatteryThreshold를 clamp(`min(max(v, lower), upper)`)로 바꾸는 것.
+extension SessionManagerTests {
+    func test_validatedBatteryThreshold_acceptsInRangeIntsIncludingOff() {
+        XCTAssertEqual(SessionManager.validatedBatteryThreshold(40, fallback: 50), 40)
+        XCTAssertEqual(SessionManager.validatedBatteryThreshold(0, fallback: 50), 0)
+        XCTAssertEqual(SessionManager.validatedBatteryThreshold(100, fallback: 50), 100)
+        XCTAssertEqual(SessionManager.validatedBatteryThreshold(NSNumber(value: 30), fallback: 50), 30)
+    }
+
+    func test_validatedBatteryThreshold_rejectsMalformedAndOutOfRange() {
+        for stored: Any? in ["abc", NSNumber(value: 0.5), -10, 101, nil] {
+            XCTAssertEqual(SessionManager.validatedBatteryThreshold(stored, fallback: 50), 50,
+                           "\(String(describing: stored)) must fall back, not turn protection off")
+        }
+    }
+
+    // 하한 = 끔이라는 두 상수의 약속을 고정. 이것을 실패시키는 것: 범위 하한을 독립 리터럴로 되돌려 다르게 두는 것.
+    func test_thresholdRangeLowerBound_isOff() {
+        XCTAssertEqual(SessionManager.batteryThresholdRange.lowerBound, SessionManager.batteryAutoOffDisabled)
+    }
+}

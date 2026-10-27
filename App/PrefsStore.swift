@@ -39,6 +39,7 @@ final class PrefsStore: ObservableObject {
         didSet { UserDefaults.standard.set(menuBarTint.rawValue, forKey: Keys.menuBarTint) }
     }
     var defaultScope: KeepAwakeScope { KeepAwakeScope(keepDisplay: defaultKeepDisplayAwake) }
+    private static let defaultLowBatteryThreshold = 50
     private enum Keys {
         static let defaultKeepDisplayAwake = "defaultKeepDisplayAwake"
         static let lowBatteryThreshold = "lowBatteryThreshold"
@@ -52,14 +53,16 @@ final class PrefsStore: ObservableObject {
         let d = UserDefaults.standard
         d.register(defaults: [
             Keys.defaultKeepDisplayAwake: true,
-            Keys.lowBatteryThreshold: 50,
+            Keys.lowBatteryThreshold: Self.defaultLowBatteryThreshold,
             Keys.notifyAutoSessionChanges: false,
             Keys.recentCustomDurations: [TimeInterval](),
             Keys.hasShownFirstRunGuide: false,
             Keys.menuBarTint: MenuBarTint.default.rawValue,
         ])
         defaultKeepDisplayAwake = d.bool(forKey: Keys.defaultKeepDisplayAwake)
-        lowBatteryThreshold = Self.sanitizeBatteryThreshold(d.integer(forKey: Keys.lowBatteryThreshold))
+        // 신뢰 경계: integer(forKey:)는 문자열·소수를 0(=끔)으로 바꾸므로 쓰지 않는다 — Core가 검증한다.
+        lowBatteryThreshold = SessionManager.validatedBatteryThreshold(
+            d.object(forKey: Keys.lowBatteryThreshold), fallback: Self.defaultLowBatteryThreshold)
         notifyAutoSessionChanges = d.bool(forKey: Keys.notifyAutoSessionChanges)
         hasShownFirstRunGuide = d.bool(forKey: Keys.hasShownFirstRunGuide)
         // 신뢰 경계: 저장 문자열이 nil/미지 값이면 Core가 기본값(ember)으로 폴백한다.
