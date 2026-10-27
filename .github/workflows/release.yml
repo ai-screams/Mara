@@ -75,12 +75,25 @@ jobs:
       - name: Install create-dmg
         run: brew install create-dmg
 
+      # macOS 27 네트워크 트리거용 entitlement를 허가하는 "Mara Developer ID" 프로파일(#91).
+      # release 환경 secret(base64). 비어 있으면 release.sh가 사전 점검에서 막는다.
+      - name: Write provisioning profile
+        env:
+          PROFILE_B64: ${{ secrets.MARA_PROVISIONING_PROFILE }}
+        run: |
+          set -euo pipefail
+          [ -n "$PROFILE_B64" ] || { echo "::error::MARA_PROVISIONING_PROFILE secret is empty"; exit 1; }
+          printf '%s' "$PROFILE_B64" | base64 --decode > "$RUNNER_TEMP/Mara.provisionprofile"
+          security cms -D -i "$RUNNER_TEMP/Mara.provisionprofile" >/dev/null \
+            || { echo "::error::MARA_PROVISIONING_PROFILE is not a valid provisioning profile"; exit 1; }
+
       - name: Build, sign, notarize, package
         env:
           DEVELOPMENT_TEAM: ${{ secrets.APPLE_TEAM_ID }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
           VERSION: ${{ github.ref_name }}
+          PROVISIONING_PROFILE_PATH: ${{ runner.temp }}/Mara.provisionprofile
         run: ./scripts/release.sh
 
       - name: Verify signed/notarized DMG (게시 전 자가검증)
