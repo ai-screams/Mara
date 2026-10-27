@@ -195,8 +195,14 @@ public final class SessionManager: ObservableObject {
 
     /// 저장소에서 읽은 임계값 검증(신뢰 경계). 범위 안의 정수만 받고, 그 밖은 전부 `fallback`이다.
     /// clamp하지 않는 이유: 0이 "끔"이라, 손상값(문자열·소수·음수)을 clamp하면 보호가 조용히 꺼진다.
+    /// `as? Int`만으로는 부족하다 — plist의 NSNumber는 변환 브리지라 Bool false가 0(=끔), 50.0이 50이 된다.
+    /// 그래서 CFBoolean과 부동소수 저장형을 먼저 거른다.
     public static func validatedBatteryThreshold(_ stored: Any?, fallback: Int) -> Int {
-        guard let value = stored as? Int, batteryThresholdRange.contains(value) else { return fallback }
+        guard let number = stored as? NSNumber,
+              CFGetTypeID(number) != CFBooleanGetTypeID(),
+              !["f", "d"].contains(String(cString: number.objCType)),
+              let value = stored as? Int,
+              batteryThresholdRange.contains(value) else { return fallback }
         return value
     }
 

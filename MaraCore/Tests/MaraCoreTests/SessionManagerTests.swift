@@ -387,7 +387,7 @@ extension SessionManagerTests {
     }
 
     func test_validatedBatteryThreshold_rejectsMalformedAndOutOfRange() {
-        for stored: Any? in ["abc", NSNumber(value: 0.5), -10, 101, nil] {
+        for stored: Any? in ["abc", NSNumber(value: 0.5), -10, 101, nil] as [Any?] {
             XCTAssertEqual(SessionManager.validatedBatteryThreshold(stored, fallback: 50), 50,
                            "\(String(describing: stored)) must fall back, not turn protection off")
         }
@@ -396,5 +396,28 @@ extension SessionManagerTests {
     // 하한 = 끔이라는 두 상수의 약속을 고정. 이것을 실패시키는 것: 범위 하한을 독립 리터럴로 되돌려 다르게 두는 것.
     func test_thresholdRangeLowerBound_isOff() {
         XCTAssertEqual(SessionManager.batteryThresholdRange.lowerBound, SessionManager.batteryAutoOffDisabled)
+    }
+}
+
+// NSNumber 변환 브리지: plist의 Bool·부동소수가 `as? Int`를 통과한다(false → 0 = 끔).
+// 이것을 실패시키는 것: validatedBatteryThreshold의 CFBoolean 검사(Bool 케이스) 또는 "f"/"d" 저장형 검사(50.0 케이스) 제거.
+extension SessionManagerTests {
+    func test_validatedBatteryThreshold_rejectsBooleans() {
+        let d = UserDefaults(suiteName: "MaraCoreTests.threshold")!
+        defer { d.removePersistentDomain(forName: "MaraCoreTests.threshold") }
+        for flag in [false, true] {
+            d.set(flag, forKey: "k")
+            XCTAssertEqual(SessionManager.validatedBatteryThreshold(d.object(forKey: "k"), fallback: 50), 50,
+                           "stored Bool \(flag) must fall back, not become \(flag ? 1 : 0)")
+        }
+    }
+
+    func test_validatedBatteryThreshold_rejectsIntegralFloats() {
+        let d = UserDefaults(suiteName: "MaraCoreTests.threshold")!
+        defer { d.removePersistentDomain(forName: "MaraCoreTests.threshold") }
+        d.set(50.0, forKey: "k")
+        XCTAssertEqual(SessionManager.validatedBatteryThreshold(d.object(forKey: "k"), fallback: 20), 20)
+        d.set(40, forKey: "k")   // 같은 경로의 정상 정수는 통과
+        XCTAssertEqual(SessionManager.validatedBatteryThreshold(d.object(forKey: "k"), fallback: 20), 40)
     }
 }
