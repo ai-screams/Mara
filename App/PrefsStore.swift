@@ -74,6 +74,16 @@ final class PrefsStore: ObservableObject {
             triggerConfig = .defaults
         }
     }
+    /// 화면 유지 변경의 단일 경로 — 메뉴 "Keep display awake"와 설정 창 토글이 함께 쓴다.
+    /// 켜진 세션에 먼저 적용하고 성공했을 때만 기본값을 바꾼다. 실패하면 기본값은 그대로고
+    /// 이유는 `session.lastFailure`에 남는다(설정 창 Error 줄). 비활성이면 updateScope는 no-op 성공.
+    @discardableResult
+    func setKeepDisplayAwake(_ value: Bool, applyingTo session: SessionManager) -> Result<Void, SessionFailure> {
+        let result = session.updateScope(KeepAwakeScope(keepDisplay: value))
+        if case .success = result { defaultKeepDisplayAwake = value }
+        return result
+    }
+
     /// 최근 커스텀 duration 전체 삭제 (메뉴 "Clear Recent").
     func clearRecentCustomDurations() {
         recentCustomDurations = []

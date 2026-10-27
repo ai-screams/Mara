@@ -40,12 +40,19 @@ struct SettingsView: View {
         .maraAccent(prefs.menuBarTint)
     }
 
+    /// 메뉴 "Keep display awake"와 같은 경로(`PrefsStore.setKeepDisplayAwake`) — 켜진 세션에도 바로 적용한다.
+    /// 적용에 실패하면 기본값이 바뀌지 않으므로 토글이 이전 값으로 돌아가고 Error 줄이 이유를 보인다.
+    private var keepDisplayBinding: Binding<Bool> {
+        Binding(get: { prefs.defaultKeepDisplayAwake },
+                set: { prefs.setKeepDisplayAwake($0, applyingTo: session) })
+    }
+
     // MARK: - Cards
 
     private var generalCard: some View {
         SettingsCard(title: "GENERAL") {
             SettingsToggleRow(symbol: "display", title: "Keep display awake by default",
-                              isOn: $prefs.defaultKeepDisplayAwake)
+                              isOn: keepDisplayBinding)
             SettingsStepperRow(symbol: "battery.25", title: "Low-battery auto-off",
                                value: $prefs.lowBatteryThreshold,
                                range: SessionManager.batteryThresholdRange, step: 5)

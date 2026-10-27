@@ -371,13 +371,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     }
 
     @objc private func toggleDisplay() {
-        let newValue = !currentKeepDisplay
-        let result = env.session.updateScope(KeepAwakeScope(keepDisplay: newValue))
-        guard case .success = result else {
-            report(result)
-            return
-        }
-        env.prefs.defaultKeepDisplayAwake = newValue
+        report(env.prefs.setKeepDisplayAwake(!currentKeepDisplay, applyingTo: env.session))
     }
 
     @objc private func toggleLaunchAtLogin() {
