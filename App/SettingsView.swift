@@ -263,6 +263,10 @@ struct SettingsView: View {
             .buttonStyle(.borderless)
             .foregroundStyle(accent)
             .disabled(currentNetwork() == nil)
+            if currentNetwork() == nil {
+                // 버튼이 회색인 이유 — 진단 줄 "can't resolve gateway"와 같은 판단(게이트웨이 MAC 미해석).
+                SettingsCaption("Can't identify this network — no router found. VPNs and tethering can hide it.")
+            }
 
             ForEach(prefs.triggerConfig.watchedNetworks, id: \.self) { mac in
                 RemovableChipRow(text: mac) {
