@@ -126,7 +126,10 @@ struct SettingsStatusRow: View {
             Text(text)
                 .font(.caption)
                 .foregroundStyle(active ? accent : MaraTheme.muted)
-                .fixedSize(horizontal: false, vertical: true)   // SettingsCaption과 같은 이유
+                // SettingsCaption과 같은 이유로 세로 고정하되, 상태 문구는 bundle ID처럼 길이 제한 없는
+                // 값을 담으므로 2줄에서 자른다 — 무제한이면 창이 화면보다 커질 수 있다.
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .padding(.leading, indent ? 27 : 0)
         .accessibilityElement(children: .combine)
