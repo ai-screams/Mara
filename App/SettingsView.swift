@@ -69,9 +69,6 @@ struct SettingsView: View {
                         }
                     }
                 }
-            if let last = session.recentEvents.last {
-                SettingsCaption("Last: \(Self.eventLine(last))")
-            }
             if let failure = session.lastFailure {
                 SettingsCaption("Error: \(SessionFailureText.describe(failure))")
             }
@@ -133,6 +130,13 @@ struct SettingsView: View {
             Text(active ? "Keeping your Mac awake" : "The eye is resting — your Mac may sleep")
                 .font(.caption)
                 .foregroundStyle(active ? accent : MaraTheme.muted)
+            // 마지막 세션 이벤트는 세션 상태 문구 바로 밑에 둔다 — 알림 토글 밑에 두면 알림 기록처럼 읽힌다.
+            if let last = session.recentEvents.last {
+                let line = Self.eventLine(last)
+                Text(line.prefix(1).uppercased() + line.dropFirst())
+                    .font(.caption)
+                    .foregroundStyle(MaraTheme.muted)
+            }
         }
         .frame(maxWidth: .infinity)
         .animation(.easeInOut(duration: 0.25), value: active)
