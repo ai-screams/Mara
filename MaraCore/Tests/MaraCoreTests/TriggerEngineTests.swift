@@ -21,7 +21,7 @@ final class TriggerEngineTests: XCTestCase {
         XCTAssertFalse(sm.state.isActive)
         t.set(true)
         XCTAssertTrue(sm.state.isActive)
-        if case let .active(cfg, _) = sm.state { XCTAssertEqual(cfg.origin, .trigger) } else { XCTFail() }
+        if case let .active(cfg, _) = sm.state { XCTAssertTrue(cfg.origin.isTrigger) } else { XCTFail() }
     }
 
     func test_triggerFalling_stopsTriggerSession() {
@@ -179,7 +179,7 @@ extension TriggerEngineTests {
         let engine = TriggerEngine(session: sm, scope: { .systemOnly })
         engine.updateEvaluators([t1])
         XCTAssertTrue(sm.state.isActive)
-        if case let .active(cfg, _) = sm.state { XCTAssertEqual(cfg.origin, .trigger) } else { XCTFail("expected trigger session") }
+        if case let .active(cfg, _) = sm.state { XCTAssertTrue(cfg.origin.isTrigger) } else { XCTFail("expected trigger session") }
 
         // assertion 토큰을 기록 — 해제+재취득이 없으면 동일 토큰 집합이 유지된다
         let tokensBefore = Set(p.live.keys)
@@ -191,7 +191,7 @@ extension TriggerEngineTests {
 
         // 세션은 trigger-active 상태를 유지해야 하고 assertion 토큰이 바뀌지 않아야 한다
         XCTAssertTrue(sm.state.isActive, "session must stay active after instance swap")
-        if case let .active(cfg, _) = sm.state { XCTAssertEqual(cfg.origin, .trigger) } else { XCTFail("expected trigger session") }
+        if case let .active(cfg, _) = sm.state { XCTAssertTrue(cfg.origin.isTrigger) } else { XCTFail("expected trigger session") }
         XCTAssertEqual(Set(p.live.keys), tokensBefore, "power assertion was spuriously released and reacquired")
     }
 
@@ -202,7 +202,7 @@ extension TriggerEngineTests {
         let engine = TriggerEngine(session: sm, scope: { .systemOnly })
         engine.updateEvaluators([t])
         XCTAssertTrue(sm.state.isActive)
-        if case let .active(cfg, _) = sm.state { XCTAssertEqual(cfg.origin, .trigger) } else { XCTFail() }
+        if case let .active(cfg, _) = sm.state { XCTAssertTrue(cfg.origin.isTrigger) } else { XCTFail() }
         engine.stop()
         XCTAssertFalse(sm.state.isActive, "trigger session must be stopped by engine.stop()")
         XCTAssertEqual(sm.recentEvents.last?.kind, .stopped(.triggerCleared))
@@ -248,7 +248,7 @@ extension TriggerEngineTests {
         XCTAssertFalse(sm.state.isActive)
         battery.emit(percentage: 15, isOnAC: true)   // AC 연결 → eligibility blocked→allowed
         XCTAssertTrue(sm.state.isActive, "trigger must start once the battery precondition clears")
-        if case let .active(cfg, _) = sm.state { XCTAssertEqual(cfg.origin, .trigger) } else { XCTFail() }
+        if case let .active(cfg, _) = sm.state { XCTAssertTrue(cfg.origin.isTrigger) } else { XCTFail() }
     }
 
     // 충전으로 임계값 위로 올라가면(여전히 배터리 사용) 재개되어야 한다.
@@ -309,9 +309,9 @@ extension TriggerEngineTests {
     }
 }
 
-// 세션을 연 트리거 종류를 SessionConfig.trigger에 기록한다(UI의 "Started by charging" 표시용).
+// 세션을 연 트리거 종류를 SessionOrigin.trigger(kind)에 기록한다(UI의 "Started by charging" 표시용).
 extension TriggerEngineTests {
-    // 이것을 실패시키는 것: TriggerEngine.reevaluate의 start에서 `trigger: opener` 인자 제거.
+    // 이것을 실패시키는 것: TriggerEngine.reevaluate가 opener 대신 고정 kind(예: .charging)로 시작하는 것.
     func test_triggerSession_recordsOpeningKind() {
         let (sm, _) = makeSession()
         let t = MockTrigger(kind: .externalDisplay, satisfied: false)
@@ -319,7 +319,7 @@ extension TriggerEngineTests {
         engine.updateEvaluators([t])
         t.set(true)
         guard case let .active(cfg, _) = sm.state else { return XCTFail("expected active") }
-        XCTAssertEqual(cfg.trigger, .externalDisplay)
+        XCTAssertEqual(cfg.origin, .trigger(.externalDisplay))
     }
 
     // 동시 충족이면 TriggerKind 선언 순서의 첫 번째. 이것을 실패시키는 것: allCases를 역순(.reversed())으로 도는 것.
@@ -330,10 +330,10 @@ extension TriggerEngineTests {
         let engine = TriggerEngine(session: sm, scope: { .systemOnly })
         engine.updateEvaluators([app, charging])
         guard case let .active(cfg, _) = sm.state else { return XCTFail("expected active") }
-        XCTAssertEqual(cfg.trigger, .charging)
+        XCTAssertEqual(cfg.origin, .trigger(.charging))
     }
 
-    // 이것을 실패시키는 것: withScope가 trigger를 빠뜨리는 것(scope 변경 뒤 표시가 "trigger"로 퇴화).
+    // 이것을 실패시키는 것: withScope가 origin을 .trigger(.charging) 같은 고정값으로 다시 만드는 것.
     func test_scopeChange_keepsOpeningKind() {
         let (sm, _) = makeSession()
         let t = MockTrigger(kind: .network, satisfied: true)
@@ -341,7 +341,24 @@ extension TriggerEngineTests {
         engine.updateEvaluators([t])
         _ = sm.updateScope(.displayAndSystem)
         guard case let .active(cfg, _) = sm.state else { return XCTFail("expected active") }
-        XCTAssertEqual(cfg.trigger, .network)
+        XCTAssertEqual(cfg.origin, .trigger(.network))
         XCTAssertTrue(cfg.scope.keepsDisplayAwake)
+    }
+}
+
+// 메뉴의 "Auto-activated (…)"는 지금 충족된 트리거를 보인다(연 트리거가 풀리고 다른 트리거가 이어받는 경우).
+extension TriggerEngineTests {
+    // 이것을 실패시키는 것: firstSatisfiedKind가 isSatisfied를 보지 않고 첫 active kind를 돌려주는 것.
+    func test_firstSatisfiedKind_followsHandoverAfterOpenerClears() {
+        let (sm, _) = makeSession()
+        let charging = MockTrigger(kind: .charging, satisfied: true)
+        let display = MockTrigger(kind: .externalDisplay, satisfied: false)
+        let engine = TriggerEngine(session: sm, scope: { .systemOnly })
+        engine.updateEvaluators([charging, display])
+        display.set(true)
+        charging.set(false)
+        guard case let .active(cfg, _) = sm.state else { return XCTFail("session should continue") }
+        XCTAssertEqual(cfg.origin, .trigger(.charging))        // 연 트리거는 과거 사실로 유지
+        XCTAssertEqual(engine.firstSatisfiedKind, .externalDisplay)  // 지금 붙잡고 있는 트리거
     }
 }

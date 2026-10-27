@@ -46,6 +46,11 @@ public final class TriggerEngine: ObservableObject {
 
     public var isAnySatisfied: Bool { active.values.contains { $0.evaluator.isSatisfied } }
 
+    /// 지금 충족된 트리거 중 TriggerKind 선언 순서의 첫 번째. 세션 시작 기록과 메뉴의 현재 표시가 같은 규칙을 쓴다.
+    public var firstSatisfiedKind: TriggerKind? {
+        TriggerKind.allCases.first { active[$0]?.evaluator.isSatisfied == true }
+    }
+
     /// 원하는 평가기 목록으로 구독을 재조정한다. kind별 하나를 가정한다.
     /// 변하지 않은 kind는 구독을 유지하고, 추가/교체/제거만 반영한다. suppression은 보존된다.
     public func updateEvaluators(_ evaluators: [TriggerEvaluator]) {
@@ -82,7 +87,7 @@ public final class TriggerEngine: ObservableObject {
         // 스냅샷이 (triggers: [], isSuppressed: true)로 남는 어정쩡한 상태를 막는다.
         suppressed = false
         // trigger-origin 세션이 활성이면 함께 종료 (orphan 방지)
-        if case let .active(cfg, _) = session.state, cfg.origin == .trigger {
+        if case let .active(cfg, _) = session.state, cfg.origin.isTrigger {
             session.stop(reason: .triggerCleared)
         }
         refreshSnapshot()
@@ -102,17 +107,16 @@ public final class TriggerEngine: ObservableObject {
         defer { refreshSnapshot() }          // satisfied 변화도 스냅샷에 반영
         guard isAnySatisfied else {
             suppressed = false   // 모든 트리거 false → 재무장
-            if case let .active(cfg, _) = session.state, cfg.origin == .trigger {
+            if case let .active(cfg, _) = session.state, cfg.origin.isTrigger {
                 session.stop(reason: .triggerCleared)
             }
             return
         }
         guard !suppressed else { return }
-        if !session.state.isActive {
-            // 여러 트리거가 동시에 충족이면 TriggerKind 선언 순서의 첫 번째를 기록한다(표시용).
-            let opener = TriggerKind.allCases.first { active[$0]?.evaluator.isSatisfied == true }
-            session.start(SessionConfig(scope: scope(), duration: .indefinite, origin: .trigger,
-                                        trigger: opener))
+        // 여러 트리거가 동시에 충족이면 TriggerKind 선언 순서의 첫 번째를 기록한다(표시용).
+        // isAnySatisfied가 참이므로 nil이 될 수 없지만, 타입으로 받아 강제 언랩을 피한다.
+        if !session.state.isActive, let opener = firstSatisfiedKind {
+            session.start(SessionConfig(scope: scope(), duration: .indefinite, origin: .trigger(opener)))
         }
         // 이미 활성(수동 포함)이면 no-op — 수동 > 트리거
     }

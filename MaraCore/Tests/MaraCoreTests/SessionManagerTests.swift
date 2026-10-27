@@ -115,7 +115,7 @@ extension SessionManagerTests {
 
     func test_triggerLowBatteryReject_doesNotSetLastFailure_butRecordsEvent() {
         let (sm, _, _, _) = makeSUTWithBattery(threshold: 20, percentage: 15, isOnAC: false)
-        let config = SessionConfig(scope: .systemOnly, duration: .indefinite, origin: .trigger)
+        let config = SessionConfig(scope: .systemOnly, duration: .indefinite, origin: .trigger(.charging))
 
         guard case .failure(.lowBattery(percent: 15)) = sm.start(config) else {
             return XCTFail("expected low-battery pre-rejection")
@@ -132,7 +132,7 @@ extension SessionManagerTests {
         _ = sm.start(SessionConfig(scope: .systemOnly, duration: .indefinite, origin: .manual))
         XCTAssertEqual(sm.lastFailure, .lowBattery(percent: 15))
         // 이어진 트리거 거부는 기존 수동 실패 정보를 지우지 않는다
-        _ = sm.start(SessionConfig(scope: .systemOnly, duration: .indefinite, origin: .trigger))
+        _ = sm.start(SessionConfig(scope: .systemOnly, duration: .indefinite, origin: .trigger(.charging)))
         XCTAssertEqual(sm.lastFailure, .lowBattery(percent: 15))
     }
 

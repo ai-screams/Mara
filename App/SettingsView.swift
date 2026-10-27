@@ -137,8 +137,7 @@ struct SettingsView: View {
                 .foregroundStyle(active ? accent : MaraTheme.muted)
             // 마지막 세션 이벤트는 세션 상태 문구 바로 밑에 둔다 — 알림 토글 밑에 두면 알림 기록처럼 읽힌다.
             if let last = session.recentEvents.last {
-                let line = Self.eventLine(last)
-                Text(line.prefix(1).uppercased() + line.dropFirst())
+                Text(Self.eventLine(last))
                     .font(.caption)
                     .foregroundStyle(MaraTheme.muted)
             }
@@ -330,22 +329,23 @@ struct SettingsView: View {
 
     // MARK: - Event formatter
 
-    /// 최근 이벤트 한 줄 요약(영어) — 메뉴를 로그 뷰어로 만들지 않는다는 원칙에 따라 1개만.
+    /// 최근 이벤트 한 줄 요약(영어, 문장형 대문자) — 메뉴를 로그 뷰어로 만들지 않는다는 원칙에 따라 1개만.
     static func eventLine(_ event: SessionEvent) -> String {
         let time = event.at.formatted(date: .omitted, time: .shortened)
         switch event.kind {
         case .started(let cfg):
-            return cfg.origin == .trigger
-                ? "started by \(TriggerKindText.name(cfg.trigger)) · \(time)"
-                : "started · \(time)"
-        case .stopped(.manual):               return "turned off · \(time)"
-        case .stopped(.timerExpired):         return "timer expired · \(time)"
-        case .stopped(.lowBattery(let p)):    return "ended — low battery \(p)% · \(time)"
-        case .stopped(.triggerCleared):       return "ended — trigger cleared · \(time)"
-        case .stopped(.replacedByNewSession): return "restarted · \(time)"
-        case .scopeChanged:                   return "scope changed · \(time)"
-        case .startRejected(_, .lowBattery(let p)): return "didn't start — low battery \(p)% · \(time)"
-        case .startRejected:                  return "didn't start · \(time)"
+            if case let .trigger(kind) = cfg.origin {
+                return "Started by \(TriggerKindText.name(kind)) · \(time)"
+            }
+            return "Started · \(time)"
+        case .stopped(.manual):               return "Turned off · \(time)"
+        case .stopped(.timerExpired):         return "Timer expired · \(time)"
+        case .stopped(.lowBattery(let p)):    return "Ended — low battery \(p)% · \(time)"
+        case .stopped(.triggerCleared):       return "Ended — trigger cleared · \(time)"
+        case .stopped(.replacedByNewSession): return "Restarted · \(time)"
+        case .scopeChanged:                   return "Scope changed · \(time)"
+        case .startRejected(_, .lowBattery(let p)): return "Didn't start — low battery \(p)% · \(time)"
+        case .startRejected:                  return "Didn't start · \(time)"
         }
     }
 }

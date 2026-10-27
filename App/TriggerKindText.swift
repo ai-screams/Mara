@@ -11,9 +11,4 @@ enum TriggerKindText {
         case .network:         return "a remembered network"
         }
     }
-
-    /// trigger가 없으면(기록 이전 세션 등) 일반 표현으로 돌아간다.
-    static func name(_ kind: TriggerKind?) -> String {
-        kind.map(name) ?? "trigger"
-    }
 }

@@ -24,24 +24,27 @@ public extension SessionDuration {
 
 public enum SessionOrigin: Equatable, Sendable {
     case manual
-    case trigger
+    /// 트리거가 연 세션. 연 트리거 종류를 함께 담는다(UI의 "Started by charging" 표시용).
+    case trigger(TriggerKind)
+
+    public var isTrigger: Bool {
+        if case .trigger = self { return true }
+        return false
+    }
 }
 
 public struct SessionConfig: Equatable, Sendable {
     public var scope: KeepAwakeScope
     public var duration: SessionDuration
     public var origin: SessionOrigin
-    /// 세션을 연 트리거(origin == .trigger일 때만 non-nil). UI가 "무엇이 켰나"를 보여 주는 데 쓴다.
-    public var trigger: TriggerKind?
-    public init(scope: KeepAwakeScope, duration: SessionDuration, origin: SessionOrigin,
-                trigger: TriggerKind? = nil) {
-        self.scope = scope; self.duration = duration; self.origin = origin; self.trigger = trigger
+    public init(scope: KeepAwakeScope, duration: SessionDuration, origin: SessionOrigin) {
+        self.scope = scope; self.duration = duration; self.origin = origin
     }
 }
 
 public extension SessionConfig {
     func withScope(_ scope: KeepAwakeScope) -> SessionConfig {
-        SessionConfig(scope: scope, duration: duration, origin: origin, trigger: trigger)
+        SessionConfig(scope: scope, duration: duration, origin: origin)
     }
 }
 
