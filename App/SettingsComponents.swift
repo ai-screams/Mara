@@ -121,6 +121,8 @@ struct SettingsIcon: View {
 /// 트리거 진단 상태 한 줄 — 상태 점(활성=accent / 비활성=muted) + 캡션.
 /// indent=true면 토글 라벨 텍스트와 정렬되도록 아이콘 폭(18)+간격(9)만큼 들여쓴다.
 struct SettingsStatusRow: View {
+    /// 토글 하위 항목(상태 줄·목록·추가 버튼)의 공통 들여쓰기 = 아이콘 폭(18) + 간격(9). 라벨 글자 위치와 맞는다.
+    static let childIndent: CGFloat = 27
     let active: Bool
     let text: String
     var indent: Bool = true
@@ -139,7 +141,7 @@ struct SettingsStatusRow: View {
                 .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .padding(.leading, indent ? 27 : 0)
+        .padding(.leading, indent ? Self.childIndent : 0)
         .accessibilityElement(children: .combine)
     }
 }
