@@ -256,9 +256,8 @@ struct SettingsView: View {
     private var networkList: some View {
         VStack(alignment: .leading, spacing: 7) {
             Button {
-                if let mac = currentNetwork?.gatewayMAC,
-                   !prefs.triggerConfig.watchedNetworks.contains(mac) {
-                    prefs.triggerConfig.watchedNetworks.append(mac)
+                if let identity = currentNetwork {
+                    prefs.triggerConfig.addWatchedNetwork(identity)
                 }
             } label: {
                 Label("Remember current network", systemImage: "plus.circle.fill")
@@ -274,9 +273,10 @@ struct SettingsView: View {
             }
 
             ForEach(prefs.triggerConfig.watchedNetworks, id: \.self) { mac in
-                RemovableChipRow(text: mac) {
-                    prefs.triggerConfig.watchedNetworks.removeAll { $0 == mac }
-                }
+                WatchedNetworkRow(mac: mac,
+                                  savedName: prefs.triggerConfig.networkDisplayName(mac),
+                                  onRename: { prefs.triggerConfig.setNetworkName($0, for: mac) },
+                                  onRemove: { prefs.triggerConfig.removeWatchedNetwork(mac) })
             }
         }
     }
@@ -311,7 +311,7 @@ struct SettingsView: View {
         case .appRunningNone(let watched):
             return appRunningNoneStatus(watched: watched)
         case .network(let active, let mac, let matched):
-            return networkStatus(active: active, mac: mac, matched: matched)
+            return networkStatus(active: active, mac: mac, matched: matched, config: config)
         case .plain(let active):
             return (active, active ? "Active" : "Inactive")
         }
@@ -328,10 +328,11 @@ struct SettingsView: View {
         (false, "Inactive — \(watched) \(watched == 1 ? "app" : "apps") watched, none running")
     }
 
-    private static func networkStatus(active: Bool, mac: String?, matched: Bool)
+    private static func networkStatus(active: Bool, mac: String?, matched: Bool, config: TriggerConfig)
         -> (active: Bool, text: String) {
         guard let mac else { return (active, "Inactive — can't resolve gateway") }
-        return (active, matched ? "Active — \(mac)" : "Inactive — different network")
+        // 이름을 붙인 네트워크면 이름으로(목록과 같은 표시) — 없으면 MAC.
+        return (active, matched ? "Active — \(config.networkDisplayName(mac) ?? mac)" : "Inactive — different network")
     }
 
     // MARK: - Event formatter

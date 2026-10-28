@@ -164,3 +164,44 @@ struct RemovableChipRow: View {
         }
     }
 }
+
+/// 감시 네트워크 한 줄: 이름 입력칸 + 작은 MAC + 삭제. 식별은 MAC이고 이름은 표시 전용이다.
+/// 입력은 키마다 저장한다 — Return·포커스 이탈에만 저장하면, 설정 창은 닫아도 숨겨질 뿐이라 그대로 앱을 끄면 입력이 사라진다.
+/// 초안(draft)은 정리하지 않은 그대로 두어 입력 중 공백이 지워지지 않게 하고, 저장값만 Core가 정리한다.
+struct WatchedNetworkRow: View {
+    let mac: String
+    let onRename: (String) -> Void
+    let onRemove: () -> Void
+    @State private var draft: String
+
+    init(mac: String, savedName: String?, onRename: @escaping (String) -> Void, onRemove: @escaping () -> Void) {
+        self.mac = mac
+        self.onRename = onRename
+        self.onRemove = onRemove
+        _draft = State(initialValue: savedName ?? "")
+    }
+
+    var body: some View {
+        HStack(spacing: 8) {
+            VStack(alignment: .leading, spacing: 1) {
+                // placeholder를 muted로 — 흰 글자면 이름을 붙인 행과 구분되지 않는다.
+                TextField("Name", text: $draft,
+                          prompt: Text("Name (e.g. Home)").foregroundStyle(MaraTheme.muted))
+                    .textFieldStyle(.plain)
+                    .font(.callout)
+                    .foregroundStyle(.white)
+                    .accessibilityLabel("Name for network \(mac)")
+                    .onChange(of: draft) { _, newValue in onRename(newValue) }
+                Text(mac)
+                    .font(.system(.caption2, design: .monospaced))
+                    .foregroundStyle(MaraTheme.muted)
+            }
+            Spacer()
+            Button(action: onRemove) {
+                Image(systemName: "xmark.circle.fill").foregroundStyle(MaraTheme.muted)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Remove network \(mac)")
+        }
+    }
+}
