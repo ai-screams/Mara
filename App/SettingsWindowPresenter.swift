@@ -13,6 +13,14 @@ final class SettingsWindowPresenter {
 
     func show() {
         if window == nil { window = Self.makeWindow(content: makeContent()) }
+        // 숨겨진 창을 다시 보여 줄 때만, 마우스가 있는 화면 가운데로 옮긴다. 메뉴 막대에서 Settings…를 누른 직후라
+        // 그 화면이 곧 사용자가 보고 있는 화면이다. 이미 떠 있는 창은 사용자가 둔 자리에서 옮기지 않는다.
+        // (예전엔 만들 때 한 번 center()만 해서, 앱을 켠 뒤 처음 열면 보고 있지 않은 주 디스플레이에 떴다.)
+        if let window, !window.isVisible,
+           let screen = NSScreen.screens.first(where: { NSMouseInRect(NSEvent.mouseLocation, $0.frame, false) })
+                ?? NSScreen.main {
+            window.setFrameOrigin(Self.centeredOrigin(for: window.frame.size, in: screen.visibleFrame))
+        }
         NSApp.activate()
         window?.makeKeyAndOrderFront(nil)
         // 열 때 포커스를 비운다 — 그대로 두면 AppKit이 첫 입력칸(저배터리 숫자)에 포커스를 줘서, 네트워크 이름을
@@ -32,7 +40,13 @@ final class SettingsWindowPresenter {
         window.backgroundColor = MaraTheme.bgNSColor
         window.isMovableByWindowBackground = true
         window.isReleasedWhenClosed = false
-        window.center()
         return window
+    }
+
+    /// 보이는 영역(메뉴 막대·Dock 제외) 가운데. 창이 그 영역보다 크면 제목 표시줄이 잘리지 않게 위쪽을 맞춘다.
+    static func centeredOrigin(for size: CGSize, in visible: CGRect) -> CGPoint {
+        let centeredY = max(visible.minY, visible.midY - size.height / 2)
+        return CGPoint(x: visible.midX - size.width / 2,
+                       y: min(visible.maxY - size.height, centeredY))
     }
 }
