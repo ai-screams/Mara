@@ -84,7 +84,7 @@ jobs:
       - name: Select release-parity Xcode
         uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
         with:
-          # Release와 정확히 같은 compiler. 새 Xcode 검증은 별도 non-blocking job에서 할 것.
+          # Release와 정확히 같은 compiler. 두 workflow(ci.yml·release.yml)의 값을 한 PR에서 함께 올린다.
           xcode-version: "27.1.0"
 
       - name: Show toolchain
