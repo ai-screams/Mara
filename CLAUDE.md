@@ -32,6 +32,11 @@
   (`setMenuBarTint`·`MenuBarTint`) (one real incident).
   Debug builds keep the code in `Mara.debug.dylib` while `Contents/MacOS/Mara` is a thin launcher — grep Debug symbols
   against `.debug.dylib` (or `grep -r` the MacOS directory). Grepping only the thin launcher gives a false 0 (one real incident).
+- macOS 27 hides the ARP table from processes without `com.apple.developer.networking.topology-observation`
+  (restricted; needs the embedded "Mara Developer ID" provisioning profile, #91). Only the release path applies it
+  (`scripts/embed-release-entitlements.sh`), so **local Apple Development builds cannot read the gateway MAC on
+  macOS 27** — the network trigger shows "can't identify this network" there by design. Verify network behaviour on
+  a release/rc build; its launch log shows `taskgated-helper … allowing entitlement(s) … due to provisioning profile`.
 - Run xcodebuild·git from the repo root — cwd persists across shell calls and is inherited by background jobs (staying
   in MaraCore and running nothing was a real incident). A pipe (`| tail`) swallows the exit code, so judge compile
   verification by checking for the "BUILD SUCCEEDED" string.
@@ -67,6 +72,16 @@
 
 ## Release (CI is canonical)
 
+- CI and release run on the `xcode-27` runner image (macOS 27, Xcode 27.1, still a GitHub **preview**, runner-images
+  #14404) because macOS 27 SDK APIs (e.g. `NSMenuItem.preferredImageVisibility`) must reach shipped builds. Both
+  workflows move together; `.github/actionlint.yaml` registers the label until it is GA.
+- `release.sh` requires `PROVISIONING_PROFILE_PATH` (CI: `MARA_PROVISIONING_PROFILE` env secret, base64). The profile is
+  tied to the Developer ID certificate (expires 2027-02-01): regenerate it and the secret whenever the cert is renewed.
+- The `release` environment only opens for tags (`v*`, `legacy-v*`, `legacy-rc-v*`), so a signed build can only be
+  verified through a tag — use an rc prerelease (`vX.Y.Z-rcN`, excluded from latest and the Sparkle feed). The final
+  tag needs a new commit after the rc (CFBundleVersion = commit count; release.sh rejects two tags on one commit).
+- `stapler validate` can fail with Error 68 / NSURLErrorDomain -1005 ("network connection was lost") talking to
+  CloudKit; it is transient (seen in a release run and locally) — rerun the failed job, don't change the artifact.
 - Tag push (vX.Y.Z) → protected `release` environment. Approval: UI or `gh api repos/…/actions/runs/<id>/pending_deployments`.
   For CLI approval, `-F "environment_ids[]=<id>"` — it's an integer field so `-F` is required (`-f` sends a string → 422, one real incident).
 - Release notes are auto-generated from PR titles by release.yml's `generate_release_notes` (already in place).
@@ -83,6 +98,10 @@
 - `scripts/release.sh` is **zsh**: `${VAR:+--flag "$VAR"}` is not word-split — build arguments as an array.
 - codesign signature verification: the Hardened Runtime signal is `flags=…(runtime)` (a CodeDirectory flag), not
   `Runtime Version=` (the SDK version). The leaf cert is `Authority=Developer ID Application`; `…Certification Authority` is the intermediate CA.
+- `protect-main` requires **verified signatures** on PR commits. A repo-local `user.email` that differs from the
+  signing GPG key's UID email makes GitHub report `verified:false, reason:bad_email` and blocks the merge
+  (one real incident, #92). Don't set user.name/email in this repo's `.git/config`; check
+  `gh api repos/…/commits/<sha> --jq .commit.verification` when a PR shows BLOCKED with green checks.
 - Polling PR CI status: don't parse the tabbed output of `gh pr checks` with `awk '{print $2}'` — the space in the
   check name "Build & Test" shifts the fields so the status reads as "&", causing an **early exit** (two real incidents).
   Use `gh pr view <n> --json statusCheckRollup` instead, but note that while running `.conclusion` is not null but an
