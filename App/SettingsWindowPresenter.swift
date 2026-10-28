@@ -15,6 +15,9 @@ final class SettingsWindowPresenter {
         if window == nil { window = Self.makeWindow(content: makeContent()) }
         NSApp.activate()
         window?.makeKeyAndOrderFront(nil)
+        // 열 때 포커스를 비운다 — 그대로 두면 AppKit이 첫 입력칸(저배터리 숫자)에 포커스를 줘서, 네트워크 이름을
+        // 치려던 키가 그 칸에 들어간다(실사고: "Low-l"). 사용자가 클릭한 칸에서만 입력이 시작되게 한다.
+        window?.makeFirstResponder(nil)
     }
 
     private static func makeWindow(content: SettingsView) -> NSWindow {
