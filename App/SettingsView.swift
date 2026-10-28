@@ -202,7 +202,7 @@ struct SettingsView: View {
 
     // MARK: - Trigger inputs
 
-    /// 감시 앱 목록. 순서는 목록 → 추가 → 직접 입력(편집 목록의 흔한 형태), 들여쓰기는 토글 라벨 글자 위치(27)에 맞춘다.
+    /// 감시 앱 목록. 순서는 목록 → 추가 → 직접 입력(편집 목록의 흔한 형태), 들여쓰기는 토글 라벨 글자 위치에 맞춘다.
     private var watchedAppsList: some View {
         VStack(alignment: .leading, spacing: 7) {
             ForEach(prefs.triggerConfig.watchedBundleIDs, id: \.self) { id in
@@ -245,7 +245,7 @@ struct SettingsView: View {
             .padding(6)
             .background(Color.black.opacity(0.28), in: RoundedRectangle(cornerRadius: 6))
         }
-        .padding(.leading, SettingsStatusRow.childIndent)
+        .padding(.leading, SettingsLayout.childIndent)
     }
 
     private func submitManualBundleID() {
@@ -255,8 +255,7 @@ struct SettingsView: View {
         }
     }
 
-    /// 감시 네트워크 목록. 앱 목록과 같은 형태(목록 → 추가)와 들여쓰기. 네트워크를 못 알아볼 때의 이유는
-    /// 위 상태 줄이 한 번만 말한다 — 버튼 아래에 같은 설명을 또 두지 않는다.
+    /// 감시 네트워크 목록. 앱 목록과 같은 형태(목록 → 추가)와 들여쓰기. 네트워크를 못 알아볼 때의 이유는 위 상태 줄이 말한다.
     private var networkList: some View {
         VStack(alignment: .leading, spacing: 7) {
             ForEach(prefs.triggerConfig.watchedNetworks, id: \.self) { mac in
@@ -279,7 +278,7 @@ struct SettingsView: View {
             .foregroundStyle(currentNetwork == nil ? MaraTheme.muted : accent)
             .disabled(currentNetwork == nil)
         }
-        .padding(.leading, SettingsStatusRow.childIndent)
+        .padding(.leading, SettingsLayout.childIndent)
     }
 
     // MARK: - Trigger diagnostics formatter
@@ -312,7 +311,7 @@ struct SettingsView: View {
         case .appRunningNone(let watched):
             return appRunningNoneStatus(watched: watched)
         case .network(let active, let mac, let matched):
-            return networkStatus(active: active, mac: mac, matched: matched, config: config)
+            return networkStatus(active: active, label: mac.map { config.networkDisplayName($0) ?? $0 }, matched: matched)
         case .plain(let active):
             return (active, active ? "Active" : "Inactive")
         }
@@ -329,12 +328,11 @@ struct SettingsView: View {
         (false, "Inactive — \(watched) \(watched == 1 ? "app" : "apps") watched, none running")
     }
 
-    private static func networkStatus(active: Bool, mac: String?, matched: Bool, config: TriggerConfig)
-        -> (active: Bool, text: String) {
-        // 사용자 말투로 한 줄만 — 게이트웨이 MAC을 못 읽으면(VPN·테더링, macOS 27의 ARP 제한) 그 이유까지 여기서 말한다.
-        guard let mac else { return (active, "Can't identify this network (VPN or tethering?)") }
-        // 이름을 붙인 네트워크면 이름으로(목록과 같은 표시) — 없으면 MAC.
-        return (active, matched ? "Active — \(config.networkDisplayName(mac) ?? mac)" : "Not on a remembered network")
+    /// label: 지금 네트워크의 표시 이름(이름이 있으면 이름, 없으면 MAC). nil이면 게이트웨이 MAC을 못 읽은 것 —
+    /// VPN·테더링이나 macOS 27의 ARP 제한. 그 이유를 이 한 줄이 말한다(목록 아래에 따로 두지 않는다).
+    private static func networkStatus(active: Bool, label: String?, matched: Bool) -> (active: Bool, text: String) {
+        guard let label else { return (active, "Inactive — can't identify this network (VPN or tethering?)") }
+        return (active, matched ? "Active — \(label)" : "Inactive — not on a remembered network")
     }
 
     // MARK: - Event formatter

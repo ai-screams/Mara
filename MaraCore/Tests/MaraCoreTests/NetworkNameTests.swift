@@ -113,6 +113,7 @@ final class NetworkNameTests: XCTestCase {
     }
 
     // 이름은 트리거 판단에 관여하지 않는다 — App이 activeSpecs 중복 제거로 이름 변경 시 평가기 재구성을 건너뛰는 전제.
+    // 이것을 실패시키는 것: activeSpecs()가 networkNames를 읽게 하는 것(지금 코드에는 그런 경로가 없어 처음부터 GREEN).
     func test_activeSpecs_unaffectedByNames() {
         var cfg = config(watching: [mac])
         let before = cfg.activeSpecs()
@@ -132,21 +133,17 @@ final class NetworkNameTests: XCTestCase {
         XCTAssertNil(clean(" \n\t "))
     }
 
-    // 이것을 실패시키는 것: bidi 제어 제거 범위를 빼는 것.
-    func test_sanitize_stripsBidiControls() {
-        XCTAssertEqual(clean("\u{202E}emoH"), "emoH")             // RLO
-        XCTAssertEqual(clean("\u{2067}Home\u{2069}"), "Home")      // RLI…PDI
-        XCTAssertEqual(clean("Ho\u{200F}me"), "Home")              // RLM
-    }
-
-    // 이것을 실패시키는 것: 폭 0 문자 제거나 "보이는 글자" 검사를 빼는 것.
+    // 이것을 실패시키는 것: "보이는 글자" 검사를 isEmpty로 바꾸는 것(ZWJ+VS만 남은 이름이 저장됨).
     func test_sanitize_invisibleOnlyIsNil() {
         XCTAssertNil(clean("\u{200B}\u{FEFF}\u{2060}"))
         XCTAssertNil(clean("\u{200D}\u{FE0F}"))
     }
 
-    // 이것을 실패시키는 것: 속성 기반 판정(isDefaultIgnorableCodePoint)을 목록 나열로 되돌리는 것.
-    func test_sanitize_stripsAllBidiAndDefaultIgnorables() {
+    // 이것을 실패시키는 것: isDefaultIgnorableCodePoint 제거 분기를 빼거나 손으로 나열한 목록으로 되돌리는 것.
+    func test_sanitize_stripsBidiControlsAndDefaultIgnorables() {
+        XCTAssertEqual(clean("\u{202E}emoH"), "emoH")             // RLO
+        XCTAssertEqual(clean("\u{2067}Home\u{2069}"), "Home")      // RLI…PDI
+        XCTAssertEqual(clean("Ho\u{200F}me"), "Home")              // RLM
         XCTAssertEqual(clean("Ho\u{061C}me"), "Home")                 // ARABIC LETTER MARK
         XCTAssertEqual(clean("\u{206A}Home\u{206F}"), "Home")         // 옛 bidi 제어
         XCTAssertEqual(clean("Ho\u{034F}me"), "Home")                 // COMBINING GRAPHEME JOINER
@@ -160,7 +157,7 @@ final class NetworkNameTests: XCTestCase {
         XCTAssertEqual(clean("\(england) Office"), "\(england) Office")
     }
 
-    // 이모지 ZWJ 시퀀스와 결합 악센트는 보존된다.
+    // 이것을 실패시키는 것: 제거 조건에서 keepsIgnorable 예외를 빼는 것(ZWJ가 지워져 가족 이모지가 쪼개짐).
     func test_sanitize_keepsEmojiAndCombiningMarks() {
         let family = "👨\u{200D}👩\u{200D}👧"
         XCTAssertEqual(clean("\(family) Home"), "\(family) Home")
@@ -180,6 +177,5 @@ final class NetworkNameTests: XCTestCase {
         XCTAssertNil(clean(zalgo))
         let name = clean("Home " + zalgo)
         XCTAssertEqual(name, "Home")
-        XCTAssertLessThanOrEqual(name?.utf8.count ?? 0, TriggerConfig.networkNameMaxUTF8Bytes)
     }
 }

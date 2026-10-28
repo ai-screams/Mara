@@ -143,33 +143,3 @@ enum InstalledAppInfo {
             .replacingOccurrences(of: ".app", with: "", options: [.anchored, .backwards])
     }
 }
-
-/// 감시 앱 한 줄: 설치돼 있으면 아이콘·이름 + 작은 bundle ID, 아니면 ID만(기존 칩과 같은 모양).
-struct WatchedAppRow: View {
-    let bundleID: String
-    let onRemove: () -> Void
-
-    var body: some View {
-        if let app = InstalledAppInfo.lookup(bundleID) {
-            HStack(spacing: 8) {
-                if let icon = app.icon {
-                    Image(nsImage: icon).resizable().frame(width: 18, height: 18)
-                }
-                VStack(alignment: .leading, spacing: 0) {
-                    Text(app.name).font(.callout).foregroundStyle(.white)
-                    Text(app.id)
-                        .font(.system(.caption2, design: .monospaced))
-                        .foregroundStyle(MaraTheme.muted)
-                }
-                Spacer()
-                Button(action: onRemove) {
-                    Image(systemName: "xmark.circle.fill").foregroundStyle(MaraTheme.muted)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Remove \(app.name)")
-            }
-        } else {
-            RemovableChipRow(text: bundleID, onRemove: onRemove)
-        }
-    }
-}

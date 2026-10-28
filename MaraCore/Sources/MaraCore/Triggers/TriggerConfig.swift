@@ -7,11 +7,12 @@ public struct TriggerConfig: Codable, Equatable, Sendable {
     public var appRunningEnabled: Bool
     public var watchedBundleIDs: [BundleIdentifier]
     public var networkEnabled: Bool
-    public var watchedNetworks: [String]  // 정규화된 게이트웨이 MAC 문자열
+    /// 정규화된 게이트웨이 MAC 문자열. 쓰기는 add/removeWatchedNetwork로만 — 이름과 함께 정리돼야 한다.
+    public internal(set) var watchedNetworks: [String]
     /// 감시 네트워크의 표시 이름(정규화된 MAC → 이름). 식별·트리거 판단에는 쓰지 않는다(표시 전용).
     /// watchedNetworks와 별도 사전인 이유: 배열 원소를 구조체로 바꾸면 저장 형식이 바뀌어 옛 버전이 디코드하지 못한다.
     /// 알려진 제약: 옛 버전은 이 키를 모르므로, 다운그레이드한 뒤 트리거 설정을 바꿔 저장하면 이름이 사라진다.
-    public var networkNames: [String: String]
+    public internal(set) var networkNames: [String: String]
 
     public static let defaults = TriggerConfig(
         chargingEnabled: false,
@@ -77,23 +78,19 @@ public struct TriggerConfig: Codable, Equatable, Sendable {
             .map(NetworkIdentity.normalize)
             .filter { seenMACs.insert($0).inserted }
         // 이 필드만 관대하게 디코드한다 — 타입이 틀린 값 때문에 throw하면 PrefsStore가 트리거 설정 전체를 기본값으로 되돌린다.
-        let rawNames = (try? c.decodeIfPresent([String: String].self, forKey: .networkNames)) ?? nil
-        networkNames = Self.normalizedNetworkNames(rawNames ?? [:], watched: seenMACs)
+        let rawNames = (try? c.decodeIfPresent([String: String].self, forKey: .networkNames)) ?? [:]
+        networkNames = Self.normalizedNetworkNames(rawNames, watched: seenMACs)
     }
 
     /// 키 정규화 → 감시 목록에 있는 것만 → 이름 정리. 두 키가 같은 MAC으로 접히면 이미 정규형이던 키가 이긴다
     /// (그다음은 키 정렬 순서 — 사전 순회 순서에 기대지 않는 결정적 규칙).
-    static func normalizedNetworkNames(_ raw: [String: String], watched: Set<String>) -> [String: String] {
+    private static func normalizedNetworkNames(_ raw: [String: String], watched: Set<String>) -> [String: String] {
         var result: [String: String] = [:]
-        var fromCanonicalKey = Set<String>()
         for key in raw.keys.sorted() {
             let mac = NetworkIdentity.normalize(key)
             guard watched.contains(mac), let name = raw[key].flatMap(sanitizeNetworkName) else { continue }
-            let isCanonical = key == mac
-            if result[mac] == nil || (isCanonical && !fromCanonicalKey.contains(mac)) {
-                result[mac] = name
-                if isCanonical { fromCanonicalKey.insert(mac) }
-            }
+            // 사전 키는 유일하므로 정규형 키는 많아야 하나 — 그 키면 앞서 들어온 값을 덮는다.
+            if result[mac] == nil || key == mac { result[mac] = name }
         }
         return result
     }
@@ -141,15 +138,15 @@ public extension TriggerConfig {
 
 // MARK: - 감시 네트워크 이름
 
-public extension TriggerConfig {
+extension TriggerConfig {
     /// 표시 이름 상한. 40은 보이는 글자(grapheme) 수, 120은 결합 문자를 수천 개 붙인 한 글자 같은 입력의 저장 상한.
     static let networkNameMaxCharacters = 40
     static let networkNameMaxUTF8Bytes = 120
 
     /// 표시 이름 정리. 결과가 비면 nil(= 이름 없음, MAC으로 표시).
     /// - 제어문자(C0/C1)·공백류·줄/문단 구분자 → 공백 하나로 축약, 앞뒤 공백 제거
-    /// - 기본 무시 문자(Default_Ignorable_Code_Point)는 제거 — bidi 제어 12개도 모두 여기에 속한다(전 영역을 돌려
-    ///   확인). 옆 텍스트의 표시 순서를 뒤집거나 빈 이름처럼 보이게 하는 문자들이다. 손으로 나열하면 빠뜨린다.
+    /// - 기본 무시 문자(Default_Ignorable_Code_Point, bidi 제어 포함)는 속성으로 판정해 제거 — 표시 순서를 뒤집거나
+    ///   빈 이름처럼 보이게 한다
     /// - 단 이모지에 필요한 ZWJ·이형 선택자·태그 문자(지역 국기 시퀀스)는 유지
     static func sanitizeNetworkName(_ raw: String) -> String? {
         var scalars = String.UnicodeScalarView()
@@ -178,7 +175,9 @@ public extension TriggerConfig {
         default: return false
         }
     }
+}
 
+public extension TriggerConfig {
     /// 중복이면 false. 이름은 비어 있는 채로 추가된다.
     @discardableResult
     mutating func addWatchedNetwork(_ identity: NetworkIdentity) -> Bool {
@@ -201,6 +200,7 @@ public extension TriggerConfig {
         networkNames[key] = Self.sanitizeNetworkName(raw)
     }
 
+    /// 이름이 없으면 nil — 호출부가 MAC으로 대체한다.
     func networkDisplayName(_ mac: String) -> String? {
         networkNames[NetworkIdentity.normalize(mac)]
     }
