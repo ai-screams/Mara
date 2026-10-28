@@ -40,20 +40,22 @@ final class AppEnvironment: ObservableObject {
             .dropFirst()   // 초기값 재방출 무시 (init에서 이미 반영)
             .sink { [weak self] v in MainActor.assumeIsolated { self?.session.lowBatteryThreshold = v } }
             .store(in: &cancellables)
-        reconcileTriggers(prefs.triggerConfig)
+        reconcileTriggers(prefs.triggerConfig.activeSpecs())
+        // 평가기는 activeSpecs()가 바뀔 때만 다시 만든다. 네트워크 이름처럼 표시만 바뀌는 편집은 키 입력마다
+        // config를 바꾸지만 specs는 그대로라 여기서 걸러진다. removeDuplicates를 dropFirst보다 앞에 둬야
+        // 위에서 반영한 초기 specs가 비교 기준이 된다(뒤에 두면 첫 편집이 평가기를 한 번 다시 만든다).
         prefs.$triggerConfig
-            .dropFirst()   // 초기값 재방출 무시 (위에서 한 번 반영함)
-            // Settings의 TextEditor가 키 입력마다 triggerConfig를 재할당하므로, 평가기
-            // 전체 재구성이 타이핑마다 돌지 않게 잠깐 모아서 반영한다(main 스케줄러 → 격리 유지).
-            .debounce(for: .milliseconds(300), scheduler: DispatchQueue.main)
-            .sink { [weak self] cfg in MainActor.assumeIsolated { self?.reconcileTriggers(cfg) } }
+            .map { $0.activeSpecs() }
+            .removeDuplicates()
+            .dropFirst()
+            .sink { [weak self] specs in MainActor.assumeIsolated { self?.reconcileTriggers(specs) } }
             .store(in: &cancellables)
         // installHotkey()  // 글로벌 핫키 보류
     }
 
-    private func reconcileTriggers(_ cfg: TriggerConfig) {
+    private func reconcileTriggers(_ specs: [TriggerSpec]) {
         // 결정(어떤 트리거를 켤지)은 순수 activeSpecs()가, 인스턴스화만 여기서 담당.
-        triggerEngine.updateEvaluators(cfg.activeSpecs().map(makeEvaluator))
+        triggerEngine.updateEvaluators(specs.map(makeEvaluator))
     }
 
     /// TriggerSpec(순수 결정) → 실제 OS 어댑터를 물린 evaluator. 불순한 인스턴스화만 담당.

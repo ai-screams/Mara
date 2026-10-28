@@ -202,8 +202,15 @@ struct SettingsView: View {
 
     // MARK: - Trigger inputs
 
+    /// 감시 앱 목록. 순서는 목록 → 추가 → 직접 입력(편집 목록의 흔한 형태), 들여쓰기는 토글 라벨 글자 위치에 맞춘다.
     private var watchedAppsList: some View {
         VStack(alignment: .leading, spacing: 7) {
+            ForEach(prefs.triggerConfig.watchedBundleIDs, id: \.self) { id in
+                WatchedAppRow(bundleID: id.rawValue) {
+                    prefs.triggerConfig.removeWatchedBundleID(id)
+                }
+            }
+
             Button {
                 // 여는 순간 1회 스냅샷으로 고정 — 시트가 떠 있는 동안 부모 재렌더(진단 갱신 등)마다
                 // NSWorkspace를 재열거하지 않고, 추가한 행이 목록에서 사라지는 대신 체크로 남는다.
@@ -222,12 +229,6 @@ struct SettingsView: View {
                 )
             }
 
-            ForEach(prefs.triggerConfig.watchedBundleIDs, id: \.self) { id in
-                WatchedAppRow(bundleID: id.rawValue) {
-                    prefs.triggerConfig.removeWatchedBundleID(id)
-                }
-            }
-
             // Advanced: 검증된 수동 입력 — 제출 시에만 반영, 성공 시에만 비운다.
             HStack(spacing: 6) {
                 TextField("Add bundle ID manually", text: $manualBundleID)
@@ -244,6 +245,7 @@ struct SettingsView: View {
             .padding(6)
             .background(Color.black.opacity(0.28), in: RoundedRectangle(cornerRadius: 6))
         }
+        .padding(.leading, SettingsLayout.childIndent)
     }
 
     private func submitManualBundleID() {
@@ -253,12 +255,19 @@ struct SettingsView: View {
         }
     }
 
+    /// 감시 네트워크 목록. 앱 목록과 같은 형태(목록 → 추가)와 들여쓰기. 네트워크를 못 알아볼 때의 이유는 위 상태 줄이 말한다.
     private var networkList: some View {
         VStack(alignment: .leading, spacing: 7) {
+            ForEach(prefs.triggerConfig.watchedNetworks, id: \.self) { mac in
+                WatchedNetworkRow(mac: mac,
+                                  savedName: prefs.triggerConfig.networkDisplayName(mac),
+                                  onRename: { prefs.triggerConfig.setNetworkName($0, for: mac) },
+                                  onRemove: { prefs.triggerConfig.removeWatchedNetwork(mac) })
+            }
+
             Button {
-                if let mac = currentNetwork?.gatewayMAC,
-                   !prefs.triggerConfig.watchedNetworks.contains(mac) {
-                    prefs.triggerConfig.watchedNetworks.append(mac)
+                if let identity = currentNetwork {
+                    prefs.triggerConfig.addWatchedNetwork(identity)
                 }
             } label: {
                 Label("Remember current network", systemImage: "plus.circle.fill")
@@ -268,17 +277,8 @@ struct SettingsView: View {
             // 색을 직접 지정하면 비활성이어도 흐려지지 않는다 — 비활성일 땐 muted로 바꿔 상태와 모양을 맞춘다.
             .foregroundStyle(currentNetwork == nil ? MaraTheme.muted : accent)
             .disabled(currentNetwork == nil)
-            if currentNetwork == nil {
-                // 버튼이 회색인 이유 — 진단 줄 "can't resolve gateway"와 같은 판단(게이트웨이 MAC 미해석).
-                SettingsCaption("Can't identify this network — no router found. VPNs and tethering can hide it.")
-            }
-
-            ForEach(prefs.triggerConfig.watchedNetworks, id: \.self) { mac in
-                RemovableChipRow(text: mac) {
-                    prefs.triggerConfig.watchedNetworks.removeAll { $0 == mac }
-                }
-            }
         }
+        .padding(.leading, SettingsLayout.childIndent)
     }
 
     // MARK: - Trigger diagnostics formatter
@@ -290,7 +290,7 @@ struct SettingsView: View {
         guard let status = TriggerStatusText.evaluate(kind, config: config, snapshot: snapshot) else { return nil }
         switch status {
         case .needsWatchList(.appRunning):
-            return (false, "Add app bundle IDs below to activate")
+            return (false, "Add an app below to activate")
         case .needsWatchList(.network):
             return (false, "Remember a network below to activate")
         case .needsWatchList:
@@ -311,7 +311,7 @@ struct SettingsView: View {
         case .appRunningNone(let watched):
             return appRunningNoneStatus(watched: watched)
         case .network(let active, let mac, let matched):
-            return networkStatus(active: active, mac: mac, matched: matched)
+            return networkStatus(active: active, label: mac.map { config.networkDisplayName($0) ?? $0 }, matched: matched)
         case .plain(let active):
             return (active, active ? "Active" : "Inactive")
         }
@@ -328,10 +328,11 @@ struct SettingsView: View {
         (false, "Inactive — \(watched) \(watched == 1 ? "app" : "apps") watched, none running")
     }
 
-    private static func networkStatus(active: Bool, mac: String?, matched: Bool)
-        -> (active: Bool, text: String) {
-        guard let mac else { return (active, "Inactive — can't resolve gateway") }
-        return (active, matched ? "Active — \(mac)" : "Inactive — different network")
+    /// label: 지금 네트워크의 표시 이름(이름이 있으면 이름, 없으면 MAC). nil이면 게이트웨이 MAC을 못 읽은 것 —
+    /// VPN·테더링이나 macOS 27의 ARP 제한. 그 이유를 이 한 줄이 말한다(목록 아래에 따로 두지 않는다).
+    private static func networkStatus(active: Bool, label: String?, matched: Bool) -> (active: Bool, text: String) {
+        guard let label else { return (active, "Inactive — can't identify this network (VPN or tethering?)") }
+        return (active, matched ? "Active — \(label)" : "Inactive — not on a remembered network")
     }
 
     // MARK: - Event formatter
