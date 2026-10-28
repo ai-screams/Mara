@@ -270,6 +270,8 @@ final class StatusBarController: NSObject, NSMenuDelegate {
             item.representedObject = tint
             item.state = (tint == current) ? .on : .off
             item.image = Self.swatch(tint.color)
+            // macOS 27은 메뉴 항목 이미지를 기본으로 숨긴다. 색 견본은 장식이 아니라 고를 색 자체라 항상 보이게 한다.
+            if #available(macOS 27.0, *) { item.preferredImageVisibility = .visible }
             sub.addItem(item)
         }
         let parent = NSMenuItem(title: "Icon Color", action: nil, keyEquivalent: "")
