@@ -145,6 +145,21 @@ final class NetworkNameTests: XCTestCase {
         XCTAssertNil(clean("\u{200D}\u{FE0F}"))
     }
 
+    // 이것을 실패시키는 것: 속성 기반 판정(isDefaultIgnorableCodePoint)을 목록 나열로 되돌리는 것.
+    func test_sanitize_stripsAllBidiAndDefaultIgnorables() {
+        XCTAssertEqual(clean("Ho\u{061C}me"), "Home")                 // ARABIC LETTER MARK
+        XCTAssertEqual(clean("\u{206A}Home\u{206F}"), "Home")         // 옛 bidi 제어
+        XCTAssertEqual(clean("Ho\u{034F}me"), "Home")                 // COMBINING GRAPHEME JOINER
+        XCTAssertNil(clean("\u{3164}\u{115F}"))                       // 한글 채움 문자만
+    }
+
+    // 이것을 실패시키는 것: 보이는 글자 판정에서 무시 문자를 빼지 않는 것(태그만 있는 이름이 저장됨).
+    func test_sanitize_tagOnlyIsNil_butFlagSequenceSurvives() {
+        XCTAssertNil(clean("\u{E0067}\u{E0062}\u{E007F}"))
+        let england = "🏴\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}"
+        XCTAssertEqual(clean("\(england) Office"), "\(england) Office")
+    }
+
     // 이모지 ZWJ 시퀀스와 결합 악센트는 보존된다.
     func test_sanitize_keepsEmojiAndCombiningMarks() {
         let family = "👨\u{200D}👩\u{200D}👧"

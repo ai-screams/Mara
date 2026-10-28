@@ -148,18 +148,13 @@ public extension TriggerConfig {
 
     /// 표시 이름 정리. 결과가 비면 nil(= 이름 없음, MAC으로 표시).
     /// - 제어문자(C0/C1)·공백류·줄/문단 구분자 → 공백 하나로 축약, 앞뒤 공백 제거
-    /// - bidi override/isolate·방향 표시와 폭 0 문자는 제거 — 옆 텍스트의 표시 순서를 뒤집거나 빈 이름처럼 보이게 한다
-    /// - 이모지에 필요한 ZWJ(U+200D)와 이형 선택자는 유지
+    /// - 기본 무시 문자(Default_Ignorable_Code_Point)는 제거 — bidi 제어 12개도 모두 여기에 속한다(전 영역을 돌려
+    ///   확인). 옆 텍스트의 표시 순서를 뒤집거나 빈 이름처럼 보이게 하는 문자들이다. 손으로 나열하면 빠뜨린다.
+    /// - 단 이모지에 필요한 ZWJ·이형 선택자·태그 문자(지역 국기 시퀀스)는 유지
     static func sanitizeNetworkName(_ raw: String) -> String? {
         var scalars = String.UnicodeScalarView()
         for scalar in raw.unicodeScalars {
-            switch scalar.value {
-            case 0x200E, 0x200F, 0x202A...0x202E, 0x2066...0x2069,   // bidi 방향 제어
-                 0x200B, 0x2060, 0xFEFF, 0x00AD:                     // 폭 0 공백·word joiner·BOM·soft hyphen
-                continue
-            default:
-                break
-            }
+            if scalar.properties.isDefaultIgnorableCodePoint && !keepsIgnorable(scalar) { continue }
             let isBreak = scalar.properties.generalCategory == .control || scalar.properties.isWhitespace
             scalars.append(isBreak ? " " : scalar)
         }
@@ -171,12 +166,17 @@ public extension TriggerConfig {
             name.append(character)
         }
         name = name.trimmingCharacters(in: .whitespaces)
-        // ZWJ·이형 선택자만 남으면 보이지 않는 이름이다.
-        let visible = name.unicodeScalars.contains { scalar in
-            scalar.value != 0x200D && !(0xFE00...0xFE0F).contains(scalar.value)
-                && !(0xE0100...0xE01EF).contains(scalar.value)
-        }
+        // 남겨 둔 무시 문자(ZWJ·이형 선택자·태그)만 있으면 보이지 않는 이름이다.
+        let visible = name.unicodeScalars.contains { !$0.properties.isDefaultIgnorableCodePoint }
         return visible ? name : nil
+    }
+
+    /// 기본 무시 문자 중 이모지 표시에 필요해 남기는 것: ZWJ, 이형 선택자 두 영역, 태그 문자(🏴 지역 국기).
+    private static func keepsIgnorable(_ scalar: Unicode.Scalar) -> Bool {
+        switch scalar.value {
+        case 0x200D, 0xFE00...0xFE0F, 0xE0100...0xE01EF, 0xE0020...0xE007F: return true
+        default: return false
+        }
     }
 
     /// 중복이면 false. 이름은 비어 있는 채로 추가된다.
