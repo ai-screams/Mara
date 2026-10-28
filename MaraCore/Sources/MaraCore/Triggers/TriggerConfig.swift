@@ -139,8 +139,9 @@ public extension TriggerConfig {
 // MARK: - 감시 네트워크 이름
 
 extension TriggerConfig {
-    /// 표시 이름 상한. 40은 보이는 글자(grapheme) 수, 120은 결합 문자를 수천 개 붙인 한 글자 같은 입력의 저장 상한.
-    static let networkNameMaxCharacters = 40
+    /// 표시 이름의 보이는 글자(grapheme) 상한. App의 입력칸도 이 값으로 입력을 막는다.
+    public static let networkNameMaxCharacters = 40
+    /// 저장 상한 — 결합 문자를 수천 개 붙인 한 글자 같은 입력 대비(입력칸은 글자 수만 막는다).
     static let networkNameMaxUTF8Bytes = 120
 
     /// 표시 이름 정리. 결과가 비면 nil(= 이름 없음, MAC으로 표시).

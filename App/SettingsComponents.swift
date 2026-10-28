@@ -1,4 +1,5 @@
 import SwiftUI
+import MaraCore
 
 /// Night Watch 설정 창의 재사용 컴포넌트 — 카드 컨테이너와 행(row)들.
 /// 색·타이포는 전부 MaraTheme에서 온다.
@@ -247,7 +248,10 @@ struct WatchedNetworkRow: View {
     }
 
     var body: some View {
-        WatchedItemRow(subtitle: mac, removeLabel: savedName ?? mac, onRemove: onRemove) {
+        // 삭제 라벨에는 종류와 MAC을 항상 넣는다 — 이름은 중복될 수 있어 이름만으로는 VoiceOver에서 어느 행인지 모른다.
+        WatchedItemRow(subtitle: mac,
+                       removeLabel: savedName.map { "network \($0), \(mac)" } ?? "network \(mac)",
+                       onRemove: onRemove) {
             EmptyView()
         } title: {
             // placeholder를 muted로 — 흰 글자면 이름을 붙인 행과 구분되지 않는다.
@@ -258,7 +262,15 @@ struct WatchedNetworkRow: View {
                 .foregroundStyle(.white)
                 .focused($focused)
                 .accessibilityLabel("Name for network \(mac)")
-                .onChange(of: draft) { _, newValue in onRename(newValue) }
+                .onChange(of: draft) { _, newValue in
+                    // 상한을 넘는 입력은 칸에서 바로 막는다 — 저장할 때만 자르면 입력 중에는 저장값과 다르게 보인다.
+                    // 잘라 다시 대입하면 onChange가 한 번 더 불리고, 그때 저장한다.
+                    guard newValue.count <= TriggerConfig.networkNameMaxCharacters else {
+                        draft = String(newValue.prefix(TriggerConfig.networkNameMaxCharacters))
+                        return
+                    }
+                    onRename(newValue)
+                }
                 .onSubmit(syncDraftToSaved)
                 .onChange(of: focused) { _, isFocused in if !isFocused { syncDraftToSaved() } }
         }
