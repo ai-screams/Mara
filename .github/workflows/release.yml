@@ -24,7 +24,8 @@ concurrency:
 
 jobs:
   release:
-    runs-on: macos-15
+    # ci.yml과 같은 이미지·Xcode(xcode-27 preview, runner-images #14404). 두 workflow를 한 PR에서 함께 바꾼다.
+    runs-on: xcode-27
     # 대표 실행의 러너 구간은 약 161초. 공증 변동은 허용하되 6시간 기본값은 제거한다.
     # (환경 승인 대기는 이 상한에 포함되지 않는다 — job 시작 전이다.)
     timeout-minutes: 45
@@ -60,7 +61,7 @@ jobs:
         uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
         with:
           # CI와 정확히 같은 compiler. 두 workflow의 값을 한 PR에서 함께 올린다.
-          xcode-version: "26.3.0"
+          xcode-version: "27.1.0"
 
       - name: Import Developer ID certificate
         uses: apple-actions/import-codesign-certs@77ba2a2a8f5cfc8c405ebf3159f767c323e238f9 # v7.1.0

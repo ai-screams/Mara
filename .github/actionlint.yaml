@@ -1,0 +1,5 @@
+# GitHub 호스트 러너지만 actionlint 내장 목록에 아직 없는 라벨.
+# xcode-27: macOS 27 + Xcode 27 preview 이미지(actions/runner-images #14404). GA로 내장 목록에 들어가면 지운다.
+self-hosted-runner:
+  labels:
+    - xcode-27

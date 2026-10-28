@@ -74,7 +74,9 @@ jobs:
 
   test:
     name: Build & Test
-    runs-on: macos-15
+    # Xcode 27(macOS 27 SDK)은 GitHub의 xcode-27 이미지(macOS 27, 현재 preview)에만 있다(runner-images #14404).
+    # macOS 27 API(preferredImageVisibility 등)를 배포본에 넣으려면 SDK 27로 빌드해야 한다. GA가 되면 라벨을 옮긴다.
+    runs-on: xcode-27
     timeout-minutes: 25   # 최근 실측 최대 161초 대비 충분한 여유.
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -82,8 +84,8 @@ jobs:
       - name: Select release-parity Xcode
         uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
         with:
-          # Release와 정확히 같은 compiler. 새 Xcode 검증은 별도 non-blocking job에서 할 것.
-          xcode-version: "26.3.0"
+          # Release와 정확히 같은 compiler. 두 workflow(ci.yml·release.yml)의 값을 한 PR에서 함께 올린다.
+          xcode-version: "27.1.0"
 
       - name: Show toolchain
         run: |
