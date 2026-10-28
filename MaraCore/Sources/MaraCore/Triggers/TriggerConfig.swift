@@ -8,6 +8,10 @@ public struct TriggerConfig: Codable, Equatable, Sendable {
     public var watchedBundleIDs: [BundleIdentifier]
     public var networkEnabled: Bool
     public var watchedNetworks: [String]  // 정규화된 게이트웨이 MAC 문자열
+    /// 감시 네트워크의 표시 이름(정규화된 MAC → 이름). 식별·트리거 판단에는 쓰지 않는다(표시 전용).
+    /// watchedNetworks와 별도 사전인 이유: 배열 원소를 구조체로 바꾸면 저장 형식이 바뀌어 옛 버전이 디코드하지 못한다.
+    /// 알려진 제약: 옛 버전은 이 키를 모르므로, 다운그레이드한 뒤 트리거 설정을 바꿔 저장하면 이름이 사라진다.
+    public var networkNames: [String: String]
 
     public static let defaults = TriggerConfig(
         chargingEnabled: false,
@@ -15,7 +19,8 @@ public struct TriggerConfig: Codable, Equatable, Sendable {
         appRunningEnabled: false,
         watchedBundleIDs: [],
         networkEnabled: false,
-        watchedNetworks: []
+        watchedNetworks: [],
+        networkNames: [:]
     )
 
     // MARK: - Init
@@ -26,7 +31,8 @@ public struct TriggerConfig: Codable, Equatable, Sendable {
         appRunningEnabled: Bool,
         watchedBundleIDs: [BundleIdentifier],
         networkEnabled: Bool,
-        watchedNetworks: [String]
+        watchedNetworks: [String],
+        networkNames: [String: String] = [:]
     ) {
         self.chargingEnabled        = chargingEnabled
         self.externalDisplayEnabled = externalDisplayEnabled
@@ -34,6 +40,7 @@ public struct TriggerConfig: Codable, Equatable, Sendable {
         self.watchedBundleIDs       = watchedBundleIDs
         self.networkEnabled         = networkEnabled
         self.watchedNetworks        = watchedNetworks
+        self.networkNames           = networkNames
     }
 
     // MARK: - Codable
@@ -45,6 +52,7 @@ public struct TriggerConfig: Codable, Equatable, Sendable {
         case watchedBundleIDs
         case networkEnabled
         case watchedNetworks
+        case networkNames
     }
 
     /// 하위호환 디코드: 기존에 영속된 JSON엔 새로 추가된 키가 없을 수 있다.
@@ -62,7 +70,32 @@ public struct TriggerConfig: Codable, Equatable, Sendable {
             .compactMap { BundleIdentifier(validating: $0) }
             .filter { seen.insert($0).inserted }
         networkEnabled          = try c.decodeIfPresent(Bool.self,     forKey: .networkEnabled)          ?? false
-        watchedNetworks         = try c.decodeIfPresent([String].self, forKey: .watchedNetworks)         ?? []
+        // 정규화 + 순서 유지 중복 제거 — 밖에서 고친 plist의 대문자·한 자리 옥텟이 이름 키와 어긋나지 않게 한다.
+        let rawNetworks = try c.decodeIfPresent([String].self, forKey: .watchedNetworks) ?? []
+        var seenMACs = Set<String>()
+        watchedNetworks = rawNetworks
+            .map(NetworkIdentity.normalize)
+            .filter { seenMACs.insert($0).inserted }
+        // 이 필드만 관대하게 디코드한다 — 타입이 틀린 값 때문에 throw하면 PrefsStore가 트리거 설정 전체를 기본값으로 되돌린다.
+        let rawNames = (try? c.decodeIfPresent([String: String].self, forKey: .networkNames)) ?? nil
+        networkNames = Self.normalizedNetworkNames(rawNames ?? [:], watched: seenMACs)
+    }
+
+    /// 키 정규화 → 감시 목록에 있는 것만 → 이름 정리. 두 키가 같은 MAC으로 접히면 이미 정규형이던 키가 이긴다
+    /// (그다음은 키 정렬 순서 — 사전 순회 순서에 기대지 않는 결정적 규칙).
+    static func normalizedNetworkNames(_ raw: [String: String], watched: Set<String>) -> [String: String] {
+        var result: [String: String] = [:]
+        var fromCanonicalKey = Set<String>()
+        for key in raw.keys.sorted() {
+            let mac = NetworkIdentity.normalize(key)
+            guard watched.contains(mac), let name = raw[key].flatMap(sanitizeNetworkName) else { continue }
+            let isCanonical = key == mac
+            if result[mac] == nil || (isCanonical && !fromCanonicalKey.contains(mac)) {
+                result[mac] = name
+                if isCanonical { fromCanonicalKey.insert(mac) }
+            }
+        }
+        return result
     }
 }
 
@@ -103,5 +136,72 @@ public extension TriggerConfig {
 
     mutating func removeWatchedBundleID(_ id: BundleIdentifier) {
         watchedBundleIDs.removeAll { $0 == id }
+    }
+}
+
+// MARK: - 감시 네트워크 이름
+
+public extension TriggerConfig {
+    /// 표시 이름 상한. 40은 보이는 글자(grapheme) 수, 120은 결합 문자를 수천 개 붙인 한 글자 같은 입력의 저장 상한.
+    static let networkNameMaxCharacters = 40
+    static let networkNameMaxUTF8Bytes = 120
+
+    /// 표시 이름 정리. 결과가 비면 nil(= 이름 없음, MAC으로 표시).
+    /// - 제어문자(C0/C1)·공백류·줄/문단 구분자 → 공백 하나로 축약, 앞뒤 공백 제거
+    /// - bidi override/isolate·방향 표시와 폭 0 문자는 제거 — 옆 텍스트의 표시 순서를 뒤집거나 빈 이름처럼 보이게 한다
+    /// - 이모지에 필요한 ZWJ(U+200D)와 이형 선택자는 유지
+    static func sanitizeNetworkName(_ raw: String) -> String? {
+        var scalars = String.UnicodeScalarView()
+        for scalar in raw.unicodeScalars {
+            switch scalar.value {
+            case 0x200E, 0x200F, 0x202A...0x202E, 0x2066...0x2069,   // bidi 방향 제어
+                 0x200B, 0x2060, 0xFEFF, 0x00AD:                     // 폭 0 공백·word joiner·BOM·soft hyphen
+                continue
+            default:
+                break
+            }
+            let isBreak = scalar.properties.generalCategory == .control || scalar.properties.isWhitespace
+            scalars.append(isBreak ? " " : scalar)
+        }
+        let collapsed = String(scalars).split(separator: " ").joined(separator: " ")
+        var name = ""
+        for character in collapsed {
+            guard name.count < networkNameMaxCharacters,
+                  name.utf8.count + character.utf8.count <= networkNameMaxUTF8Bytes else { break }
+            name.append(character)
+        }
+        name = name.trimmingCharacters(in: .whitespaces)
+        // ZWJ·이형 선택자만 남으면 보이지 않는 이름이다.
+        let visible = name.unicodeScalars.contains { scalar in
+            scalar.value != 0x200D && !(0xFE00...0xFE0F).contains(scalar.value)
+                && !(0xE0100...0xE01EF).contains(scalar.value)
+        }
+        return visible ? name : nil
+    }
+
+    /// 중복이면 false. 이름은 비어 있는 채로 추가된다.
+    @discardableResult
+    mutating func addWatchedNetwork(_ identity: NetworkIdentity) -> Bool {
+        guard !watchedNetworks.contains(identity.gatewayMAC) else { return false }
+        watchedNetworks.append(identity.gatewayMAC)
+        return true
+    }
+
+    /// 목록과 이름을 함께 지운다 — 이름만 고아로 남지 않게.
+    mutating func removeWatchedNetwork(_ mac: String) {
+        let key = NetworkIdentity.normalize(mac)
+        watchedNetworks.removeAll { $0 == key }
+        networkNames[key] = nil
+    }
+
+    /// 감시 목록에 없는 MAC이면 no-op. 정리 결과가 비면 이름을 지운다.
+    mutating func setNetworkName(_ raw: String, for mac: String) {
+        let key = NetworkIdentity.normalize(mac)
+        guard watchedNetworks.contains(key) else { return }
+        networkNames[key] = Self.sanitizeNetworkName(raw)
+    }
+
+    func networkDisplayName(_ mac: String) -> String? {
+        networkNames[NetworkIdentity.normalize(mac)]
     }
 }
