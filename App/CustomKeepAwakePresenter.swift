@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 import MaraCore
 
-/// 커스텀 타이머 다이얼로그 창의 생성·크롬·표시. 창은 1회 생성 후 캐시(닫아도 해제 안 함).
+/// 커스텀 타이머 다이얼로그 창의 생성·표시(창 크롬은 `MaraTheme.makeWindow`). 창은 1회 생성 후 캐시(닫아도 해제 안 함).
 @MainActor
 final class CustomKeepAwakePresenter {
     private var window: NSWindow?
@@ -26,15 +26,7 @@ final class CustomKeepAwakePresenter {
             onStart: onStart,
             dismiss: { [weak self] in self?.window?.close() }
         )
-        let window = NSWindow(contentViewController: NSHostingController(rootView: view))
-        window.title = "Keep Awake"
-        window.styleMask = [.titled, .closable, .fullSizeContentView]
-        window.titlebarAppearsTransparent = true
-        window.titleVisibility = .hidden
-        window.appearance = NSAppearance(named: .darkAqua)
-        window.backgroundColor = MaraTheme.bgNSColor
-        window.isMovableByWindowBackground = true
-        window.isReleasedWhenClosed = false
+        let window = MaraTheme.makeWindow(title: "Keep Awake", content: view)
         window.center()
         return window
     }
