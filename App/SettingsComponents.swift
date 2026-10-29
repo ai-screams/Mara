@@ -12,6 +12,47 @@ enum SettingsLayout {
     static let childIndent = iconWidth + rowSpacing
 }
 
+/// 감시 목록의 행 묶음. 창 높이는 콘텐츠가 정하므로 행이 늘면 창도 끝없이 커진다(화면보다 커질 수 있음).
+/// 행이 `maxVisibleRows`를 넘을 때만 정확히 그만큼의 높이로 고정한 안쪽 스크롤로 바꾼다. 크기 협상
+/// (ViewThatFits·maxHeight)에 맡기면 창이 높이를 잴 때 스크롤 쪽이 높이 0으로 골라져 행이 사라졌다(실기 확인)
+/// — 그래서 개수로 정하고, 높이는 펼친 행 전체를 재서 행 하나 높이로 나눠 구한다(행 높이는 모두 같다).
+struct WatchedRows<Content: View>: View {
+    static var maxVisibleRows: Int { 5 }
+    private static var spacing: CGFloat { 7 }
+    /// 스크롤바를 둘 자리. 스크롤 영역만 카드 안쪽 여백(`SettingsCard`의 13pt)으로 이만큼 넓히고 행은 그 앞에서
+    /// 끝낸다 — 행 안에서 비우면 스크롤이 생길 때마다 삭제 버튼이 그만큼 왼쪽으로 밀린다(실기 확인).
+    private static var scrollerGutter: CGFloat { 13 }
+    let count: Int
+    @ViewBuilder let content: Content
+    @State private var rowsHeight: CGFloat = 0
+
+    var body: some View {
+        if count > Self.maxVisibleRows {
+            ScrollView {
+                rows
+                    .padding(.trailing, Self.scrollerGutter)
+                    .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { rowsHeight = $0 }
+            }
+            .frame(height: visibleHeight)
+            .padding(.trailing, -Self.scrollerGutter)
+        } else {
+            rows
+        }
+    }
+
+    /// 행 `maxVisibleRows`개와 그 사이 간격의 높이. 재기 전(0)에는 행 하나 높이를 모르므로 어림값을 쓴다.
+    private var visibleHeight: CGFloat {
+        guard rowsHeight > 0 else { return 180 }
+        let row = (rowsHeight + Self.spacing) / CGFloat(count) - Self.spacing
+        let visible = CGFloat(Self.maxVisibleRows)
+        return row * visible + Self.spacing * (visible - 1)
+    }
+
+    private var rows: some View {
+        VStack(alignment: .leading, spacing: Self.spacing) { content }
+    }
+}
+
 /// 상단 소제목 + 어두운 라운드 컨테이너.
 struct SettingsCard<Content: View>: View {
     let title: String
