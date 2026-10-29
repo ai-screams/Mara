@@ -34,12 +34,13 @@ enum RunningAppSnapshot {
     }
 }
 
-/// Night Watch 스타일 실행 앱 피커 시트. 행 클릭 → 추가(onAdd), 추가된 행은 체크로 남는다.
+/// Night Watch 스타일 실행 앱 피커 시트. 행 클릭 → 추가(onAdd), 추가된 행은 체크로 남고 다시 누르면 뺀다(onRemove).
 struct RunningAppPickerView: View {
     let apps: [RunningAppItem]
     /// 실제 추가 성공 여부를 반환해야 한다 — 체크마크는 성공에만 게이트된다
     /// (검증 실패가 체크로 표시되는 거짓 성공 방지, Codex 감사 High 반영).
     let onAdd: (String) -> Bool
+    let onRemove: (String) -> Void
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accentTint) private var accent   // 부모(SettingsView)가 시트로 흘려보낸 tint
     @State private var added: Set<String> = []
@@ -79,7 +80,12 @@ struct RunningAppPickerView: View {
     private func appRow(_ app: RunningAppItem) -> some View {
         let isAdded = added.contains(app.id)
         Button {
-            if onAdd(app.id) { added.insert(app.id) }
+            if isAdded {
+                onRemove(app.id)
+                added.remove(app.id)
+            } else if onAdd(app.id) {
+                added.insert(app.id)
+            }
         } label: {
             HStack(spacing: 9) {
                 if let icon = app.icon {
@@ -106,7 +112,6 @@ struct RunningAppPickerView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .disabled(isAdded)
         .background(Color.white.opacity(0.001))   // hover/클릭 히트영역 보정
     }
 }

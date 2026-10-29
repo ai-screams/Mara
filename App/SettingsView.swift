@@ -14,6 +14,7 @@ struct SettingsView: View {
     var checkForUpdates: () -> Void = {}
     var requestNotificationAuth: () async -> Bool = { false }
     @State private var appPicker: AppPickerPayload?
+    @State private var confirmingRemoveAllApps = false
     @State private var manualBundleID = ""
     @State private var currentNetwork: NetworkIdentity?
 
@@ -211,7 +212,7 @@ struct SettingsView: View {
     /// 감시 앱 목록. 순서는 목록 → 추가 → 직접 입력(편집 목록의 흔한 형태), 들여쓰기는 토글 라벨 글자 위치에 맞춘다.
     private var watchedAppsList: some View {
         VStack(alignment: .leading, spacing: 7) {
-            WatchedRows(count: prefs.triggerConfig.watchedBundleIDs.count) {
+            WatchedRows(count: prefs.triggerConfig.watchedBundleIDs.count, frozen: appPicker != nil) {
                 ForEach(prefs.triggerConfig.watchedBundleIDs, id: \.self) { id in
                     WatchedAppRow(bundleID: id.rawValue) {
                         prefs.triggerConfig.removeWatchedBundleID(id)
@@ -219,22 +220,42 @@ struct SettingsView: View {
                 }
             }
 
-            Button {
-                // 여는 순간 1회 스냅샷으로 고정 — 시트가 떠 있는 동안 부모 재렌더(진단 갱신 등)마다
-                // NSWorkspace를 재열거하지 않고, 추가한 행이 목록에서 사라지는 대신 체크로 남는다.
-                appPicker = AppPickerPayload(apps: RunningAppSnapshot.fetch(
-                    excluding: Set(prefs.triggerConfig.watchedBundleIDs.map(\.rawValue))))
-            } label: {
-                Label("Add Running App…", systemImage: "plus.circle.fill")
-                    .font(.callout)
-            }
-            .buttonStyle(.borderless)
-            .foregroundStyle(accent)
-            .sheet(item: $appPicker) { payload in
-                RunningAppPickerView(
-                    apps: payload.apps,
-                    onAdd: { prefs.triggerConfig.addWatchedBundleID($0) }
-                )
+            HStack {
+                Button {
+                    // 여는 순간 1회 스냅샷으로 고정 — 시트가 떠 있는 동안 부모 재렌더(진단 갱신 등)마다
+                    // NSWorkspace를 재열거하지 않고, 추가한 행이 목록에서 사라지는 대신 체크로 남는다.
+                    appPicker = AppPickerPayload(apps: RunningAppSnapshot.fetch(
+                        excluding: Set(prefs.triggerConfig.watchedBundleIDs.map(\.rawValue))))
+                } label: {
+                    Label("Add Running App…", systemImage: "plus.circle.fill")
+                        .font(.callout)
+                }
+                .buttonStyle(.borderless)
+                .foregroundStyle(accent)
+                .sheet(item: $appPicker) { payload in
+                    RunningAppPickerView(
+                        apps: payload.apps,
+                        onAdd: { prefs.triggerConfig.addWatchedBundleID($0) },
+                        onRemove: { raw in
+                            if let id = BundleIdentifier(validating: raw) { prefs.triggerConfig.removeWatchedBundleID(id) }
+                        }
+                    )
+                }
+                Spacer()
+                // 하나씩 지우기 번거로운 긴 목록용. 다시 채우기는 번거로우므로 한 번 확인한다.
+                if !prefs.triggerConfig.watchedBundleIDs.isEmpty {
+                    Button("Remove All") { confirmingRemoveAllApps = true }
+                        .buttonStyle(.borderless)
+                        .font(.caption)
+                        .foregroundStyle(MaraTheme.muted)
+                        .confirmationDialog("Remove all watched apps?", isPresented: $confirmingRemoveAllApps) {
+                            Button("Remove All", role: .destructive) {
+                                prefs.triggerConfig.watchedBundleIDs.removeAll()
+                            }
+                        } message: {
+                            Text("These apps will no longer keep your Mac awake.")
+                        }
+                }
             }
 
             // Advanced: 검증된 수동 입력 — 제출 시에만 반영, 성공 시에만 비운다.
