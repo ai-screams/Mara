@@ -346,7 +346,7 @@ extension TriggerEngineTests {
     }
 }
 
-// 메뉴의 "Auto-activated (…)"는 지금 충족된 트리거를 보인다(연 트리거가 풀리고 다른 트리거가 이어받는 경우).
+// 메뉴 머리글 "Awake — triggered by …"는 지금 충족된 트리거를 보인다(연 트리거가 풀리고 다른 트리거가 이어받는 경우).
 extension TriggerEngineTests {
     // 이것을 실패시키는 것: firstSatisfiedKind가 isSatisfied를 보지 않고 첫 active kind를 돌려주는 것.
     func test_firstSatisfiedKind_followsHandoverAfterOpenerClears() {

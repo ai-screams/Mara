@@ -91,18 +91,19 @@ The legacy build lives on the [`legacy/10.13`](https://github.com/ai-screams/Mar
 
 On first launch, a short guide popover points out the menu-bar eye and offers to enable Launch at Login.
 
-Click the menu-bar eye for:
+Click the menu-bar eye for three groups:
 
-- `Keep Awake` / `Turn Off`
-- `Keep awake for…`: `15 minutes`, `1 hour`, `2 hours`, `5 hours` — recently used custom durations reappear under `Recent` (with a `Clear Recent` action), and `Custom…` opens a dialog for any duration or a specific time of day
-- `Keep display awake`
-- `Icon Color`: pick the menu-bar eye's color from a curated palette — it also tints the settings window
-- `Launch at Login`
-- `Check for Updates…`
-- `Settings…`
-- `Quit Mara`
+- **Session** — under a status header:
+  - `Keep Awake` / `Turn Off`
+  - `Keep awake for…`: `15 minutes`, `1 hour`, `2 hours`, `5 hours` — recently used custom durations reappear under `Recent` (with a `Clear Recent` action), and `Custom…` opens a dialog for any duration or a specific time of day
+  - `Keep display awake`
+- **App settings**:
+  - `Icon Color`: pick the menu-bar eye's color from a curated palette — it also tints the settings window
+  - `Launch at Login`
+  - `Settings…`
+- **App**: `Check for Updates…`, `Support Mara`, `Quit Mara`
 
-When a session is started by an automatic trigger, the menu shows an `Auto-activated (trigger)` status. If you turn it off manually, it will not restart while the trigger is still true; it re-arms only after every trigger has cleared. Manual control always takes precedence over triggers.
+The status header at the top of the menu shows the current state: `Resting`, `Awake`, `Awake — 1h20m left` for a timed session, or `Awake — triggered by charging` (the trigger that is holding the session now) for an automatic one. If you turn it off manually, it will not restart while the trigger is still true; it re-arms only after every trigger has cleared. Manual control always takes precedence over triggers.
 
 ## Architecture
 
