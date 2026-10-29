@@ -37,7 +37,9 @@ struct SettingsView: View {
         }
         .padding(.horizontal, 22)
         .padding(.bottom, 18)
-        .padding(.top, 30)          // 투명 titlebar(신호등 버튼) 아래로 헤더가 깔리지 않게
+        // 투명 titlebar(신호등 버튼) 아래로 헤더가 깔리지 않게 위를 비운다. titlebar safe area(32pt)는 창 쪽에서
+        // 끄고(SettingsWindowPresenter) 그만큼을 이 여백에 합쳤다.
+        .padding(.top, 62)
         .frame(width: 400)
         .background(MaraTheme.bg)
         .preferredColorScheme(.dark)
@@ -132,6 +134,11 @@ struct SettingsView: View {
                 .font(.system(size: 32))
                 .foregroundStyle(active ? accent : MaraTheme.muted)
                 .shadow(color: active ? accent.opacity(0.55) : .clear, radius: 14)
+                // 감은 눈(eye.slash)이 뜬 눈보다 키가 커서, 상태가 바뀔 때마다 머리글 아래 전체가 밀렸다.
+                // 두 심볼을 같은 높이의 자리에 둔다.
+                .frame(height: 40)
+                // 애니메이션은 눈에만 건다. 머리글 전체에 걸면 폭이 다른 상태 문구가 바뀌는 동안 글자가 미끄러진다.
+                .animation(.easeInOut(duration: 0.25), value: active)
                 .accessibilityHidden(true)
             Text("Mara")
                 .font(.system(size: 21, weight: .semibold, design: .rounded))
@@ -148,7 +155,6 @@ struct SettingsView: View {
             }
         }
         .frame(maxWidth: .infinity)
-        .animation(.easeInOut(duration: 0.25), value: active)
     }
 
     private var footer: some View {
@@ -205,9 +211,11 @@ struct SettingsView: View {
     /// 감시 앱 목록. 순서는 목록 → 추가 → 직접 입력(편집 목록의 흔한 형태), 들여쓰기는 토글 라벨 글자 위치에 맞춘다.
     private var watchedAppsList: some View {
         VStack(alignment: .leading, spacing: 7) {
-            ForEach(prefs.triggerConfig.watchedBundleIDs, id: \.self) { id in
-                WatchedAppRow(bundleID: id.rawValue) {
-                    prefs.triggerConfig.removeWatchedBundleID(id)
+            WatchedRows(count: prefs.triggerConfig.watchedBundleIDs.count) {
+                ForEach(prefs.triggerConfig.watchedBundleIDs, id: \.self) { id in
+                    WatchedAppRow(bundleID: id.rawValue) {
+                        prefs.triggerConfig.removeWatchedBundleID(id)
+                    }
                 }
             }
 
@@ -258,11 +266,13 @@ struct SettingsView: View {
     /// 감시 네트워크 목록. 앱 목록과 같은 형태(목록 → 추가)와 들여쓰기. 네트워크를 못 알아볼 때의 이유는 위 상태 줄이 말한다.
     private var networkList: some View {
         VStack(alignment: .leading, spacing: 7) {
-            ForEach(prefs.triggerConfig.watchedNetworks, id: \.self) { mac in
-                WatchedNetworkRow(mac: mac,
-                                  savedName: prefs.triggerConfig.networkDisplayName(mac),
-                                  onRename: { prefs.triggerConfig.setNetworkName($0, for: mac) },
-                                  onRemove: { prefs.triggerConfig.removeWatchedNetwork(mac) })
+            WatchedRows(count: prefs.triggerConfig.watchedNetworks.count) {
+                ForEach(prefs.triggerConfig.watchedNetworks, id: \.self) { mac in
+                    WatchedNetworkRow(mac: mac,
+                                      savedName: prefs.triggerConfig.networkDisplayName(mac),
+                                      onRename: { prefs.triggerConfig.setNetworkName($0, for: mac) },
+                                      onRemove: { prefs.triggerConfig.removeWatchedNetwork(mac) })
+                }
             }
 
             Button {
