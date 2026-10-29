@@ -16,6 +16,9 @@ enum SettingsLayout {
 /// 행이 `maxVisibleRows`를 넘을 때만 정확히 그만큼의 높이로 고정한 안쪽 스크롤로 바꾼다. 크기 협상
 /// (ViewThatFits·maxHeight)에 맡기면 창이 높이를 잴 때 스크롤 쪽이 높이 0으로 골라져 행이 사라졌다(실기 확인)
 /// — 그래서 개수로 정하고, 높이는 펼친 행 전체를 재서 행 하나 높이로 나눠 구한다(행 높이는 모두 같다).
+///
+/// `frozen`인 동안은 그 순간의 높이를 지킨다(늘어난 행은 그 안에서 스크롤). 시트는 창의 세로 가운데에 붙으므로,
+/// 시트(앱 피커)가 떠 있는 동안 행이 늘어 창이 커지면 시트가 행마다 18pt씩 내려갔다(실기 확인).
 struct WatchedRows<Content: View>: View {
     static var maxVisibleRows: Int { 5 }
     private static var spacing: CGFloat { 7 }
@@ -23,21 +26,34 @@ struct WatchedRows<Content: View>: View {
     /// 끝낸다 — 행 안에서 비우면 스크롤이 생길 때마다 삭제 버튼이 그만큼 왼쪽으로 밀린다(실기 확인).
     private static var scrollerGutter: CGFloat { 13 }
     let count: Int
+    var frozen = false
     @ViewBuilder let content: Content
     @State private var rowsHeight: CGFloat = 0
+    @State private var shownHeight: CGFloat = 0
+    @State private var frozenHeight: CGFloat?
 
     var body: some View {
-        if count > Self.maxVisibleRows {
-            ScrollView {
+        Group {
+            if let frozenHeight {
+                scrolling(height: frozenHeight)
+            } else if count > Self.maxVisibleRows {
+                scrolling(height: visibleHeight)
+            } else {
                 rows
-                    .padding(.trailing, Self.scrollerGutter)
-                    .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { rowsHeight = $0 }
             }
-            .frame(height: visibleHeight)
-            .padding(.trailing, -Self.scrollerGutter)
-        } else {
-            rows
         }
+        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { shownHeight = $0 }
+        .onChange(of: frozen) { _, isFrozen in frozenHeight = isFrozen ? shownHeight : nil }
+    }
+
+    private func scrolling(height: CGFloat) -> some View {
+        ScrollView {
+            rows
+                .padding(.trailing, Self.scrollerGutter)
+                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { rowsHeight = $0 }
+        }
+        .frame(height: height)
+        .padding(.trailing, -Self.scrollerGutter)
     }
 
     /// 행 `maxVisibleRows`개와 그 사이 간격의 높이. 재기 전(0)에는 행 하나 높이를 모르므로 어림값을 쓴다.
@@ -321,3 +337,4 @@ struct WatchedNetworkRow: View {
         draft = savedName ?? ""
     }
 }
+

@@ -211,7 +211,7 @@ struct SettingsView: View {
     /// 감시 앱 목록. 순서는 목록 → 추가 → 직접 입력(편집 목록의 흔한 형태), 들여쓰기는 토글 라벨 글자 위치에 맞춘다.
     private var watchedAppsList: some View {
         VStack(alignment: .leading, spacing: 7) {
-            WatchedRows(count: prefs.triggerConfig.watchedBundleIDs.count) {
+            WatchedRows(count: prefs.triggerConfig.watchedBundleIDs.count, frozen: appPicker != nil) {
                 ForEach(prefs.triggerConfig.watchedBundleIDs, id: \.self) { id in
                     WatchedAppRow(bundleID: id.rawValue) {
                         prefs.triggerConfig.removeWatchedBundleID(id)
@@ -233,7 +233,10 @@ struct SettingsView: View {
             .sheet(item: $appPicker) { payload in
                 RunningAppPickerView(
                     apps: payload.apps,
-                    onAdd: { prefs.triggerConfig.addWatchedBundleID($0) }
+                    onAdd: { prefs.triggerConfig.addWatchedBundleID($0) },
+                    onRemove: { raw in
+                        if let id = BundleIdentifier(validating: raw) { prefs.triggerConfig.removeWatchedBundleID(id) }
+                    }
                 )
             }
 
