@@ -73,6 +73,7 @@ final class AppEnvironment: ObservableObject {
 
     // 글로벌 핫키 기능 보류(비활성화). 삭제하지 않고 보존 — 재활성화하려면 위 호출과
     // 아래 메서드, 그리고 `hotkey` 프로퍼티 주석을 해제하면 된다. HotkeyManager.swift는 그대로 유지.
+    // 다시 켤 때는 아래처럼 SessionConfig를 직접 만들지 말고 sessionCommander(수동 시작·끄기의 단일 경로)를 쓴다.
     // private func installHotkey() {
     //     let hk = HotkeyManager(onToggle: { [weak self] in
     //         Task { @MainActor in

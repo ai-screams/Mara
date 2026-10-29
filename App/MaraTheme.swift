@@ -11,6 +11,23 @@ enum MaraTheme {
     static let muted   = Color(red: 0x8B / 255, green: 0x8B / 255, blue: 0x95 / 255)
 
     static let bgNSColor = NSColor(red: 0x17 / 255, green: 0x17 / 255, blue: 0x1A / 255, alpha: 1)
+
+    /// "Night Watch" 창 크롬: 콘텐츠가 titlebar까지 차도록 투명 처리하고 창 배경을 테마 색으로 고정한다.
+    /// 뷰의 preferredColorScheme(.dark)와 함께 항상-다크를 완성한다. 닫아도 해제하지 않는다(presenter가 캐시).
+    /// 위치는 창마다 달라서(설정 = 포인터가 있는 화면, 커스텀 = 화면 가운데) 호출부가 정한다.
+    @MainActor
+    static func makeWindow<Content: View>(title: String, content: Content) -> NSWindow {
+        let window = NSWindow(contentViewController: NSHostingController(rootView: content))
+        window.title = title
+        window.styleMask = [.titled, .closable, .fullSizeContentView]
+        window.titlebarAppearsTransparent = true
+        window.titleVisibility = .hidden
+        window.appearance = NSAppearance(named: .darkAqua)
+        window.backgroundColor = bgNSColor
+        window.isMovableByWindowBackground = true
+        window.isReleasedWhenClosed = false
+        return window
+    }
 }
 
 /// 브랜드 아이콘의 단일 출처 — 활성=뜬 눈 / 비활성=감은 눈 의미를 여기서만 정의한다.

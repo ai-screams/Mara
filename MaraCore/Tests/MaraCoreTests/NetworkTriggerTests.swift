@@ -19,6 +19,8 @@ final class NetworkTriggerTests: XCTestCase {
         let c = t.satisfied.sink { received.append($0) }
         net.set(home)                               // 집 네트워크 접속
         net.set(NetworkIdentity(gatewayMAC: "aa:bb:cc:dd:ee:ff"))  // 다른 네트워크
+        // 이것을 실패시키는 것: 일치 판정이 감시 목록을 보지 않고 아무 네트워크나 받아들이면 true가 된다.
+        XCTAssertFalse(t.isSatisfied)
         net.set(nil)                                // 오프라인
         c.cancel()
         XCTAssertEqual(received, [false, true, false])

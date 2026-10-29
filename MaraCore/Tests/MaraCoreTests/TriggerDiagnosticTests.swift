@@ -28,6 +28,17 @@ final class TriggerDiagnosticTests: XCTestCase {
         XCTAssertEqual(received, [.charging(onAC: false), .charging(onAC: true)])
     }
 
+    func test_charging_diagnosticsPublishesUnavailable() {
+        // 변경 알림 경로도 지금 값 경로(TriggerEvaluatorTests)와 같은 매핑을 쓰는지 고정한다.
+        // 이것을 실패시키는 것: 진단 매핑에서 .unavailable 분기를 빼면 .charging(onAC: false)가 나온다.
+        let battery = MockBattery(percentage: 80, isOnAC: true)
+        let t = ChargingTrigger(battery: battery)
+        var received: [TriggerDiagnostic] = []
+        t.diagnostics.sink { received.append($0) }.store(in: &cancellables)
+        battery.emitUnavailable()
+        XCTAssertEqual(received, [.charging(onAC: true), .batteryUnavailable])
+    }
+
     // MARK: - External display
 
     func test_externalDisplay_diagnosticReflectsScreenCount() {
@@ -101,9 +112,13 @@ final class TriggerDiagnosticTests: XCTestCase {
         var received: [TriggerDiagnostic] = []
         t.diagnostics.sink { received.append($0) }.store(in: &cancellables)
         net.set(watched)
+        let other = NetworkIdentity(gatewayMAC: "aa:bb:cc:dd:ee:ff")
+        net.set(other)
+        // 이것을 실패시키는 것: 일치 판정이 감시 목록을 보지 않으면 마지막 항목이 matched: true가 된다.
         XCTAssertEqual(received, [
             .network(current: nil, matched: false),
             .network(current: watched, matched: true),
+            .network(current: other, matched: false),
         ])
     }
 
