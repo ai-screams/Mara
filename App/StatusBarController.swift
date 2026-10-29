@@ -170,23 +170,30 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         menu.removeAllItems()
         let state = env.session.state
 
-        addSessionHeaderItems(to: menu, state: state)
-        addTriggerStatusItem(to: menu, state: state)
-
+        // 묶음: 지금 상태와 세션 동작 / 앱 설정 / 앱. macOS 27은 메뉴 아이콘을 숨기므로 머리글과 구분선이 구조를 보인다.
+        addSessionItems(to: menu, state: state)
         menu.addItem(.separator())
-        menu.addItem(durationMenuItem())
         addPreferenceItems(to: menu)
         menu.addItem(.separator())
         addFooterItems(to: menu)
     }
 
-    private func addSessionHeaderItems(to menu: NSMenu, state: SessionState) {
-        // representedObject = 메뉴가 그려진 시점의 활성 여부(사용자 의도). 메뉴가 열린 사이
-        // 세션이 끝나도(타이머 만료·저전력 종료) "Turn Off" 클릭이 새 세션을 시작하지 않게 한다.
-        let awakeItem = addItem(to: menu, title: state.isActive ? "Turn Off" : "Keep Awake",
-                                action: #selector(toggleKeepAwake(_:)),
-                                symbol: state.isActive ? MaraSymbol.resting : MaraSymbol.awake)
-        awakeItem.representedObject = state.isActive
+    /// 메뉴 맨 위 상태 머리글(메뉴를 연 시점 기준).
+    private func statusHeaderTitle(for state: SessionState) -> String {
+        guard case let .active(cfg, expiresAt) = state else { return "Resting" }
+        if case let .trigger(opener) = cfg.origin {
+            // "지금" 세션을 붙잡고 있는 트리거 — 연 트리거가 풀리고 다른 트리거가 이어받았을 수 있다(예: 충전으로
+            // 시작 → 외부 모니터 연결 → 충전기 분리). 연 트리거는 설정 창 헤더의 "Started by …"가 과거 사실로 보인다.
+            // 충족이 없는 순간(해제 직전)엔 연 트리거로 폴백.
+            let holder = env.triggerEngine.firstSatisfiedKind ?? opener
+            return "Awake — triggered by \(TriggerKindText.name(holder))"
+        }
+        guard let expiry = expiresAt else { return "Awake" }
+        return "Awake — \(CountdownFormat.label(remaining: expiry.timeIntervalSinceNow)) left"
+    }
+
+    private func addSessionItems(to menu: NSMenu, state: SessionState) {
+        menu.addItem(.sectionHeader(title: statusHeaderTitle(for: state)))
 
         if let failure = env.session.lastFailure {
             let errorItem = NSMenuItem(
@@ -198,20 +205,18 @@ final class StatusBarController: NSObject, NSMenuDelegate {
             errorItem.image = Self.menuSymbol("exclamationmark.triangle.fill")
             menu.addItem(errorItem)
         }
-    }
 
-    private func addTriggerStatusItem(to menu: NSMenu, state: SessionState) {
-        if case let .active(cfg, _) = state, case let .trigger(opener) = cfg.origin {
-            // 메뉴는 "지금" 무엇이 세션을 붙잡고 있는지를 보인다 — 연 트리거가 풀리고 다른 트리거가
-            // 이어받았을 수 있다(예: 충전으로 시작 → 외부 모니터 연결 → 충전기 분리). 연 트리거는 설정 창
-            // 헤더의 "Started by …"가 과거 사실로 보인다. 충족이 없는 순간(해제 직전)엔 연 트리거로 폴백.
-            let holder = env.triggerEngine.firstSatisfiedKind ?? opener
-            let t = NSMenuItem(title: "Auto-activated (\(TriggerKindText.name(holder)))",
-                               action: nil, keyEquivalent: "")
-            t.isEnabled = false
-            t.image = Self.menuSymbol("bolt.fill")
-            menu.addItem(t)
-        }
+        // representedObject = 메뉴가 그려진 시점의 활성 여부(사용자 의도). 메뉴가 열린 사이
+        // 세션이 끝나도(타이머 만료·저전력 종료) "Turn Off" 클릭이 새 세션을 시작하지 않게 한다.
+        let awakeItem = addItem(to: menu, title: state.isActive ? "Turn Off" : "Keep Awake",
+                                action: #selector(toggleKeepAwake(_:)),
+                                symbol: state.isActive ? MaraSymbol.resting : MaraSymbol.awake)
+        awakeItem.representedObject = state.isActive
+
+        menu.addItem(durationMenuItem())
+        let display = addItem(to: menu, title: "Keep display awake",
+                              action: #selector(toggleDisplay), symbol: "display")
+        display.state = currentKeepDisplay ? .on : .off
     }
 
     private func durationMenuItem() -> NSMenuItem {
@@ -247,16 +252,14 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         return durParent
     }
 
+    /// 앱 설정 묶음 — 세션과 무관하게 앱의 모양·동작을 바꾸는 항목.
     private func addPreferenceItems(to menu: NSMenu) {
-        let display = addItem(to: menu, title: "Keep display awake",
-                              action: #selector(toggleDisplay), symbol: "display")
-        display.state = currentKeepDisplay ? .on : .off
-
+        menu.addItem(iconColorMenuItem())
         let login = addItem(to: menu, title: "Launch at Login",
                             action: #selector(toggleLaunchAtLogin), symbol: "play.circle")
         login.state = launchAtLoginEnabled ? .on : .off
-
-        menu.addItem(iconColorMenuItem())
+        addItem(to: menu, title: "Settings…", action: #selector(openSettings), key: ",",
+                symbol: "gearshape")
     }
 
     /// "Icon Color" 서브메뉴 — 활성 아이콘 tint 선택(라디오식 체크 + 색 스와치).
@@ -292,8 +295,6 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     }
 
     private func addFooterItems(to menu: NSMenu) {
-        menu.addItem(supportMenuItem())
-
         if let (target, action) = checkForUpdates {
             // 타깃이 updaterController여야 Sparkle이 canCheckForUpdates로 활성/비활성을 자동 관리한다.
             let update = NSMenuItem(title: "Check for Updates…", action: action, keyEquivalent: "")
@@ -301,9 +302,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
             update.image = Self.menuSymbol("arrow.triangle.2.circlepath")
             menu.addItem(update)
         }
-
-        addItem(to: menu, title: "Settings…", action: #selector(openSettings), key: ",",
-                symbol: "gearshape")
+        menu.addItem(supportMenuItem())
         addItem(to: menu, title: "Quit Mara", action: #selector(quit), key: "q", symbol: "power")
     }
 
