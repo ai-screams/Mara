@@ -17,19 +17,16 @@ public final class ChargingTrigger: TriggerEvaluator {
 }
 
 extension ChargingTrigger: TriggerDiagnosing {
-    public var diagnostic: TriggerDiagnostic {
-        battery.snapshot == .unavailable
-            ? .batteryUnavailable
-            : .charging(onAC: battery.snapshot.isOnAC)
-    }
+    public var diagnostic: TriggerDiagnostic { Self.diagnostic(for: battery.snapshot) }
     public var diagnostics: AnyPublisher<TriggerDiagnostic, Never> {
         battery.snapshots
-            .map {
-                $0 == .unavailable
-                    ? TriggerDiagnostic.batteryUnavailable
-                    : TriggerDiagnostic.charging(onAC: $0.isOnAC)
-            }
+            .map(Self.diagnostic(for:))
             .removeDuplicates()
             .eraseToAnyPublisher()
+    }
+
+    /// 지금 값과 변경 알림이 같은 매핑을 쓰도록 한 곳에 둔다. publisher의 map에서도 부르므로 nonisolated.
+    nonisolated private static func diagnostic(for snapshot: BatterySnapshot) -> TriggerDiagnostic {
+        snapshot == .unavailable ? .batteryUnavailable : .charging(onAC: snapshot.isOnAC)
     }
 }
