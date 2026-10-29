@@ -81,6 +81,29 @@ final class SessionCommanderTests: XCTestCase {
         XCTAssertNil(expiresAt)
     }
 
+    func test_start_sessionDuration_passesThroughAsManualWithInjectedScope() {
+        // 메뉴와 커스텀 창이 쓰는 경로. Until 모드의 절대 시각도 바꾸지 않고 넘겨야 한다.
+        // 이것을 실패시키는 것: origin을 .manual이 아닌 값으로, scope를 주입값 대신 상수로,
+        // duration을 받은 값 대신 다른 값으로 바꾸면 각각 아래 단언 하나가 깨진다.
+        let (cmd, sm, clock) = make(scope: .displayAndSystem)
+        let until = clock.now.addingTimeInterval(3600)
+        cmd.startKeepAwake(.until(until))
+        guard case let .active(cfg, expiresAt) = sm.state else { return XCTFail() }
+        XCTAssertEqual(cfg.origin, .manual)
+        XCTAssertEqual(cfg.scope, .displayAndSystem)
+        XCTAssertEqual(cfg.duration, .until(until))
+        XCTAssertEqual(expiresAt, until)
+    }
+
+    func test_start_sessionDuration_doesNotClamp() {
+        // 클램프는 Shortcuts 입력(duration:) 전용이다. UI 경로는 값을 그대로 넘겨 범위 검사를 SessionManager에 맡긴다.
+        // 이것을 실패시키는 것: 이 경로를 클램프하는 startKeepAwake(duration:)로 돌리면 24h로 줄여 시작해 버린다.
+        let (cmd, sm, _) = make()
+        let result = cmd.startKeepAwake(.duration(SessionCommander.maxDuration + 1))
+        guard case .failure(.invalidDuration) = result else { return XCTFail("\(result)") }
+        XCTAssertFalse(sm.state.isActive)
+    }
+
     // MARK: - stop
 
     func test_stop_endsSession_asManual() {

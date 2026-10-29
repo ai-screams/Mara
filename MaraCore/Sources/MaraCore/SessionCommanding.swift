@@ -13,7 +13,7 @@ public struct KeepAwakeStatus: Equatable, Sendable {
     }
 }
 
-/// keep-awake 세션의 좁은 명령 표면 — App Intents 어댑터가 SessionManager 전체 대신 이것만 참조한다.
+/// keep-awake 세션의 좁은 수동 명령 표면 — App Intents 어댑터와 메뉴·커스텀 창이 SessionManager 전체 대신 이것을 거친다.
 /// 목적은 표면 축소(경계 명시)이며, Core의 프로토콜-뒤 스타일(TriggerEvaluator/Clock 등)과 일치한다.
 @MainActor
 public protocol SessionCommanding {
@@ -21,6 +21,10 @@ public protocol SessionCommanding {
     /// assertion 생성 실패는 `.failure(.power)`로 반환하며 활성 상태를 거짓 보고하지 않는다.
     @discardableResult
     func startKeepAwake(duration: TimeInterval?) -> Result<Void, SessionFailure>
+    /// 앱 안의 수동 시작(메뉴, 커스텀 창). duration을 그대로 넘긴다. 입력 범위는 그 UI가 이미 정하므로
+    /// 클램프하지 않는다(클램프는 신뢰할 수 없는 Shortcuts 입력용). origin은 .manual.
+    @discardableResult
+    func startKeepAwake(_ duration: SessionDuration) -> Result<Void, SessionFailure>
     /// 수동 종료(.manual). 비활성이면 무해한 no-op. assertion 해제 실패 시 세션은 활성으로 남는다.
     @discardableResult
     func stopKeepAwake() -> Result<Void, SessionFailure>
@@ -56,7 +60,13 @@ public final class SessionCommander: SessionCommanding {
         } else {
             sessionDuration = .indefinite
         }
-        return session.start(SessionConfig(scope: scope(), duration: sessionDuration, origin: .manual))
+        return startKeepAwake(sessionDuration)
+    }
+
+    /// 수동 세션의 SessionConfig를 만드는 유일한 곳 — 범위는 주입된 기본값, origin은 .manual.
+    @discardableResult
+    public func startKeepAwake(_ duration: SessionDuration) -> Result<Void, SessionFailure> {
+        session.start(SessionConfig(scope: scope(), duration: duration, origin: .manual))
     }
 
     @discardableResult

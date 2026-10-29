@@ -362,19 +362,15 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         // 열린 메뉴가 낡아 상태가 이미 바뀌었어도 반대 동작(재시작)을 하지 않는다.
         let intendedOff = sender.representedObject as? Bool ?? env.session.state.isActive
         if intendedOff {
-            report(env.session.stop())   // 이미 꺼져 있으면 no-op
+            report(env.sessionCommander.stopKeepAwake())   // 이미 꺼져 있으면 no-op
         } else {
-            report(env.session.start(
-                SessionConfig(scope: env.prefs.defaultScope, duration: .indefinite, origin: .manual)
-            ))
+            report(env.sessionCommander.startKeepAwake(.indefinite))
         }
     }
 
     @objc private func startTimed(_ sender: NSMenuItem) {
         guard let seconds = sender.representedObject as? TimeInterval else { return }
-        report(env.session.start(
-            SessionConfig(scope: env.prefs.defaultScope, duration: .duration(seconds), origin: .manual)
-        ))
+        report(env.sessionCommander.startKeepAwake(.duration(seconds)))
     }
 
     @objc private func toggleDisplay() {

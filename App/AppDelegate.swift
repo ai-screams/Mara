@@ -21,10 +21,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let notificationService = NotificationService()
     private let firstRunGuidePresenter = FirstRunGuidePresenter()
     private lazy var customKeepAwakePresenter = CustomKeepAwakePresenter(prefs: env.prefs) { [env] duration in
-        let result = env.session.start(
-            SessionConfig(scope: env.prefs.defaultScope, duration: duration, origin: .manual)
-        )
-        guard case .success = result else {
+        guard case .success = env.sessionCommander.startKeepAwake(duration) else {
             NSSound.beep()
             return false   // 실패 → 창을 닫지 않는다(입력값 보존, 조정 후 재시도 가능)
         }
