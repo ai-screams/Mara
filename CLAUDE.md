@@ -4,6 +4,11 @@
 
 - `scripts/generate-project.sh` is a required first step — `Mara.xcodeproj` is generated (gitignored),
   and the helper restores the committed SwiftPM revision lock. `make test|generate|build|release`.
+  It needs `xcodegen` on PATH; if it is missing the script fails but a following `xcodebuild` still reports
+  BUILD SUCCEEDED from the **stale** project — after a `project.yml`/`Package.resolved` change (e.g. a Sparkle
+  bump) that build silently uses the old dependency. Get the pinned binary with
+  `PATH="$(scripts/install-xcodegen.sh):$PATH"` and confirm the bump by the build log's `Sparkle @ <version>`
+  and the bundled framework's `CFBundleShortVersionString` (one real incident).
 - Single test: `cd MaraCore && swift test --filter <TestName>`.
 - Local smoke test: after a Release build, always re-sign with an Apple Development identity (no ad-hoc — global rule).
   Look up identities: `security find-identity -v -p codesigning` (use the Apple Development entry).

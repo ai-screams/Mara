@@ -16,7 +16,7 @@ ZIP="${DEST}.zip"
 
 curl -fsSL -o "$ZIP" "$URL"
 # 불일치 시 즉시 실패 — 다운로드 바이트가 핀과 다르면 공급망 변조로 간주하고 중단.
-echo "${SHA256}  ${ZIP}" | shasum -a 256 -c -
+echo "${SHA256}  ${ZIP}" | shasum -a 256 -c - >&2
 
 rm -rf "$DEST" && mkdir -p "$DEST"
 unzip -q "$ZIP" -d "$DEST"
