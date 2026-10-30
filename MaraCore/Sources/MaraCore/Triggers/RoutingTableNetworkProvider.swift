@@ -76,10 +76,10 @@ public final class RoutingTableNetworkProvider: NetworkIdentityProviding {
         subject.send(nil)
     }
 
-    /// Resolves the default-gateway identity: default gateway IP → its link-layer MAC.
+    /// Resolves the default-gateway identity: default gateway (IP + interface) → its link-layer MAC.
     nonisolated private static func readGatewayIdentity() -> NetworkIdentity? {
-        guard let gwIP = RoutingTableParser.defaultGatewayIP(),
-              let mac = RoutingTableParser.macForIP(gwIP) else { return nil }
+        guard let gateway = RoutingTableParser.defaultGateway(),
+              let mac = RoutingTableParser.mac(for: gateway) else { return nil }
         return NetworkIdentity(gatewayMAC: mac)
     }
 }
