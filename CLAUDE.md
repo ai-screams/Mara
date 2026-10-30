@@ -9,13 +9,16 @@
   Look up identities: `security find-identity -v -p codesigning` (use the Apple Development entry).
   Re-sign Sparkle's nested code inside-out first: Frameworks' `*.xpc`/`Autoupdate` → `Sparkle.framework` → the app.
 - The proper way to sign a local run is to **build with signing from the start**: `xcodebuild … CODE_SIGN_STYLE=Manual
-  "CODE_SIGN_IDENTITY=Developer ID Application" DEVELOPMENT_TEAM=7K6MK3KP9K build` — xcodebuild signs the nested Sparkle
+  "CODE_SIGN_IDENTITY=Apple Development" DEVELOPMENT_TEAM=7K6MK3KP9K build` — xcodebuild signs the nested Sparkle
   correctly too (the inside-out manual re-sign above is only for re-signing an already-built artifact after the fact).
-  Apple Development "automatic" signing fails on this Mac (no Xcode account for that team) — use the same
-  Developer ID (7K6MK3KP9K) as the running app and release.sh.
+  Use Manual style: "automatic" signing fails here (no Xcode account for that team). The Developer ID private key
+  is not in this Mac's keychain (CI signs releases), so `"CODE_SIGN_IDENTITY=Developer ID Application"` fails locally with "No signing certificate …
+  with a private key" — check what this Mac holds with `security find-identity -v -p codesigning`.
 - Before swapping the running app: check `pgrep -x Mara` → `osascript -e 'tell application "Mara" to quit'` →
   **re-check pgrep after quit** (quit can return before termination completes — a duplicate instance killing the
   live Mara was a real incident) → swap → `open`.
+  While a sheet is open in Settings (e.g. the app picker), quit is refused with `-128` (user cancelled) — ask the user
+  to close it; don't force-kill.
 - If a local Release rebuild fails with `"Operation not permitted"` (copying AppIcon.icns, etc.) on top of an
   **existing signed bundle**, App Management TCC is blocking **in-place modification** of the signed `.app`
   (not the uchg flag). The proper fix = `rm -rf` the stale bundle (deletion is allowed — not a bypass) then do a
@@ -24,6 +27,8 @@
   doesn't touch the shared DerivedData (`~/Library/.../Products/Release/Mara.app`) where the live Mara runs, avoiding
   both the TCC in-place block above and live-app corruption at once. Only after **build success + symbol verification**
   in the isolated build: quit → check pgrep → swap (zero downtime; never swap before verification).
+  Use a **new** `-derivedDataPath` for each rebuild while a QA build from the previous path is running — rebuilding
+  into it hits the same App Management block (`Assets.car couldn't be copied … permission`).
 - Before installing a QA build, **verify symbols in the artifact**: confirm `grep -c -a '<new selector/type name>' <APP>/Contents/MacOS/Mara` ≥1, then install.
   Subagents build to their own derivedDataPath, so the artifact on the controller's path may be stale (one real incident).
   Strings containing Unicode ("Custom…" etc.) won't be caught by strings|grep — search by ASCII symbol name.
