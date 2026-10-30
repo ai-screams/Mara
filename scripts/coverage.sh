@@ -52,7 +52,7 @@ xcrun llvm-cov export "$BIN" -instr-profile "$PROF" -summary-only Sources/ \
       --file 'Sources/MaraCore/SessionManager.swift=90' \
       --file 'Sources/MaraCore/PowerAssertion.swift=90' \
       --file 'Sources/MaraCore/BatteryMonitoring.swift=75' \
-      --file 'Sources/MaraCore/Triggers/RoutingTableNetworkProvider.swift=45' \
+      --file 'Sources/MaraCore/Triggers/RoutingTableNetworkProvider.swift=65' \
   || file_ok=false
 
 [[ "$overall_ok" == true && "$file_ok" == true ]]

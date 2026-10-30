@@ -9,17 +9,20 @@ import Network
 @MainActor
 public final class RoutingTableNetworkProvider: NetworkIdentityProviding {
     typealias IdentityReader = @Sendable () -> NetworkIdentity?
+    typealias Sleeper = @Sendable (Duration) async throws -> Void
 
     private let subject: CurrentValueSubject<NetworkIdentity?, Never>
     private let monitor: NWPathMonitor?
     private let readIdentity: IdentityReader
     private let retryDelays: [Duration]
+    private let sleep: Sleeper
     private var refreshTask: Task<Void, Never>?
 
     public init() {
         subject = CurrentValueSubject(nil)
         readIdentity = { Self.readGatewayIdentity() }
         retryDelays = [.milliseconds(250), .milliseconds(500), .seconds(1), .seconds(2)]
+        sleep = { try await Task.sleep(for: $0) }
         let monitor = NWPathMonitor()
         self.monitor = monitor
         let queue = DispatchQueue(label: "com.aiscream.Mara.RoutingTableNetworkProvider")
@@ -30,11 +33,16 @@ public final class RoutingTableNetworkProvider: NetworkIdentityProviding {
     }
 
     /// 테스트용 주입 경계. monitor 없이 동일한 retry 로직을 직접 검증한다.
-    init(readIdentity: @escaping IdentityReader, retryDelays: [Duration]) {
+    init(
+        readIdentity: @escaping IdentityReader,
+        retryDelays: [Duration],
+        sleep: @escaping Sleeper = { try await Task.sleep(for: $0) }
+    ) {
         subject = CurrentValueSubject(nil)
         monitor = nil
         self.readIdentity = readIdentity
         self.retryDelays = retryDelays
+        self.sleep = sleep
     }
 
     deinit {
@@ -57,6 +65,12 @@ public final class RoutingTableNetworkProvider: NetworkIdentityProviding {
         await refreshAndPublish()
     }
 
+    /// 테스트용: 경로 변경 콜백과 같은 경로(`startRefresh`)를 타고, 시작된 task를 돌려준다.
+    func pathDidChangeForTesting() -> Task<Void, Never>? {
+        startRefresh()
+        return refreshTask
+    }
+
     private func refreshAndPublish() async {
         for attempt in 0...retryDelays.count {
             let reader = readIdentity
@@ -68,7 +82,7 @@ public final class RoutingTableNetworkProvider: NetworkIdentityProviding {
             }
             guard attempt < retryDelays.count else { break }
             do {
-                try await Task.sleep(for: retryDelays[attempt])
+                try await sleep(retryDelays[attempt])
             } catch {
                 return
             }
@@ -78,8 +92,15 @@ public final class RoutingTableNetworkProvider: NetworkIdentityProviding {
 
     /// Resolves the default-gateway identity: default gateway (IP + interface) → its link-layer MAC.
     nonisolated private static func readGatewayIdentity() -> NetworkIdentity? {
-        guard let gateway = RoutingTableParser.defaultGateway(),
-              let mac = RoutingTableParser.mac(for: gateway) else { return nil }
+        gatewayIdentity(gateway: RoutingTableParser.defaultGateway(), mac: RoutingTableParser.mac(for:))
+    }
+
+    /// sysctl 호출과 분리한 조합 규칙. 경로나 MAC 중 하나라도 없으면 네트워크를 식별하지 않는다.
+    nonisolated static func gatewayIdentity(
+        gateway: RoutingTableParser.GatewayRoute?,
+        mac: (RoutingTableParser.GatewayRoute) -> String?
+    ) -> NetworkIdentity? {
+        guard let gateway, let mac = mac(gateway) else { return nil }
         return NetworkIdentity(gatewayMAC: mac)
     }
 }
