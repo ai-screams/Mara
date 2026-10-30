@@ -20,7 +20,7 @@ SRC="${DEST}-src"
 curl -fsSL -o "$TARBALL" "$URL"
 # 불일치 시 즉시 실패 — 다운로드 바이트가 핀과 다르면 공급망 변조로 간주하고 중단.
 # (SHA256 한 글자를 바꾸면 shasum 이 FAILED 로 exit 1 — 로컬에서 확인.)
-echo "${SHA256}  ${TARBALL}" | shasum -a 256 -c -
+echo "${SHA256}  ${TARBALL}" | shasum -a 256 -c - >&2
 
 rm -rf "$SRC" "$DEST" && mkdir -p "$SRC"
 tar -xzf "$TARBALL" -C "$SRC" --strip-components 1
