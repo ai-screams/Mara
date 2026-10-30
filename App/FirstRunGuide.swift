@@ -41,7 +41,8 @@ struct FirstRunGuideView: View {
                 .foregroundStyle(.white)
                 .tint(accent)
                 .onChange(of: launchAtLogin) { _, enabled in
-                    LaunchAtLogin.setEnabled(enabled)
+                    // 실패하면 실제 상태로 되돌린다. 되돌린 값으로 다시 불려도 이미 그 상태라 OS는 부르지 않는다.
+                    launchAtLogin = LaunchAtLogin.setEnabled(enabled)
                 }
 
             Button(action: onDone) {

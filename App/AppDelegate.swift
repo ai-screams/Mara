@@ -70,5 +70,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             isEnabled: { [env] in env.prefs.notifyAutoSessionChanges },
             service: notificationService
         )
+        // 알림 권한은 System Settings에서 언제든 바뀐다. 시작할 때와 앱이 활성화될 때(Settings 창을 열면
+        // 활성화된다) 실제 권한에 맞춰 토글을 되돌린다 — 켜진 채 배너가 조용히 안 뜨는 상태를 남기지 않는다.
+        reconcileNotificationPreference()
+        NotificationCenter.default.addObserver(
+            forName: NSApplication.didBecomeActiveNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.reconcileNotificationPreference() }
+        }
+    }
+
+    private func reconcileNotificationPreference() {
+        guard env.prefs.notifyAutoSessionChanges else { return }
+        Task { @MainActor [env] in
+            let permission = await NotificationService.permission()
+            if !SystemSettingSync.keepsNotifications(env.prefs.notifyAutoSessionChanges, permission: permission) {
+                env.prefs.notifyAutoSessionChanges = false
+            }
+        }
     }
 }
