@@ -42,6 +42,9 @@
   (`scripts/embed-release-entitlements.sh`), so **local Apple Development builds cannot read the gateway MAC on
   macOS 27** — the network trigger shows "can't identify this network" there by design. Verify network behaviour on
   a release/rc build; its launch log shows `taskgated-helper … allowing entitlement(s) … due to provisioning profile`.
+  The network also has to give a real IPv4 router: on an IPv6-only network with CLAT (e.g. a phone hotspot —
+  `scutil --nwi` shows `CLAT46`, address `192.0.0.2`, default gateway `192.0.0.1` with an `(incomplete)` ARP entry)
+  there is no gateway MAC, so every build shows "can't identify this network" and the check proves nothing.
 - Run xcodebuild·git from the repo root — cwd persists across shell calls and is inherited by background jobs (staying
   in MaraCore and running nothing was a real incident). A pipe (`| tail`) swallows the exit code, so judge compile
   verification by checking for the "BUILD SUCCEEDED" string.
