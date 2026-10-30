@@ -377,8 +377,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     }
 
     @objc private func toggleLaunchAtLogin() {
-        LaunchAtLogin.setEnabled(!launchAtLoginEnabled)
-        launchAtLoginEnabled = LaunchAtLogin.isEnabled   // 실제 결과로 재동기화(토글 실패 시에도 정확)
+        launchAtLoginEnabled = LaunchAtLogin.setEnabled(!launchAtLoginEnabled)   // 실제 결과로 재동기화(토글 실패 시에도 정확)
     }
 
     @objc private func setMenuBarTint(_ sender: NSMenuItem) {
