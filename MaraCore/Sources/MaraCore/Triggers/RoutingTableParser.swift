@@ -9,6 +9,14 @@ import Foundation
 /// The `in:` overloads take the raw table bytes so tests can feed hand-built buffers.
 enum RoutingTableParser {
 
+    /// The default route's gateway address and the interface the route goes out on.
+    /// The interface is kept so the ARP lookup can tell apart the same gateway IP on two
+    /// interfaces (e.g. Wi-Fi and Ethernet to different routers that both use 192.168.0.1).
+    struct GatewayRoute: Equatable {
+        let address: in_addr_t
+        let interfaceIndex: UInt16   // rt_msghdr.rtm_index
+    }
+
     /// One rt_msghdr entry whose declared length fits in the buffer.
     private struct Message {
         let header: rt_msghdr
@@ -21,6 +29,7 @@ enum RoutingTableParser {
         var destination: in_addr_t?
         var gatewayIP: in_addr_t?   // RTA_GATEWAY as sockaddr_in (routing table)
         var gatewayMAC: String?     // RTA_GATEWAY as sockaddr_dl (ARP table)
+        var gatewayLinkIndex: UInt16?   // that sockaddr_dl's sdl_index (the interface `arp -a` prints)
     }
 
     /// Matches the BSD ROUNDUP(a) macro: rounds up to the next UInt32-aligned boundary.
@@ -53,35 +62,43 @@ enum RoutingTableParser {
 
     /// Reads the default IPv4 gateway from the routing table via
     /// sysctl(CTL_NET, PF_ROUTE, 0, AF_INET, NET_RT_DUMP, 0).
-    static func defaultGatewayIP() -> in_addr_t? {
-        dumpRoutingTable(mib: [CTL_NET, PF_ROUTE, 0, AF_INET, NET_RT_DUMP, 0]).flatMap(defaultGatewayIP(in:))
+    static func defaultGateway() -> GatewayRoute? {
+        dumpRoutingTable(mib: [CTL_NET, PF_ROUTE, 0, AF_INET, NET_RT_DUMP, 0]).flatMap(defaultGateway(in:))
     }
 
-    /// Returns the gateway sockaddr_in.sin_addr of the first entry whose flags include
-    /// RTF_GATEWAY and whose destination is 0.0.0.0.
-    static func defaultGatewayIP(in buf: [UInt8]) -> in_addr_t? {
+    /// Returns the gateway sockaddr_in.sin_addr and rtm_index of the first entry whose flags
+    /// include RTF_GATEWAY and whose destination is 0.0.0.0.
+    static func defaultGateway(in buf: [UInt8]) -> GatewayRoute? {
         for message in messages(in: buf) where (message.header.rtm_flags & RTF_GATEWAY) != 0 {
             let addresses = addresses(of: message, in: buf)
             // Default route: destination 0.0.0.0 (network byte order == 0)
-            if addresses.destination == 0, let gateway = addresses.gatewayIP { return gateway }
+            if addresses.destination == 0, let gateway = addresses.gatewayIP {
+                return GatewayRoute(address: gateway, interfaceIndex: message.header.rtm_index)
+            }
         }
         return nil
     }
 
-    /// Reads the link-layer (MAC) address for `targetIP` from the ARP/neighbor table via
+    /// Reads the link-layer (MAC) address of `gateway` from the ARP/neighbor table via
     /// sysctl(CTL_NET, PF_ROUTE, 0, AF_INET, NET_RT_FLAGS, RTF_LLINFO).
-    static func macForIP(_ targetIP: in_addr_t) -> String? {
+    static func mac(for gateway: GatewayRoute) -> String? {
         dumpRoutingTable(mib: [CTL_NET, PF_ROUTE, 0, AF_INET, NET_RT_FLAGS, RTF_LLINFO])
-            .flatMap { mac(for: targetIP, in: $0) }
+            .flatMap { mac(for: gateway, in: $0) }
     }
 
-    /// Returns the RTA_GATEWAY sockaddr_dl MAC of the first entry whose RTA_DST is `targetIP`.
-    static func mac(for targetIP: in_addr_t, in buf: [UInt8]) -> String? {
+    /// Returns the RTA_GATEWAY sockaddr_dl MAC of the entry whose RTA_DST is the gateway address,
+    /// preferring the one on the default route's interface. When no entry carries that interface,
+    /// falls back to the first address match, so a kernel that reports the index differently than
+    /// expected still resolves the common one-router network.
+    static func mac(for gateway: GatewayRoute, in buf: [UInt8]) -> String? {
+        var firstAddressMatch: String?
         for message in messages(in: buf) {
             let addresses = addresses(of: message, in: buf)
-            if addresses.destination == targetIP, let mac = addresses.gatewayMAC { return mac }
+            guard addresses.destination == gateway.address, let mac = addresses.gatewayMAC else { continue }
+            if addresses.gatewayLinkIndex == gateway.interfaceIndex { return mac }
+            if firstAddressMatch == nil { firstAddressMatch = mac }
         }
-        return nil
+        return firstAddressMatch
     }
 
     /// Walks rt_msghdr entries, stopping at the first one whose length is shorter than
@@ -120,7 +137,10 @@ enum RoutingTableParser {
             case (1, UInt8(AF_INET)):              // RTA_GATEWAY → sockaddr_in
                 found.gatewayIP = inetAddress(at: saOff, length: saLen, end: message.end, in: buf)
             case (1, UInt8(AF_LINK)):              // RTA_GATEWAY → sockaddr_dl
-                found.gatewayMAC = linkAddress(at: saOff, length: saLen, end: message.end, in: buf)
+                if let link = linkAddress(at: saOff, length: saLen, end: message.end, in: buf) {
+                    found.gatewayMAC = link.mac
+                    found.gatewayLinkIndex = link.index
+                }
             default:
                 break
             }
@@ -137,8 +157,9 @@ enum RoutingTableParser {
         return buf.withUnsafeBytes { $0.loadUnaligned(fromByteOffset: saOff, as: sockaddr_in.self) }.sin_addr.s_addr
     }
 
-    /// The 6-byte link address of a sockaddr_dl as lowercase colon-hex, or nil.
-    private static func linkAddress(at saOff: Int, length saLen: Int, end: Int, in buf: [UInt8]) -> String? {
+    /// The 6-byte link address of a sockaddr_dl as lowercase colon-hex with its sdl_index, or nil.
+    private static func linkAddress(at saOff: Int, length saLen: Int, end: Int,
+                                    in buf: [UInt8]) -> (mac: String, index: UInt16)? {
         // I1: guard ≥8-byte fixed header (for nlen/alen) and full-struct buffer bound
         // BSD pads each sockaddr to roundup(saLen) so the physical bytes for a
         // full sockaddr_dl load are always present even when sdl_len < struct size.
@@ -152,8 +173,9 @@ enum RoutingTableParser {
         // (after sdl_len, sdl_family, sdl_index, sdl_type, sdl_nlen, sdl_alen, sdl_slen)
         let macStart = saOff + 8 + nlen
         guard macStart + alen <= end else { return nil } // defense in depth
-        return (0..<alen)
+        let mac = (0..<alen)
             .map { String(format: "%02x", buf[macStart + $0]) }
             .joined(separator: ":")
+        return (mac, sdl.sdl_index)
     }
 }

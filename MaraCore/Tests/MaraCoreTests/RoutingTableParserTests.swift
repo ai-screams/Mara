@@ -8,16 +8,16 @@ import XCTest
 final class RoutingTableParserTests: XCTestCase {
     private let macPattern = "^([0-9a-f]{2}:){5}[0-9a-f]{2}$"
 
-    func test_defaultGatewayIP_doesNotTrap_andMACIsWellFormedWhenPresent() {
+    func test_defaultGateway_doesNotTrap_andMACIsWellFormedWhenPresent() {
         // 게이트웨이가 없으면 nil(정상). 있으면 MAC은 nil 또는 소문자 콜론-헥사 6옥텟.
-        guard let gwIP = RoutingTableParser.defaultGatewayIP() else { return }
-        guard let mac = RoutingTableParser.macForIP(gwIP) else { return }
+        guard let gateway = RoutingTableParser.defaultGateway() else { return }
+        guard let mac = RoutingTableParser.mac(for: gateway) else { return }
         XCTAssertNotNil(mac.range(of: macPattern, options: .regularExpression),
                         "MAC must be lowercase colon-hex 6 octets, got \(mac)")
     }
 
-    func test_macForIP_unknownAddress_returnsNil() {
+    func test_mac_unknownAddress_returnsNil() {
         // 라우팅 테이블에 없을 IP(0.0.0.0)는 매칭되지 않아 nil이어야 한다(트랩 없음).
-        XCTAssertNil(RoutingTableParser.macForIP(in_addr_t(0)))
+        XCTAssertNil(RoutingTableParser.mac(for: .init(address: 0, interfaceIndex: 0)))
     }
 }
