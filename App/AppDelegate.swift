@@ -62,8 +62,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // 메뉴바 아이템 배치가 끝난 뒤 앵커하도록 잠깐 지연.
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
                 guard let self, let button = self.statusBar.statusButton else { return }
-                self.firstRunGuidePresenter.show(relativeTo: button, tint: self.env.prefs.menuBarTint)
+                // 안내 팝오버는 transient라 경고창이 뜨면 닫힌다 — 닫힌 뒤에 묻는다.
+                self.firstRunGuidePresenter.show(relativeTo: button, tint: self.env.prefs.menuBarTint,
+                                                 onClose: InstallerEject.offerIfMounted)
             }
+        } else {
+            // 경고창이 실행 루프를 잡으므로 시작 처리를 마친 다음 턴에 묻는다.
+            DispatchQueue.main.async { MainActor.assumeIsolated { InstallerEject.offerIfMounted() } }
         }
         sessionNotifier = SessionNotifier(
             session: env.session,
