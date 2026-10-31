@@ -215,8 +215,13 @@ rm -rf "$ICONSET"; mkdir -p "$ICONSET"
 cp "$ROOT_DIR/App/Assets.xcassets/AppIcon.appiconset/"icon_*.png "$ICONSET/" 2>/dev/null || true
 iconutil -c icns "$ICONSET" -o "$VOLICON" 2>/dev/null || VOLICON=""
 
+# 마계의 문 아이콘을 붙인 Applications 별칭(scripts/dmg/make-applications-alias.swift). create-dmg의
+# --app-drop-link는 심볼릭 링크라 시스템 아이콘만 쓸 수 있다.
+swift "$ROOT_DIR/scripts/dmg/make-applications-alias.swift" "$STAGE/Applications" \
+    "$ROOT_DIR/scripts/dmg/applications.icns" || die "Applications 별칭 생성 실패"
+
 # DMG 창 배경(Night Watch 다크 + 설치 화살표). 좌표 계약은 scripts/dmg/generate-background.swift와
-# 일치: window 540×380, icon 100, 앱 (140,200) / Applications (400,200).
+# 일치: window 540×380, icon 100, 앱 (140,200) / Applications 별칭 (400,200).
 # Retina 선명도: 1x+2x PNG를 hidpi multi-rep TIFF로 결합해 Finder가 화면 배율에 맞는 rep을
 # 고르게 한다(create-dmg는 @2x 파일을 자동 인식하지 않음). tiffutil은 Command Line Tools 포함.
 BG_SRC="$ROOT_DIR/scripts/dmg"
@@ -236,7 +241,7 @@ if command -v create-dmg >/dev/null 2>&1; then
         --icon-size 100
         --text-size 16
         --icon "$APP_NAME.app" 140 200
-        --app-drop-link 400 200
+        --icon Applications 400 200
         --no-internet-enable
     )
     # create-dmg는 성공해도 종료코드가 비정상일 때가 있어 가드한다(검증은 아래 배경 게이트가 담당).
@@ -244,7 +249,6 @@ if command -v create-dmg >/dev/null 2>&1; then
 fi
 if [[ ! -f "$DMG" ]]; then
     print "  (create-dmg 미사용/실패 → hdiutil 폴백)"
-    ln -s /Applications "$STAGE/Applications"
     hdiutil create -volname "$APP_NAME" -srcfolder "$STAGE" -ov -format UDZO "$DMG"
 fi
 
@@ -258,8 +262,11 @@ if command -v create-dmg >/dev/null 2>&1; then
     MOUNT_DIR="$(mktemp -d)"
     hdiutil attach "$DMG" -nobrowse -readonly -mountpoint "$MOUNT_DIR" >/dev/null
     bg_ok=true; [[ -d "$MOUNT_DIR/.background" ]] || bg_ok=false
+    # 이미지로 옮기며 리소스 포크가 빠지면 별칭은 남아도 마계의 문 아이콘이 사라진다.
+    alias_ok=true; xattr "$MOUNT_DIR/Applications" 2>/dev/null | grep -q com.apple.ResourceFork || alias_ok=false
     hdiutil detach "$MOUNT_DIR" -quiet || true
     [[ "$bg_ok" == true ]] || die "DMG에 .background 없음 — create-dmg 실패 후 폴백이 사용됨(위 로그 확인)"
+    [[ "$alias_ok" == true ]] || die "DMG의 Applications 별칭에 아이콘이 없음"
 fi
 
 # DMG 컨테이너도 Developer ID 서명 → 공증 → staple(다운로드 시 경고 0, spctl open 통과).
