@@ -56,28 +56,39 @@ public struct TriggerConfig: Codable, Equatable, Sendable {
         case networkNames
     }
 
-    /// 하위호환 디코드: 기존에 영속된 JSON엔 새로 추가된 키가 없을 수 있다.
-    /// decodeIfPresent + 폴백 기본값으로 업그레이드 시 throw(및 데이터 wipe)를 막는다.
+    /// 배열 원소 하나. 타입이 틀린 원소를 nil로 흡수해 배열 전체 디코드가 throw하지 않게 한다.
+    private struct LossyString: Decodable {
+        let value: String?
+        init(from decoder: Decoder) {
+            value = try? decoder.singleValueContainer().decode(String.self)
+        }
+    }
+
+    /// 하위호환·손상 내성 디코드: 영속된 JSON엔 새 키가 없거나 타입이 틀린 값이 있을 수 있다.
+    /// 필드 하나의 문제로 throw하면 PrefsStore가 트리거 설정 전체를 기본값으로 되돌리므로, 문제 있는 값만 버린다.
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        chargingEnabled         = try c.decodeIfPresent(Bool.self,     forKey: .chargingEnabled)         ?? false
-        externalDisplayEnabled  = try c.decodeIfPresent(Bool.self,     forKey: .externalDisplayEnabled)  ?? false
-        appRunningEnabled       = try c.decodeIfPresent(Bool.self,     forKey: .appRunningEnabled)       ?? false
-        // [String]으로 받아 개별 검증 — 무효/중복 항목만 버리고 나머지는 보존한다
+        func flag(_ key: CodingKeys) -> Bool { (try? c.decodeIfPresent(Bool.self, forKey: key)) ?? false }
+        func strings(_ key: CodingKeys) -> [String] {
+            (try? c.decodeIfPresent([LossyString].self, forKey: key))?.compactMap(\.value) ?? []
+        }
+        chargingEnabled         = flag(.chargingEnabled)
+        externalDisplayEnabled  = flag(.externalDisplayEnabled)
+        appRunningEnabled       = flag(.appRunningEnabled)
+        // 문자열로 받아 개별 검증 — 무효/중복 항목만 버리고 나머지는 보존한다
         // (BundleIdentifier 단독 디코드는 throw라 배열 통째 디코드는 wipe 위험).
-        let rawIDs = try c.decodeIfPresent([String].self, forKey: .watchedBundleIDs) ?? []
+        let rawIDs = strings(.watchedBundleIDs)
         var seen = Set<BundleIdentifier>()
         watchedBundleIDs = rawIDs
             .compactMap { BundleIdentifier(validating: $0) }
             .filter { seen.insert($0).inserted }
-        networkEnabled          = try c.decodeIfPresent(Bool.self,     forKey: .networkEnabled)          ?? false
-        // 정규화 + 순서 유지 중복 제거 — 밖에서 고친 plist의 대문자·한 자리 옥텟이 이름 키와 어긋나지 않게 한다.
-        let rawNetworks = try c.decodeIfPresent([String].self, forKey: .watchedNetworks) ?? []
+        networkEnabled          = flag(.networkEnabled)
+        // 정규화 + 검증 + 순서 유지 중복 제거 — 밖에서 고친 plist의 대문자·한 자리 옥텟이 이름 키와 어긋나지 않게 하고,
+        // MAC이 아닌 값은 영원히 매칭되지 않는 항목으로 남지 않게 버린다.
         var seenMACs = Set<String>()
-        watchedNetworks = rawNetworks
+        watchedNetworks = strings(.watchedNetworks)
             .map(NetworkIdentity.normalize)
-            .filter { seenMACs.insert($0).inserted }
-        // 이 필드만 관대하게 디코드한다 — 타입이 틀린 값 때문에 throw하면 PrefsStore가 트리거 설정 전체를 기본값으로 되돌린다.
+            .filter { NetworkIdentity.isCanonical($0) && seenMACs.insert($0).inserted }
         let rawNames = (try? c.decodeIfPresent([String: String].self, forKey: .networkNames)) ?? [:]
         networkNames = Self.normalizedNetworkNames(rawNames, watched: seenMACs)
     }
@@ -179,10 +190,12 @@ extension TriggerConfig {
 }
 
 public extension TriggerConfig {
-    /// 중복이면 false. 이름은 비어 있는 채로 추가된다.
+    /// 중복이거나 MAC 형식이 아니면 false. 이름은 비어 있는 채로 추가된다.
+    /// 형식 검사는 디코드와 맞춘다 — 여기서 받으면 다음 실행의 디코드가 조용히 버린다.
     @discardableResult
     mutating func addWatchedNetwork(_ identity: NetworkIdentity) -> Bool {
-        guard !watchedNetworks.contains(identity.gatewayMAC) else { return false }
+        guard NetworkIdentity.isCanonical(identity.gatewayMAC),
+              !watchedNetworks.contains(identity.gatewayMAC) else { return false }
         watchedNetworks.append(identity.gatewayMAC)
         return true
     }
