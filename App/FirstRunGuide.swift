@@ -82,8 +82,10 @@ struct FirstRunGuideView: View {
 @MainActor
 final class FirstRunGuidePresenter: NSObject, NSPopoverDelegate {
     private var popover: NSPopover?
+    private var onClose: (() -> Void)?
 
-    func show(relativeTo button: NSStatusBarButton, tint: MenuBarTint) {
+    func show(relativeTo button: NSStatusBarButton, tint: MenuBarTint, onClose: @escaping () -> Void) {
+        self.onClose = onClose
         let pop = NSPopover()
         pop.behavior = .transient
         pop.appearance = NSAppearance(named: .darkAqua)
@@ -104,5 +106,7 @@ final class FirstRunGuidePresenter: NSObject, NSPopoverDelegate {
     // 닫힌 팝오버가 앱 수명 동안 리테인되는 것 방지.
     func popoverDidClose(_ notification: Notification) {
         popover = nil
+        onClose?()
+        onClose = nil
     }
 }
