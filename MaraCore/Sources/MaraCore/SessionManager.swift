@@ -222,6 +222,18 @@ public final class SessionManager: ObservableObject {
         return .failure(failure)
     }
 
+    /// 지금까지의 마지막 이벤트가 트리거 자동 시도의 결과(시작·거부)면 그 이벤트. `events`는 재방출하지 않아
+    /// 앱 시작 때 구독보다 먼저 일어난 결과를 놓치므로, 구독자가 구독 직후 이 값으로 한 번 보상한다.
+    public var lastTriggerOutcome: SessionEvent? {
+        guard let last = recentEvents.last else { return nil }
+        switch last.kind {
+        case .started(let config), .startRejected(let config, _):
+            return config.origin.isTrigger ? last : nil
+        default:
+            return nil
+        }
+    }
+
     private func record(_ kind: SessionEvent.Kind) {
         let event = SessionEvent(at: clock.now, kind: kind)
         recentEvents.append(event)

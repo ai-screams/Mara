@@ -15,6 +15,42 @@ final class SessionEventTests: XCTestCase {
         SessionConfig(scope: .systemOnly, duration: duration, origin: origin)
     }
 
+    // 앱 시작 때 구독보다 먼저 일어난 트리거 결과를 알림이 보상한다.
+    // 이것을 실패시키는 것: `lastTriggerOutcome`에서 `.started`를 빼는 것.
+    func test_lastTriggerOutcome_startedByTrigger() {
+        let (sm, _, _) = makeSUT()
+        sm.start(cfg(origin: .trigger(.charging)))
+        XCTAssertEqual(sm.lastTriggerOutcome?.kind, .started(cfg(origin: .trigger(.charging))))
+    }
+
+    // 이것을 실패시키는 것: `lastTriggerOutcome`에서 `.startRejected`를 빼는 것.
+    func test_lastTriggerOutcome_rejectedTrigger() {
+        let sm = SessionManager(engine: SleepEngine(provider: MockPowerAssertionProvider()),
+                                scheduler: MockScheduler(), clock: MockClock(),
+                                battery: MockBattery(percentage: 30, isOnAC: false), lowBatteryThreshold: 45)
+        let config = cfg(origin: .trigger(.network))
+        sm.start(config)
+        XCTAssertEqual(sm.lastTriggerOutcome?.kind, .startRejected(config, .lowBattery(percent: 30)))
+    }
+
+    // 사용자가 직접 한 일은 배너로 알리지 않는다.
+    // 이것을 실패시키는 것: `config.origin.isTrigger` 조건을 빼는 것.
+    func test_lastTriggerOutcome_ignoresManualStart() {
+        let (sm, _, _) = makeSUT()
+        sm.start(cfg())
+        XCTAssertNil(sm.lastTriggerOutcome)
+    }
+
+    // 결과 뒤에 다른 일이 있었으면 이미 지난 결과라 보상하지 않는다.
+    // 이것을 실패시키는 것: `recentEvents.last` 대신 마지막 시작·거부 이벤트를 찾는 것.
+    func test_lastTriggerOutcome_nilAfterLaterEvent() {
+        let (sm, _, _) = makeSUT()
+        XCTAssertNil(sm.lastTriggerOutcome)
+        sm.start(cfg(origin: .trigger(.charging)))
+        sm.stop()
+        XCTAssertNil(sm.lastTriggerOutcome)
+    }
+
     func test_manualStop_recordsManual() {
         let (sm, _, _) = makeSUT()
         sm.start(cfg())
