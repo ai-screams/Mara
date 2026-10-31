@@ -16,7 +16,18 @@ targets:
   Mara:
     type: application
     platform: macOS
-    sources: [App]
+    sources:
+      - App
+      # 바이너리 배포에도 라이선스 고지가 따라가야 하므로 앱 Resources에 넣는다.
+      - path: LICENSE
+        type: file
+        buildPhase: resources
+      - path: NOTICE
+        type: file
+        buildPhase: resources
+      - path: THIRD_PARTY_NOTICES.txt
+        type: file
+        buildPhase: resources
     dependencies:
       - package: MaraCore
       - package: Sparkle
