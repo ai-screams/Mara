@@ -72,6 +72,8 @@ plutil -lint "$CONTENTS/Info.plist" >/dev/null
 # Xcode는 PkgInfo를 CFBundlePackageType으로 쓰지만 직접 조립은 고정값을 쓴다 — 그래서 번들 게이트의
 # PkgInfo 검사는 Xcode 경로(CI·릴리스)용이고, 이 경로의 plist 회귀는 게이트의 키 검사가 잡는다.
 print -n "APPL????" >"$CONTENTS/PkgInfo"
+# Xcode 경로는 project.yml의 resources가 넣는다 — 직접 조립이라 여기서 복사한다.
+cp LICENSE NOTICE THIRD_PARTY_NOTICES.txt "$CONTENTS/Resources/"
 
 print "▸ Sparkle.framework"
 ditto "$SPARKLE/Sparkle.framework" "$CONTENTS/Frameworks/Sparkle.framework"

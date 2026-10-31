@@ -20,7 +20,7 @@
   <a href="https://github.com/ai-screams/Mara/actions/workflows/secret-scan.yml"><img src="https://github.com/ai-screams/Mara/actions/workflows/secret-scan.yml/badge.svg" alt="Secret Scan"></a>
   <a href="https://github.com/ai-screams/Mara/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/coverage-%E2%89%A580%25-green" alt="MaraCore coverage (CI-gated ≥80%)"></a>
   <a href="https://github.com/ai-screams/Mara/releases/latest"><img src="https://img.shields.io/github/v/release/ai-screams/Mara?label=release&color=ff9500" alt="Latest release"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Proprietary-lightgrey" alt="License"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue" alt="License"></a>
 </p>
 
 <p align="center">
@@ -201,4 +201,4 @@ Mara is built and maintained by one person — no ads, no telemetry. If it earns
 
 ## License
 
-Proprietary and confidential. See [LICENSE](LICENSE) for details.
+Mara is licensed under the [Apache License 2.0](LICENSE). See [NOTICE](NOTICE) and [THIRD_PARTY_NOTICES.txt](THIRD_PARTY_NOTICES.txt) for attribution, including Sparkle and OpenCombine.
