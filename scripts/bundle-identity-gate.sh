@@ -39,4 +39,15 @@ else
   fail=1
 fi
 
+# 바이너리 배포에도 라이선스 고지가 따라가야 한다(Apache-2.0 §4, Sparkle 라이선스).
+# 이것을 실패시키는 것: 세 파일 중 하나가 번들의 Resources에서 빠지는 것.
+for notice in LICENSE NOTICE THIRD_PARTY_NOTICES.txt; do
+  if [[ -s "$APP/Contents/Resources/$notice" ]]; then
+    echo "ok   Contents/Resources/$notice"
+  else
+    echo "FAIL Contents/Resources/$notice missing or empty"
+    fail=1
+  fi
+done
+
 exit "$fail"
