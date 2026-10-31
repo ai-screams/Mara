@@ -61,6 +61,46 @@ final class TriggerConfigTests: XCTestCase {
         XCTAssertTrue(cfg.appRunningEnabled)   // 다른 필드는 살아있어야 한다(wipe 아님 증명)
     }
 
+    // 타입이 틀린 원소 하나가 목록 전체를 지우면 안 된다.
+    // 이것을 실패시키는 것: `strings`가 `[LossyString]` 대신 `[String]`으로 디코드하는 것.
+    func test_decode_wrongTypedElements_keepTheRestOfTheList() throws {
+        let cfg = try decode(#"""
+        {"watchedBundleIDs":[42,"com.foo.bar"],"watchedNetworks":[42,"00:10:db:ff:10:02"]}
+        """#)
+        XCTAssertEqual(cfg.watchedBundleIDs.map(\.rawValue), ["com.foo.bar"])
+        XCTAssertEqual(cfg.watchedNetworks, ["00:10:db:ff:10:02"])
+    }
+
+    // 필드 하나의 타입이 틀려도 나머지 필드는 살아야 한다.
+    // 이것을 실패시키는 것: `flag`가 타입 오류를 삼키지 않고 넘기는 것.
+    func test_decode_wrongTypedFields_keepOtherFields() throws {
+        let cfg = try decode(#"""
+        {"chargingEnabled":"yes","networkEnabled":true,"watchedBundleIDs":{"a":1},
+         "watchedNetworks":["00:10:db:ff:10:02"],"appRunningEnabled":true}
+        """#)
+        XCTAssertFalse(cfg.chargingEnabled)
+        XCTAssertTrue(cfg.networkEnabled)
+        XCTAssertTrue(cfg.appRunningEnabled)
+        XCTAssertTrue(cfg.watchedBundleIDs.isEmpty)
+        XCTAssertEqual(cfg.watchedNetworks, ["00:10:db:ff:10:02"])
+    }
+
+    // 이것을 실패시키는 것: 디코드의 `isCanonical` 검사를 빼는 것, 또는 옥텟 수·길이·hex 조건을 푸는 것.
+    func test_decode_dropsMalformedMACs_keepsNormalizedOnes() throws {
+        let cfg = try decode(#"""
+        {"watchedNetworks":["not-a-mac","00:10:db:ff:10","00:10:db:ff:10:02:03","00:10:db:ff:10:zz",
+                            "000:10:db:ff:10:02","","0:10:DB:ff:10:2"]}
+        """#)
+        XCTAssertEqual(cfg.watchedNetworks, ["00:10:db:ff:10:02"])
+    }
+
+    // 이것을 실패시키는 것: `addWatchedNetwork`의 `isCanonical` guard를 빼는 것.
+    func test_addWatchedNetwork_rejectsMalformedMAC() {
+        var cfg = TriggerConfig.defaults
+        XCTAssertFalse(cfg.addWatchedNetwork(NetworkIdentity(gatewayMAC: "not-a-mac")))
+        XCTAssertTrue(cfg.watchedNetworks.isEmpty)
+    }
+
     func test_encode_roundTrip_keepsLegacyJSONShape() throws {
         var cfg = TriggerConfig.defaults
         XCTAssertTrue(cfg.addWatchedBundleID("com.apple.Safari"))
