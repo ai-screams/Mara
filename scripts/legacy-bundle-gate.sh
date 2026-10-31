@@ -58,6 +58,13 @@ check "CFBundleInfoDictionaryVersion = 6.0" 'plist_is CFBundleInfoDictionaryVers
 check "CFBundleDevelopmentRegion = en" 'plist_is CFBundleDevelopmentRegion en'
 check "PkgInfo starts with APPL" '[[ "$(head -c 4 "$APP/Contents/PkgInfo" 2>/dev/null)" == APPL ]]'
 
+# ── 라이선스 고지 ─────────────────────────────────────────────────────────────
+# 바이너리 배포에도 고지가 따라가야 한다(Apache-2.0 §4, Sparkle·OpenCombine 라이선스).
+# 이것을 실패시키는 것: 세 파일 중 하나가 번들의 Resources에서 빠지는 것.
+for notice in LICENSE NOTICE THIRD_PARTY_NOTICES.txt; do
+    check "Resources/$notice present" '[[ -s "$APP/Contents/Resources/$notice" ]]'
+done
+
 # ── 최소 OS와 아키텍처 ─────────────────────────────────────────────────────────
 check "LSMinimumSystemVersion = 10.13" \
     '[[ "$(/usr/libexec/PlistBuddy -c "Print :LSMinimumSystemVersion" "$PLIST")" == 10.13 ]]'
