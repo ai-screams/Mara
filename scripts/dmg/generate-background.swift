@@ -103,7 +103,7 @@ func render(scale: CGFloat) -> NSBitmapImageRep {
                      xRadius: 13, yRadius: 13).fill()
     }
 
-    drawCentered("Drag Mara into Applications", font: .systemFont(ofSize: 12),
+    drawCentered("Drag Mara into Applications, then open it", font: .systemFont(ofSize: 12),
                  color: muted, kern: 0, centerY: 46)
     return rep
 }
