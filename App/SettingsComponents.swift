@@ -247,23 +247,8 @@ struct WatchedItemRow<Leading: View, Title: View>: View {
     }
 }
 
-/// 이름을 알 수 없는 항목(설치되지 않은 앱 ID)의 한 줄 — 모노스페이스 라벨 + 삭제.
-struct RemovableChipRow: View {
-    let text: String
-    let onRemove: () -> Void
-
-    var body: some View {
-        HStack {
-            Text(text)
-                .font(.system(.caption, design: .monospaced))
-                .foregroundStyle(MaraTheme.textMid)
-            Spacer()
-            RemoveButton(label: text, action: onRemove)
-        }
-    }
-}
-
-/// 감시 앱 한 줄: 설치돼 있으면 아이콘·이름 + 작은 bundle ID, 아니면 ID만.
+/// 감시 앱 한 줄: 설치돼 있으면 아이콘·이름 + 작은 bundle ID, 아니면 ID + 미설치 안내.
+/// 미설치 ID는 거부하지 않는다 — 앱을 설치하기 전에 등록하거나 외장 디스크의 앱을 등록할 수 있다.
 struct WatchedAppRow: View {
     let bundleID: String
     let onRemove: () -> Void
@@ -279,7 +264,13 @@ struct WatchedAppRow: View {
                 Text(app.name).font(.callout).foregroundStyle(.white)
             }
         } else {
-            RemovableChipRow(text: bundleID, onRemove: onRemove)
+            WatchedItemRow(subtitle: "No installed app has this ID", removeLabel: bundleID, onRemove: onRemove) {
+                EmptyView()
+            } title: {
+                Text(bundleID)
+                    .font(.system(.caption, design: .monospaced))
+                    .foregroundStyle(MaraTheme.textMid)
+            }
         }
     }
 }
