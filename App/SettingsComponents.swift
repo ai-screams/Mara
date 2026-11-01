@@ -224,9 +224,11 @@ struct RemoveButton: View {
     }
 }
 
-/// 감시 목록(앱·네트워크) 행의 공통 모양: [선두 장식] 제목 / 작은 모노스페이스 식별자 · 삭제.
+/// 감시 목록(앱·네트워크) 행의 공통 모양: [선두 장식] 제목 / 작은 식별자 · 삭제.
+/// 부제목은 식별자가 기본이라 모노스페이스다. 문장을 넣는 행은 `subtitleDesign`으로 바꾼다.
 struct WatchedItemRow<Leading: View, Title: View>: View {
     let subtitle: String
+    var subtitleDesign: Font.Design = .monospaced
     let removeLabel: String
     let onRemove: () -> Void
     @ViewBuilder var leading: Leading
@@ -238,7 +240,7 @@ struct WatchedItemRow<Leading: View, Title: View>: View {
             VStack(alignment: .leading, spacing: 1) {
                 title
                 Text(subtitle)
-                    .font(.system(.caption2, design: .monospaced))
+                    .font(.system(.caption2, design: subtitleDesign))
                     .foregroundStyle(MaraTheme.muted)
             }
             Spacer()
@@ -264,7 +266,8 @@ struct WatchedAppRow: View {
                 Text(app.name).font(.callout).foregroundStyle(.white)
             }
         } else {
-            WatchedItemRow(subtitle: "No installed app has this ID", removeLabel: bundleID, onRemove: onRemove) {
+            WatchedItemRow(subtitle: "No installed app has this ID", subtitleDesign: .default,
+                           removeLabel: bundleID, onRemove: onRemove) {
                 EmptyView()
             } title: {
                 Text(bundleID)
