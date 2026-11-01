@@ -149,6 +149,7 @@ public final class SessionManager: ObservableObject {
     @discardableResult
     public func stop() -> Result<Void, SessionFailure> { stop(reason: .manual) }
 
+    /// 보류된 글로벌 핫키용(`AppEnvironment.swift`의 주석 처리된 `installHotkey`). 지금 앱 코드는 부르지 않지만 재도입에 대비해 둔다.
     @discardableResult
     public func toggle(_ config: SessionConfig) -> Result<Void, SessionFailure> {
         state.isActive ? stop() : start(config)

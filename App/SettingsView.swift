@@ -270,7 +270,7 @@ struct SettingsView: View {
                     .buttonStyle(.borderless)
                     .font(.caption)
                     .foregroundStyle(accent)
-                    .disabled(manualBundleID.trimmingCharacters(in: .whitespaces).isEmpty)
+                    .disabled(manualBundleID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
             .padding(6)
             .background(Color.black.opacity(0.28), in: RoundedRectangle(cornerRadius: 6))
