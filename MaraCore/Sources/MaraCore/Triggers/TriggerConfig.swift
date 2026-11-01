@@ -133,13 +133,23 @@ public extension TriggerConfig {
     }
 }
 
+/// 감시 앱 추가 결과. 거부 사유를 나누는 이유는 App이 사용자에게 고칠 방법을 알려 주기 위해서다.
+public enum WatchedBundleIDAddResult: Equatable, Sendable {
+    case added
+    case empty
+    case invalid
+    case alreadyWatched
+}
+
 public extension TriggerConfig {
-    /// 검증+중복 방지 추가. 무효 형식이거나 이미 있으면 no-op. 반환: 실제 추가 여부.
+    /// 검증+중복 방지 추가. `.added`가 아니면 no-op.
     @discardableResult
-    mutating func addWatchedBundleID(_ raw: String) -> Bool {
-        guard let id = BundleIdentifier(validating: raw), !watchedBundleIDs.contains(id) else { return false }
+    mutating func addWatchedBundleID(_ raw: String) -> WatchedBundleIDAddResult {
+        guard !raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return .empty }
+        guard let id = BundleIdentifier(validating: raw) else { return .invalid }
+        guard !watchedBundleIDs.contains(id) else { return .alreadyWatched }
         watchedBundleIDs.append(id)
-        return true
+        return .added
     }
 
     mutating func removeWatchedBundleID(_ id: BundleIdentifier) {

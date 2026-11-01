@@ -16,6 +16,7 @@ struct SettingsView: View {
     @State private var appPicker: AppPickerPayload?
     @State private var confirmingRemoveAllApps = false
     @State private var manualBundleID = ""
+    @State private var manualBundleIDError: String?
     @State private var currentNetwork: NetworkIdentity?
 
     /// sheet(item:)용 페이로드 — isPresented+별도 @State 조합은 첫 표시가 낡은(빈) 상태를
@@ -235,7 +236,7 @@ struct SettingsView: View {
                 .sheet(item: $appPicker) { payload in
                     RunningAppPickerView(
                         apps: payload.apps,
-                        onAdd: { prefs.triggerConfig.addWatchedBundleID($0) },
+                        onAdd: { prefs.triggerConfig.addWatchedBundleID($0) == .added },
                         onRemove: { raw in
                             if let id = BundleIdentifier(validating: raw) { prefs.triggerConfig.removeWatchedBundleID(id) }
                         }
@@ -273,14 +274,27 @@ struct SettingsView: View {
             }
             .padding(6)
             .background(Color.black.opacity(0.28), in: RoundedRectangle(cornerRadius: 6))
+            // 입력을 고치거나 목록이 바뀌면 지난 오류는 더 이상 맞지 않는다.
+            .onChange(of: manualBundleID) { _, _ in manualBundleIDError = nil }
+            .onChange(of: prefs.triggerConfig.watchedBundleIDs) { _, _ in manualBundleIDError = nil }
+            if let manualBundleIDError {
+                SettingsCaption(manualBundleIDError)
+            }
         }
         .padding(.leading, SettingsLayout.childIndent)
     }
 
     private func submitManualBundleID() {
-        // 무효 형식/중복이면 필드를 비우지 않는다 — 사용자가 고칠 수 있게 남긴다.
-        if prefs.triggerConfig.addWatchedBundleID(manualBundleID) {
+        // 무효 형식/중복이면 필드를 비우지 않는다 — 사용자가 고칠 수 있게 남기고 이유를 보여 준다.
+        switch prefs.triggerConfig.addWatchedBundleID(manualBundleID) {
+        case .added:
             manualBundleID = ""
+        case .empty:
+            break
+        case .invalid:
+            manualBundleIDError = "Invalid bundle ID: spaces aren't allowed."
+        case .alreadyWatched:
+            manualBundleIDError = "This app is already being watched."
         }
     }
 

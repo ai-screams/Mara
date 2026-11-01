@@ -103,7 +103,7 @@ final class TriggerConfigTests: XCTestCase {
 
     func test_encode_roundTrip_keepsLegacyJSONShape() throws {
         var cfg = TriggerConfig.defaults
-        XCTAssertTrue(cfg.addWatchedBundleID("com.apple.Safari"))
+        XCTAssertEqual(cfg.addWatchedBundleID("com.apple.Safari"), .added)
         let data = try JSONEncoder().encode(cfg)
         // 인코딩이 기존과 같은 순수 문자열 배열 모양이어야 한다.
         let obj = try JSONSerialization.jsonObject(with: data) as? [String: Any]
@@ -113,11 +113,29 @@ final class TriggerConfigTests: XCTestCase {
         XCTAssertEqual(back.watchedBundleIDs, cfg.watchedBundleIDs)
     }
 
+    // 빈 칸에서 Return을 눌러도 오류가 뜨면 안 된다.
+    // 이것을 실패시키는 것: `.empty` 분기를 빼서 빈 입력이 `.invalid`로 떨어지는 것.
+    func test_addWatchedBundleID_blankInput_isEmptyNotInvalid() {
+        var cfg = TriggerConfig.defaults
+        XCTAssertEqual(cfg.addWatchedBundleID(""), .empty)
+        XCTAssertEqual(cfg.addWatchedBundleID(" \n\t"), .empty)
+        XCTAssertTrue(cfg.watchedBundleIDs.isEmpty)
+    }
+
+    // 앞뒤 공백은 잘라서 비교하므로 복사해 붙인 같은 ID도 중복이다.
+    // 이것을 실패시키는 것: 중복 검사를 trim 전 문자열로 하는 것.
+    func test_addWatchedBundleID_trimmedDuplicate_isAlreadyWatched() {
+        var cfg = TriggerConfig.defaults
+        XCTAssertEqual(cfg.addWatchedBundleID("com.apple.Safari"), .added)
+        XCTAssertEqual(cfg.addWatchedBundleID("  com.apple.Safari\n"), .alreadyWatched)
+        XCTAssertEqual(cfg.watchedBundleIDs.count, 1)
+    }
+
     func test_addWatchedBundleID_validatesAndDeduplicates() {
         var cfg = TriggerConfig.defaults
-        XCTAssertTrue(cfg.addWatchedBundleID("com.apple.Safari"))
-        XCTAssertFalse(cfg.addWatchedBundleID("com.apple.Safari"))   // 중복 → no-op
-        XCTAssertFalse(cfg.addWatchedBundleID("bad id"))             // 무효 → no-op
+        XCTAssertEqual(cfg.addWatchedBundleID("com.apple.Safari"), .added)
+        XCTAssertEqual(cfg.addWatchedBundleID("com.apple.Safari"), .alreadyWatched)   // 중복 → no-op
+        XCTAssertEqual(cfg.addWatchedBundleID("bad id"), .invalid)                    // 무효 → no-op
         XCTAssertEqual(cfg.watchedBundleIDs.map(\.rawValue), ["com.apple.Safari"])
     }
 
