@@ -121,8 +121,11 @@ requires shipping a new `SUPublicEDKey` via a manually-downloaded release.
 
 ### Failed release recovery
 
-`v*` tags are protected by the `protect-release-tags` ruleset (no update/delete, no bypass), so a
-release that fails **after** its tag was pushed cannot reuse that tag. Recovery, in order of
+The `protect-release-tags` ruleset protects `v*`, `legacy-v*`, `legacy-rc-v*`, and `legacy-feed`: no
+update, force move, or delete, and no bypass. Creating a tag stays open on purpose, because pushing a
+new tag is what starts a release; the `release` environment's required reviewer gates the signed build.
+
+Because of this, a release that fails **after** its tag was pushed cannot reuse that tag. Recovery, in order of
 preference:
 
 1. **Bump to the next patch** (`vX.Y.Z+1`) and release again — burning a version number is cheap

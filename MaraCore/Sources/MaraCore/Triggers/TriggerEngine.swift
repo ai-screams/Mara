@@ -79,6 +79,7 @@ public final class TriggerEngine: ObservableObject {
         reevaluate()
     }
 
+    /// 트리거 감시를 모두 끝내고 trigger-origin 세션도 함께 종료한다. 지금 앱 코드는 부르지 않는다 — 동작은 `TriggerEngineTests`가 고정한다.
     public func stop() {
         active.removeAll()
         sessionCancellable = nil
