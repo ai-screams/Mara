@@ -64,7 +64,7 @@ jobs:
           xcode-version: "27.1.0"
 
       - name: Import Developer ID certificate
-        uses: apple-actions/import-codesign-certs@77ba2a2a8f5cfc8c405ebf3159f767c323e238f9 # v7.1.0
+        uses: apple-actions/import-codesign-certs@288b8ec97b82c66b6f2a6baaf7acc8dfbcbe331c # v7.2.0
         with:
           p12-file-base64: ${{ secrets.DEVELOPER_ID_CERT_P12 }}
           p12-password: ${{ secrets.DEVELOPER_ID_CERT_PASSWORD }}
@@ -161,7 +161,7 @@ jobs:
           echo "appcast.xml generated ($(wc -l < dist/appcast.xml) lines)."
 
       - name: Create GitHub Release with DMG
-        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+        uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3 # v3.0.4
         with:
           files: | # .dmg + .dmg.sha256 + Sparkle 피드
             dist/*.dmg
